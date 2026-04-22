@@ -1,0 +1,2622 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>騒音周波数アナライザー</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0f;
+      color: #e0e0ff;
+      font-family: 'Courier New', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      padding: 20px;
+    }
+
+    #app-header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      letter-spacing: 0.2em;
+      color: #88aaff;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+    }
+
+    #app-body {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    #main-col {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #log-col {
+      width: 260px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 20px;
+    }
+
+    #controls {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button {
+      padding: 10px 28px;
+      border: 2px solid #4466ff;
+      background: transparent;
+      color: #88aaff;
+      font-family: inherit;
+      font-size: 0.9rem;
+      letter-spacing: 0.1em;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    button:hover { background: #4466ff22; }
+    button.active { background: #4466ff; color: #fff; }
+    button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    select {
+      padding: 10px 12px;
+      border: 2px solid #4466ff;
+      background: #0a0a1a;
+      color: #88aaff;
+      font-family: inherit;
+      font-size: 0.9rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #status {
+      font-size: 0.8rem;
+      color: #ffaa44;
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+      height: 1.2em;
+    }
+
+    #meter-panel {
+      display: flex;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+
+    .meter-box {
+      flex: 1;
+      min-width: 0;
+      background: #10101a;
+      border: 1px solid #2233aa;
+      border-radius: 8px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+
+    .meter-label {
+      font-size: 0.6rem;
+      color: #6677cc;
+      letter-spacing: 0.1em;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .meter-value {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #88ffcc;
+    }
+
+    .meter-unit {
+      font-size: 0.65rem;
+      color: #4455aa;
+      margin-left: 2px;
+    }
+
+    #db-bar-wrap {
+      width: 100%;
+      max-width: 900px;
+      margin-bottom: 24px;
+    }
+
+    #db-bar-label {
+      font-size: 0.75rem;
+      color: #6677cc;
+      letter-spacing: 0.15em;
+      margin-bottom: 6px;
+    }
+
+    #db-bar-bg {
+      width: 100%;
+      height: 18px;
+      background: #10101a;
+      border-radius: 9px;
+      overflow: hidden;
+      border: 1px solid #2233aa;
+    }
+
+    #db-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #2244ff, #44ffaa, #ffcc00, #ff4422);
+      border-radius: 9px;
+      transition: width 0.05s linear;
+    }
+
+    .canvas-wrap {
+      width: 100%;
+      max-width: 900px;
+      background: #08080f;
+      border: 1px solid #1a2255;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .canvas-title {
+      font-size: 0.7rem;
+      letter-spacing: 0.2em;
+      color: #3344aa;
+      padding: 8px 16px 4px;
+      text-transform: uppercase;
+    }
+
+    canvas { display: block; width: 100%; }
+
+    .canvas-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px 4px;
+    }
+
+    .canvas-title-row select {
+      padding: 3px 8px;
+      font-size: 0.7rem;
+      border-width: 1px;
+      border-color: #2233aa;
+      color: #4466aa;
+      background: #08080f;
+    }
+
+    #octave-grid {
+      width: 100%;
+      max-width: 900px;
+      margin-bottom: 16px;
+    }
+
+    .octave-title {
+      font-size: 0.75rem;
+      color: #6677cc;
+      letter-spacing: 0.15em;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    #octave-bars {
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+      height: 120px;
+      background: #08080f;
+      border: 1px solid #1a2255;
+      border-radius: 8px;
+      padding: 10px 12px 28px;
+      position: relative;
+    }
+
+    .oct-bar-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100%;
+      position: relative;
+    }
+
+    .oct-bar-fill {
+      width: 100%;
+      background: linear-gradient(180deg, #88ffcc, #4466ff);
+      border-radius: 3px 3px 0 0;
+      transition: height 0.1s ease;
+      position: absolute;
+      bottom: 0;
+    }
+
+    .oct-label {
+      position: absolute;
+      bottom: -22px;
+      font-size: 0.6rem;
+      color: #4455aa;
+      white-space: nowrap;
+    }
+
+    .oct-db {
+      position: absolute;
+      top: -16px;
+      font-size: 0.6rem;
+      color: #88ffcc;
+    }
+
+    #voice-panel {
+      width: 100%;
+      max-width: 900px;
+      margin-bottom: 16px;
+    }
+
+    #voice-result {
+      background: #08080f;
+      border: 1px solid #1a2255;
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+
+    #voice-label {
+      font-size: 1.6rem;
+      font-weight: bold;
+      letter-spacing: 0.1em;
+      margin-bottom: 10px;
+      transition: color 0.3s;
+    }
+
+    #voice-confidence-wrap {
+      width: 100%;
+      height: 10px;
+      background: #10101a;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-bottom: 14px;
+      border: 1px solid #2233aa;
+    }
+
+    #voice-confidence-bar {
+      height: 100%;
+      width: 0%;
+      border-radius: 5px;
+      transition: width 0.3s ease, background 0.3s;
+    }
+
+    #voice-scores {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .vscore-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 120px;
+    }
+
+    .vscore-label {
+      font-size: 0.65rem;
+      color: #4455aa;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .vscore-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: #10101a;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .vscore-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    .vscore-val {
+      font-size: 0.7rem;
+      color: #6677cc;
+    }
+
+    #voice-stats {
+      display: flex;
+      gap: 12px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .vstat-box {
+      flex: 1;
+      min-width: 120px;
+      background: #0d0d1a;
+      border: 1px solid #2233aa;
+      border-radius: 8px;
+      padding: 10px 14px;
+    }
+
+    .vstat-label {
+      font-size: 0.65rem;
+      color: #6677cc;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .vstat-value {
+      font-size: 1.6rem;
+      font-weight: bold;
+      color: #88ffcc;
+      line-height: 1.2;
+    }
+
+    .vstat-sub {
+      font-size: 0.6rem;
+      color: #334466;
+      margin-top: 3px;
+    }
+
+    /* ---- ログパネル ---- */
+    #log-col {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .log-title {
+      font-size: 0.7rem;
+      color: #6677cc;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    #btn-csv {
+      padding: 4px 10px;
+      font-size: 0.65rem;
+      border-width: 1px;
+      letter-spacing: 0.05em;
+    }
+
+    #btn-log-clear {
+      padding: 4px 10px;
+      font-size: 0.65rem;
+      border-width: 1px;
+      border-color: #443300;
+      color: #aa7722;
+      letter-spacing: 0.05em;
+    }
+
+    #log-list {
+      height: calc(100vh - 120px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: #2233aa #08080f;
+    }
+
+    #log-list::-webkit-scrollbar { width: 4px; }
+    #log-list::-webkit-scrollbar-track { background: #08080f; }
+    #log-list::-webkit-scrollbar-thumb { background: #2233aa; border-radius: 2px; }
+
+    .log-entry {
+      background: #0d0d1a;
+      border: 1px solid #1a2255;
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 0.68rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .log-entry.new { border-color: #334488; }
+
+    .log-time  { color: #4466aa; font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; }
+    .log-val-db { color: #88ffcc; white-space: nowrap; flex-shrink: 0; }
+    .log-val-voice { color: #e0e0ff; font-size: 0.66rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    #log-empty {
+      color: #223366;
+      font-size: 0.72rem;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    #btn-log-settings {
+      padding: 4px 8px;
+      font-size: 0.85rem;
+      border-width: 1px;
+      border-color: #2233aa;
+      color: #6677cc;
+    }
+
+    #log-settings-panel {
+      display: none;
+      background: #0d0d1a;
+      border: 1px solid #2233aa;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    #log-settings-panel.open { display: flex; }
+
+    .log-settings-title {
+      font-size: 0.65rem;
+      color: #4455aa;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .log-col-check {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.7rem;
+      color: #8899cc;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .log-col-check input[type="checkbox"] {
+      accent-color: #4466ff;
+      width: 13px;
+      height: 13px;
+      cursor: pointer;
+    }
+
+    @media (max-width: 720px) {
+      #app-body { flex-direction: column; }
+      #log-col { width: 100%; }
+      #log-list { height: 300px; }
+    }
+
+    /* ---- カスタムツールチップ ---- */
+    #tooltip {
+      position: fixed;
+      z-index: 9999;
+      max-width: 240px;
+      background: #1a1a2e;
+      border: 1px solid #4466ff;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.72rem;
+      line-height: 1.6;
+      color: #aabbdd;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      box-shadow: 0 4px 16px #0006;
+    }
+    #tooltip.visible { opacity: 1; }
+    #tooltip strong { color: #88aaff; display: block; margin-bottom: 2px; }
+
+    /* ---- バージョン表示 ---- */
+    #app-version {
+      font-size: 0.75rem;
+      color: #88aaff;
+      letter-spacing: 0.1em;
+      font-weight: normal;
+    }
+
+    /* ---- アラート設定パネル ---- */
+    #btn-alert-settings {
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      border-color: #664400;
+      color: #ffaa44;
+    }
+    #btn-alert-settings.alert-on {
+      background: #ff440022;
+      border-color: #ff6600;
+      color: #ff8844;
+    }
+
+    #alert-settings-panel {
+      display: none;
+      background: #0d0d1a;
+      border: 1px solid #443300;
+      border-radius: 8px;
+      padding: 12px 20px;
+      margin-bottom: 8px;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      font-size: 0.78rem;
+      color: #aa8844;
+    }
+    #alert-settings-panel.open { display: flex; }
+
+    .alert-setting-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .alert-setting-label { color: #886633; letter-spacing: 0.08em; }
+
+    #alert-threshold-slider {
+      -webkit-appearance: none;
+      width: 120px;
+      height: 4px;
+      background: #332200;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    #alert-threshold-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #ff8844;
+      cursor: pointer;
+    }
+    #alert-threshold-val {
+      color: #ffaa44;
+      font-weight: bold;
+      min-width: 40px;
+    }
+
+    #alert-duration-input {
+      width: 52px;
+      padding: 4px 6px;
+      background: #0a0a1a;
+      border: 1px solid #443300;
+      color: #ffaa44;
+      font-family: inherit;
+      font-size: 0.78rem;
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .alert-toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .alert-toggle {
+      position: relative;
+      width: 36px; height: 20px;
+      cursor: pointer;
+    }
+    .alert-toggle input { opacity: 0; width: 0; height: 0; }
+    .alert-toggle-track {
+      position: absolute;
+      inset: 0;
+      background: #221100;
+      border-radius: 10px;
+      border: 1px solid #443300;
+      transition: background 0.2s;
+    }
+    .alert-toggle input:checked ~ .alert-toggle-track { background: #cc4400; border-color: #ff6600; }
+    .alert-toggle-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 12px; height: 12px;
+      background: #886633;
+      border-radius: 50%;
+      transition: left 0.2s, background 0.2s;
+    }
+    .alert-toggle input:checked ~ .alert-toggle-thumb {
+      left: 19px;
+      background: #ffaa44;
+    }
+
+    /* ---- アラートバナー ---- */
+    #alert-banner {
+      display: none;
+      width: 100%;
+      max-width: 900px;
+      background: #1a0800;
+      border: 2px solid #ff4400;
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin-bottom: 12px;
+      align-items: center;
+      gap: 12px;
+      animation: alertPulse 1s ease-in-out infinite;
+    }
+    #alert-banner.active { display: flex; }
+
+    @keyframes alertPulse {
+      0%, 100% { border-color: #ff4400; box-shadow: 0 0 8px #ff440044; }
+      50%       { border-color: #ff8844; box-shadow: 0 0 20px #ff884466; }
+    }
+
+    #alert-banner-text {
+      flex: 1;
+      color: #ff8844;
+      font-size: 0.85rem;
+      letter-spacing: 0.05em;
+    }
+    #alert-banner-text strong { color: #ffcc44; }
+
+    #btn-alert-dismiss {
+      padding: 4px 12px;
+      font-size: 0.7rem;
+      border-color: #ff4400;
+      color: #ff8844;
+      flex-shrink: 0;
+    }
+
+    /* dBバーのアラート点滅 */
+    #db-bar-bg.alert-active {
+      border-color: #ff4400;
+      box-shadow: 0 0 8px #ff440066;
+    }
+
+    /* ---- セッションサマリー モーダル ---- */
+    #summary-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: #000000cc;
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #summary-overlay.open { display: flex; }
+
+    #summary-modal {
+      background: #0d0d1a;
+      border: 1px solid #4466ff;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 8px 40px #0008;
+      overflow: hidden;
+      animation: summaryIn 0.25s ease;
+    }
+    @keyframes summaryIn {
+      from { opacity: 0; transform: translateY(-16px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);    }
+    }
+
+    #summary-header {
+      background: #0a0a20;
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid #2233aa;
+    }
+    #summary-title {
+      font-size: 0.8rem;
+      color: #4466aa;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    #summary-period {
+      font-size: 0.9rem;
+      color: #88aaff;
+      letter-spacing: 0.05em;
+    }
+
+    #summary-score-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 20px;
+      border-bottom: 1px solid #1a2255;
+      background: #0a0a18;
+    }
+    #sum-score-num {
+      font-size: 2.8rem;
+      font-weight: bold;
+      line-height: 1;
+    }
+    #sum-score-grade { font-size: 1.6rem; font-weight: bold; }
+    #sum-score-right { display: flex; flex-direction: column; gap: 4px; }
+    #sum-score-stars { font-size: 1.1rem; }
+    #sum-score-desc  { font-size: 0.78rem; letter-spacing: 0.06em; }
+
+    #summary-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: #1a2255;
+      border-top: 1px solid #1a2255;
+      border-bottom: 1px solid #1a2255;
+    }
+    .sum-cell {
+      background: #0d0d1a;
+      padding: 12px 16px;
+    }
+    .sum-cell-label {
+      font-size: 0.62rem;
+      color: #4455aa;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .sum-cell-value {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #88ffcc;
+    }
+    .sum-cell-unit {
+      font-size: 0.7rem;
+      color: #4455aa;
+      margin-left: 3px;
+    }
+
+    #summary-footer {
+      display: flex;
+      gap: 10px;
+      padding: 14px 20px;
+      justify-content: flex-end;
+    }
+    #btn-summary-close {
+      padding: 8px 20px;
+      font-size: 0.8rem;
+      border-color: #2233aa;
+      color: #6677cc;
+    }
+    #btn-summary-csv {
+      padding: 8px 20px;
+      font-size: 0.8rem;
+    }
+
+    /* ---- パネル（折りたたみ・並び替え） ---- */
+    .panel-section {
+      width: 100%;
+      max-width: 900px;
+      background: #08080f;
+      border: 1px solid #1a2255;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .panel-section.drag-over { border-color: #4466ff; box-shadow: 0 0 0 2px #4466ff55; }
+    .panel-section.dragging  { opacity: 0.4; }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: #0a0a18;
+      border-bottom: 1px solid #1a2255;
+      user-select: none;
+      cursor: default;
+    }
+    .panel-section.collapsed .panel-header { border-bottom-color: transparent; }
+
+    .drag-handle {
+      color: #2a3660;
+      font-size: 1.1rem;
+      cursor: grab;
+      line-height: 1;
+      padding: 2px 4px;
+      border-radius: 3px;
+      transition: color 0.15s;
+    }
+    .drag-handle:hover { color: #4466ff; }
+    .drag-handle:active { cursor: grabbing; }
+
+    .panel-title {
+      flex: 1;
+      font-size: 0.68rem;
+      color: #4466aa;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .panel-toggle {
+      padding: 2px 8px;
+      font-size: 0.65rem;
+      border-width: 1px;
+      border-color: #1a2255;
+      color: #2a3660;
+      line-height: 1.4;
+      transition: transform 0.25s, color 0.15s;
+    }
+    .panel-toggle:hover { color: #4466aa; border-color: #2233aa; }
+    .panel-section.collapsed .panel-toggle { transform: rotate(-90deg); }
+
+    .panel-content {
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .panel-section.collapsed .panel-content {
+      max-height: 0 !important;
+    }
+
+    /* panel内部の既存ラッパーのマージン調整 */
+    .panel-content > #meter-panel         { margin: 0; padding: 12px; }
+    .panel-content > #db-bar-wrap         { padding: 0 12px 12px; }
+    .panel-content > .canvas-wrap         { margin: 0; border: none; border-radius: 0; }
+    .panel-content > #voice-panel         { margin: 0; }
+    .panel-content > #octave-grid         { margin: 0; padding: 12px 12px 4px; }
+    .panel-content .octave-title          { display: none; } /* ヘッダーと重複するので非表示 */
+
+    /* ---- 時間帯ヒートマップ ---- */
+    #heatmap-legend {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px 10px;
+      font-size: 0.62rem;
+      color: #2a3660;
+    }
+    #heatmap-legend-bar {
+      flex: 1;
+      max-width: 140px;
+      height: 8px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, hsl(200,70%,25%), hsl(120,70%,30%), hsl(60,80%,35%), hsl(0,90%,35%));
+    }
+
+    /* ---- 静粛スコア ---- */
+    #score-panel {
+      background: #0d0d1a;
+      border: 1px solid #2233aa;
+      border-radius: 10px;
+      padding: 14px 20px;
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    #score-main {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    #score-number {
+      font-size: 3rem;
+      font-weight: bold;
+      line-height: 1;
+      transition: color 0.5s;
+    }
+
+    #score-grade {
+      font-size: 1.8rem;
+      font-weight: bold;
+      opacity: 0.85;
+      transition: color 0.5s;
+    }
+
+    #score-right {
+      flex: 1;
+      min-width: 160px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    #score-stars {
+      font-size: 1.2rem;
+      letter-spacing: 0.05em;
+    }
+
+    #score-desc {
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      transition: color 0.5s;
+    }
+
+    #score-breakdown {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .score-sub {
+      font-size: 0.62rem;
+      color: #334466;
+      background: #0a0a14;
+      border: 1px solid #1a2255;
+      border-radius: 4px;
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+    .score-sub span { color: #4466aa; }
+  </style>
+</head>
+<body>
+
+<div id="tooltip"></div>
+
+<!-- セッションサマリー モーダル -->
+<div id="summary-overlay">
+  <div id="summary-modal">
+    <div id="summary-header">
+      <div id="summary-title">測定セッションサマリー</div>
+      <div id="summary-period">---</div>
+    </div>
+    <div id="summary-score-row">
+      <div id="sum-score-num">--</div>
+      <div id="sum-score-grade">--</div>
+      <div id="sum-score-right">
+        <div id="sum-score-stars">☆☆☆☆☆</div>
+        <div id="sum-score-desc">---</div>
+      </div>
+    </div>
+    <div id="summary-grid">
+      <div class="sum-cell">
+        <div class="sum-cell-label">測定時間</div>
+        <div class="sum-cell-value" id="sum-duration">--<span class="sum-cell-unit">秒</span></div>
+      </div>
+      <div class="sum-cell">
+        <div class="sum-cell-label">最大音量</div>
+        <div class="sum-cell-value" id="sum-max">--<span class="sum-cell-unit">dB</span></div>
+      </div>
+      <div class="sum-cell">
+        <div class="sum-cell-label">平均音量</div>
+        <div class="sum-cell-value" id="sum-avg">--<span class="sum-cell-unit">dB</span></div>
+      </div>
+      <div class="sum-cell">
+        <div class="sum-cell-label">声の占有率</div>
+        <div class="sum-cell-value" id="sum-occ">--<span class="sum-cell-unit">%</span></div>
+      </div>
+      <div class="sum-cell">
+        <div class="sum-cell-label">声のイベント数</div>
+        <div class="sum-cell-value" id="sum-events">--<span class="sum-cell-unit">回</span></div>
+      </div>
+      <div class="sum-cell">
+        <div class="sum-cell-label">声の平均音圧</div>
+        <div class="sum-cell-value" id="sum-voicedb">--<span class="sum-cell-unit">dB</span></div>
+      </div>
+      <div class="sum-cell">
+        <div class="sum-cell-label">最大音量の時刻</div>
+        <div class="sum-cell-value" id="sum-maxtime" style="font-size:1.1rem;">--:--:--</div>
+      </div>
+      <div class="sum-cell">
+        <div class="sum-cell-label">ログ記録数</div>
+        <div class="sum-cell-value" id="sum-logcount">--<span class="sum-cell-unit">件</span></div>
+      </div>
+    </div>
+    <div id="summary-footer">
+      <button id="btn-summary-close">閉じる</button>
+      <button id="btn-summary-csv">CSV ダウンロード</button>
+    </div>
+  </div>
+</div>
+
+<div id="app-header">
+<h1>騒音周波数アナライザー <span id="app-version">v1.5.1 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
+
+<div id="controls">
+  <button id="btn-start" data-tip="マイク開始|マイクへのアクセスを許可し、リアルタイム測定を開始します。前回の最大・平均音量はこのタイミングでリセットされます。">マイク開始</button>
+  <button id="btn-stop" disabled data-tip="停止|測定を停止します。最大・平均音量は保持されたままで、次の開始でリセットされます。">停止</button>
+  <button id="btn-alert-settings" data-tip="騒音アラート設定|指定したdBレベルが一定時間続いたときに警告を表示します。しきい値と継続時間を自由に設定できます。">🔔 アラート</button>
+  <select id="fft-size" data-tip="FFTサイズ|周波数分解能と応答速度のトレードオフ。数値が大きいほど周波数の細かい分析が可能ですが、応答が遅くなります。通常は2048が最適です。">
+    <option value="1024">FFT 1024</option>
+    <option value="2048" selected>FFT 2048</option>
+    <option value="4096">FFT 4096</option>
+    <option value="8192">FFT 8192</option>
+  </select>
+  <select id="window-mode" data-tip="スペクトラム表示形式|バー：各周波数の強度を棒グラフで表示。ライン：折れ線グラフ。フィル：塗りつぶし。">
+    <option value="bar">バー表示</option>
+    <option value="line">ライン表示</option>
+    <option value="fill">フィル表示</option>
+  </select>
+</div>
+
+<div id="alert-settings-panel">
+  <div class="alert-toggle-wrap">
+    <span class="alert-setting-label">アラート</span>
+    <label class="alert-toggle">
+      <input type="checkbox" id="alert-enabled">
+      <span class="alert-toggle-track"></span>
+      <span class="alert-toggle-thumb"></span>
+    </label>
+    <span id="alert-enabled-label" style="color:#664400;font-size:0.72rem;">OFF</span>
+  </div>
+  <div class="alert-setting-group" data-tip="アラートしきい値|この音圧（dB）を超えた状態が指定秒数続くとアラートが発動します。">
+    <span class="alert-setting-label">しきい値</span>
+    <input type="range" id="alert-threshold-slider" min="10" max="78" value="50">
+    <span id="alert-threshold-val">50 dB</span>
+  </div>
+  <div class="alert-setting-group" data-tip="アラート継続秒数|しきい値を何秒超え続けたらアラートを発動するか設定します。">
+    <span class="alert-setting-label">継続</span>
+    <input type="number" id="alert-duration-input" min="1" max="60" value="3">
+    <span class="alert-setting-label">秒以上</span>
+  </div>
+</div>
+
+<div id="alert-banner">
+  <span style="font-size:1.4rem;">⚠</span>
+  <span id="alert-banner-text">騒音アラート</span>
+  <button id="btn-alert-dismiss">閉じる</button>
+</div>
+
+<div id="status">マイクへのアクセスを許可してください</div>
+</div><!-- /#app-header -->
+
+<div id="app-body">
+<div id="main-col">
+
+<!-- ① メーター -->
+<div class="panel-section" data-panel="meters">
+  <div class="panel-header">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <span class="panel-title">メーター</span>
+    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
+  </div>
+  <div class="panel-content">
+    <div id="meter-panel">
+      <div class="meter-box" data-tip="音圧 (RMS)|全周波数成分を合成した現在の音量。静寂=0dB、大きな音ほど値が上昇します。約300msごとに更新されます。">
+        <div class="meter-label">音圧 (RMS)</div>
+        <div class="meter-value" id="val-db">---<span class="meter-unit">dB</span></div>
+      </div>
+      <div class="meter-box" data-tip="直近3秒の最大|過去3秒間で記録された最大音量。短期的な突発音の強さを把握するのに使います。">
+        <div class="meter-label">直近3秒の最大</div>
+        <div class="meter-value" id="val-peak">---<span class="meter-unit">dB</span></div>
+      </div>
+      <div class="meter-box" data-tip="最大音量|測定開始からの最高記録。停止しても値は保持され、次の開始でリセットされます。">
+        <div class="meter-label">最大音量</div>
+        <div class="meter-value" id="val-max" style="color:#ff8866;">---<span class="meter-unit">dB</span></div>
+      </div>
+      <div class="meter-box" data-tip="平均音量|測定開始からの全フレームの算術平均。オフィス全体の平均的なうるささを示します。">
+        <div class="meter-label">平均音量</div>
+        <div class="meter-value" id="val-avg" style="color:#ffcc44;">---<span class="meter-unit">dB</span></div>
+      </div>
+      <div class="meter-box" data-tip="卓越周波数|現在のスペクトラムで最もエネルギーが強い周波数。人の声なら100〜300Hz、機械音なら低域に出やすいです。">
+        <div class="meter-label">卓越周波数</div>
+        <div class="meter-value" id="val-dom">---<span class="meter-unit">Hz</span></div>
+      </div>
+    </div>
+    <div id="db-bar-wrap">
+      <div id="db-bar-label">音圧レベル: <span id="db-bar-text">--- dB</span><span id="val-sr" style="color:#2a3660;font-size:0.65rem;margin-left:12px;"></span></div>
+      <div id="db-bar-bg"><div id="db-bar-fill"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ② 周波数スペクトラム -->
+<div class="panel-section" data-panel="spectrum">
+  <div class="panel-header">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <span class="panel-title">周波数スペクトラム</span>
+    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
+  </div>
+  <div class="panel-content">
+    <div class="canvas-wrap">
+      <div class="canvas-title">20Hz – Nyquist</div>
+      <canvas id="spectrum" height="240"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ③ 波形 -->
+<div class="panel-section" data-panel="waveform">
+  <div class="panel-header">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <span class="panel-title">波形 (時間領域)</span>
+    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
+  </div>
+  <div class="panel-content">
+    <div class="canvas-wrap">
+      <canvas id="waveform" height="120"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ④ 時系列グラフ -->
+<div class="panel-section" data-panel="timeseries">
+  <div class="panel-header">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <span class="panel-title">音圧 時系列グラフ</span>
+    <select id="ts-window" style="margin-left:auto;" data-tip="時系列グラフの表示時間|グラフに表示する時間範囲を選択します。">
+      <option value="120">直近 2分</option>
+      <option value="300" selected>直近 5分</option>
+      <option value="600">直近 10分</option>
+    </select>
+    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
+  </div>
+  <div class="panel-content">
+    <div class="canvas-wrap" data-tip="時系列グラフ|測定中の音圧推移を時間軸でグラフ表示します。色は音源識別の結果に対応：緑=人の声、橙=不明確、赤=騒音・環境音。">
+      <canvas id="timeseries" height="160"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ⑤ 時間帯ヒートマップ -->
+<div class="panel-section" data-panel="heatmap">
+  <div class="panel-header">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <span class="panel-title">時間帯ヒートマップ</span>
+    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
+  </div>
+  <div class="panel-content">
+    <div class="canvas-wrap" data-tip="時間帯ヒートマップ|1分単位で音量を色で表示します。青〜緑=静か、黄〜赤=騒がしい。下端の緑ストライプは声の占有率を示します。">
+      <canvas id="heatmap" height="80"></canvas>
+    </div>
+    <div id="heatmap-legend">
+      <span>静か</span>
+      <div id="heatmap-legend-bar"></div>
+      <span>騒がしい</span>
+      <span style="margin-left:12px; color:#44ffaa88;">▌</span>
+      <span>声の割合</span>
+    </div>
+  </div>
+</div>
+
+<!-- ⑥ 音源識別 -->
+<div class="panel-section" data-panel="voice">
+  <div class="panel-header">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <span class="panel-title">音源識別</span>
+    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
+  </div>
+  <div class="panel-content">
+    <div id="voice-panel">
+      <div id="voice-result">
+        <div id="voice-label">---</div>
+        <div id="voice-confidence-wrap">
+          <div id="voice-confidence-bar"></div>
+        </div>
+        <div id="voice-scores"></div>
+      </div>
+      <div id="voice-stats">
+        <div class="vstat-box" data-tip="声の占有率|測定開始からの時間のうち、人の声が検出されていた割合。30%なら「3割の時間は声が聞こえていた」ことを意味します。オフィスの騒音度合いを示す最も直接的な指標です。">
+          <div class="vstat-label">声の占有率</div>
+          <div class="vstat-value" id="vstat-occupancy">---%</div>
+          <div class="vstat-sub">測定時間中に声があった割合</div>
+        </div>
+        <div class="vstat-box" data-tip="声のイベント数|「無音・騒音→人の声」に切り替わった回数。会話が始まった回数の目安です。頻度が高いほど会話が多いオフィスといえます。">
+          <div class="vstat-label">声のイベント数</div>
+          <div class="vstat-value" id="vstat-events">0<span class="meter-unit">回</span></div>
+          <div class="vstat-sub">非声→声への切り替わり回数</div>
+        </div>
+        <div class="vstat-box" data-tip="声の平均音圧|人の声が検出された時間帯だけの平均音量。声が出ていない時間は含みません。値が大きいほど声が大きいオフィスです。">
+          <div class="vstat-label">声の平均音圧</div>
+          <div class="vstat-value" id="vstat-voicedb">---<span class="meter-unit">dB</span></div>
+          <div class="vstat-sub">声検出中のみの平均レベル</div>
+        </div>
+      </div>
+      <div id="score-panel" data-tip="静粛スコア|声の占有率・平均音量・会話頻度の3指標を合成した総合評価。100点に近いほど静かなオフィスです。A（80点以上）〜E（20点未満）の5段階で評価します。">
+        <div id="score-main">
+          <div id="score-number" style="color:#334466;">---</div>
+          <div id="score-grade"  style="color:#334466;">--</div>
+        </div>
+        <div id="score-right">
+          <div id="score-stars" style="color:#334466;">☆☆☆☆☆</div>
+          <div id="score-desc"  style="color:#334466;">測定開始後に評価されます</div>
+          <div id="score-breakdown">
+            <div class="score-sub">占有率 <span id="sc-occ">--</span></div>
+            <div class="score-sub">音量 <span id="sc-vol">--</span></div>
+            <div class="score-sub">会話頻度 <span id="sc-freq">--</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ⑦ オクターブバンド -->
+<div class="panel-section" data-panel="octave">
+  <div class="panel-header">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <span class="panel-title">オクターブバンド別レベル</span>
+    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
+  </div>
+  <div class="panel-content">
+    <div id="octave-grid">
+      <div id="octave-bars"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /#main-col -->
+
+<div id="log-col">
+  <div id="log-header">
+    <span class="log-title">測定ログ</span>
+    <button id="btn-log-settings" data-tip="記録項目の設定|CSVエクスポートおよびログ表示に含める列を選択します。チェックを外した項目はCSVからも除外されます。">⚙</button>
+    <button id="btn-csv" data-tip="CSVダウンロード|現在の測定ログを選択した列でCSVファイルとして保存します。Excelでそのまま開けるよう UTF-8 BOM 付きで出力されます。">CSV</button>
+    <button id="btn-log-clear" data-tip="ログをクリア|画面のログ一覧とCSVバッファをすべて消去します。測定は続いたままです。">クリア</button>
+  </div>
+  <div id="log-settings-panel">
+    <div class="log-settings-title">CSV・ログに記録する項目</div>
+    <label class="log-col-check" data-tip="音圧 (dB)|各ログ行の RMS 音圧レベルを記録します。静寂=0 dB を基準としたオフセット値です。"><input type="checkbox" data-col="dbVal"       checked> 音圧 (dB)</label>
+    <label class="log-col-check" data-tip="直近3秒最大 (dB)|ログ記録時点での直近3秒間の最大音圧を記録します。瞬間的な突発音の大きさを把握できます。"><input type="checkbox" data-col="peak3s"      checked> 直近3秒最大 (dB)</label>
+    <label class="log-col-check" data-tip="卓越周波数 (Hz)|ログ記録時点でスペクトラム内で最もエネルギーが強い周波数を記録します。"><input type="checkbox" data-col="domFreqVal"  checked> 卓越周波数 (Hz)</label>
+    <label class="log-col-check" data-tip="音源識別|そのタイミングの音源判定結果（人の声 / 不明確 / 騒音・環境音）を記録します。"><input type="checkbox" data-col="voiceLabel"  checked> 音源識別</label>
+    <label class="log-col-check" data-tip="声の占有率 (%)|測定開始からそのログ行の時点までの間で、人の声と判定されていた時間の割合を記録します。"><input type="checkbox" data-col="occupancy"   checked> 声の占有率 (%)</label>
+    <label class="log-col-check" data-tip="声のイベント数|測定開始からそのログ行の時点までの「非声→声への切り替わり」回数を記録します。会話が始まった回数の目安です。"><input type="checkbox" data-col="voiceEvents" checked> 声のイベント数</label>
+    <label class="log-col-check" data-tip="声の平均音圧 (dB)|声が検出された時間帯だけの平均音量を記録します。声が出ていない時間は含まないため、実際の発話の大きさを反映します。"><input type="checkbox" data-col="voiceAvgDb"  checked> 声の平均音圧 (dB)</label>
+  </div>
+  <div id="log-list">
+    <div id="log-empty">測定を開始すると<br>ここに記録されます</div>
+  </div>
+</div><!-- /#log-col -->
+
+</div><!-- /#app-body -->
+
+<script>
+  const OCTAVE_BANDS = [
+    { label: '63Hz', fc: 63 },
+    { label: '125Hz', fc: 125 },
+    { label: '250Hz', fc: 250 },
+    { label: '500Hz', fc: 500 },
+    { label: '1kHz', fc: 1000 },
+    { label: '2kHz', fc: 2000 },
+    { label: '4kHz', fc: 4000 },
+    { label: '8kHz', fc: 8000 },
+    { label: '16kHz', fc: 16000 },
+  ];
+
+  let audioCtx, analyser, source, animId;
+  const specCanvas = document.getElementById('spectrum');
+  const waveCanvas = document.getElementById('waveform');
+  const tsCanvas   = document.getElementById('timeseries');
+  const hmCanvas   = document.getElementById('heatmap');
+  const specCtx = specCanvas.getContext('2d');
+  const waveCtx = waveCanvas.getContext('2d');
+  const tsCtx   = tsCanvas.getContext('2d');
+  const hmCtx   = hmCanvas.getContext('2d');
+
+  const btnStart = document.getElementById('btn-start');
+  const btnStop = document.getElementById('btn-stop');
+  const fftSizeEl = document.getElementById('fft-size');
+  const windowModeEl = document.getElementById('window-mode');
+  const status = document.getElementById('status');
+
+  // 直近3秒の最大値（ローリングウィンドウ）
+  const PEAK_WINDOW_SEC = 3;
+  const PEAK_WINDOW_FRAMES = PEAK_WINDOW_SEC * 60; // 60fps想定
+  const peakBuffer = new Array(PEAK_WINDOW_FRAMES).fill(0);
+  let peakBufIdx = 0;
+  let sessionMax = -Infinity;   // 開始からの最大
+  let sessionSum = 0;           // 開始からの累積合計（エネルギー平均用）
+  let sessionCount = 0;         // 開始からのフレーム数
+  const METER_INTERVAL_MS = 300; // 数値メーターの更新間隔（ms）
+  let lastMeterTime = 0;
+
+  // --- 音源識別用 ---
+  // 振幅変調（音節リズム）検出のための短期RMS履歴
+  const AM_HISTORY_LEN = 20; // 約330ms @60fps
+  const amHistory = new Array(AM_HISTORY_LEN).fill(0);
+  let amHistIdx = 0;
+  // スコアの平滑化（ちらつき防止）
+  let smoothVoiceScore = 0;
+
+  // ピッチ履歴（安定性判定用）
+  const PITCH_HISTORY_LEN = 20;
+  const pitchHistory = new Array(PITCH_HISTORY_LEN).fill(0);
+  let pitchHistIdx = 0;
+
+  // 背景レベル自動追跡（VAD用）
+  let bgLevel = 10; // 起動直後の仮初期値
+
+  // ---- アラート状態 ----
+  let alertExceedStart = null; // しきい値超え開始タイムスタンプ
+  let alertFired       = false; // 現在アラート発動中か
+  let alertDismissed   = false; // 手動で閉じられたか
+
+  // 声の統計カウンター
+  let voiceFrameCount  = 0;  // 声と判定されたフレーム数
+  let totalFrameCount  = 0;  // 活動フレーム数（静寂以外）
+  let voiceEventCount  = 0;  // 声イベント数（非声→声の切り替わり）
+  let voiceDbSum       = 0;  // 声検出中の音圧合計
+  let voiceDbCount     = 0;  // 声検出中のフレーム数
+  let prevWasVoice     = false;
+
+  // 判定スコアパネルを初期化（常時100%の2項目は削除）
+  (function buildVoiceScores() {
+    const items = [
+      {
+        id: 'vs-pitch', label: 'ピッチ (人声域)', color: '#44aaff',
+        tip: 'ピッチ (人声域)|自己相関法で検出した基本周波数が人声域 (80〜300 Hz) に収まっているかを示します。値が高いほど人声らしい音程が検出されています。'
+      },
+      {
+        id: 'vs-harmonic', label: '倍音構造', color: '#aa66ff',
+        tip: '倍音構造|基本周波数の整数倍 (2倍・3倍…) にエネルギーのピークが集まり、その間に谷があるかを示します。有声音に特有のパターンで、機械性ノイズでは低くなります。'
+      },
+      {
+        id: 'vs-highband', label: 'フォルマント隆起', color: '#44ffaa',
+        tip: 'フォルマント隆起|中域 (500〜3000 Hz) のエネルギー密度が高域 (3000〜8000 Hz) より顕著に盛り上がっているかを示します。人声のフォルマントに特有の特徴で、HVAC等の低域ノイズには影響されません。'
+      },
+    ];
+    const wrap = document.getElementById('voice-scores');
+    items.forEach(it => {
+      const div = document.createElement('div');
+      div.className = 'vscore-item';
+      div.dataset.tip = it.tip;
+      div.innerHTML = `
+        <div class="vscore-label">${it.label}</div>
+        <div class="vscore-bar-bg">
+          <div class="vscore-bar-fill" id="${it.id}-bar" style="background:${it.color};width:0%"></div>
+        </div>
+        <div class="vscore-val" id="${it.id}-val">0%</div>`;
+      wrap.appendChild(div);
+    });
+  })();
+
+  // ---- 自己相関によるピッチ検出 ----
+  function detectPitch(buf, sampleRate) {
+    const minPeriod = Math.floor(sampleRate / 300); // 300Hz上限
+    const maxPeriod = Math.floor(sampleRate / 80);  // 80Hz下限
+    let bestR = -Infinity, bestT = -1;
+    for (let t = minPeriod; t <= maxPeriod; t++) {
+      let r = 0;
+      for (let i = 0; i < buf.length - t; i++) r += buf[i] * buf[i + t];
+      if (r > bestR) { bestR = r; bestT = t; }
+    }
+    // 正規化（t=0 の自己相関との比）
+    let r0 = 0;
+    for (let i = 0; i < buf.length; i++) r0 += buf[i] * buf[i];
+    const clarity = r0 > 0 ? bestR / r0 : 0;
+    const freq = bestT > 0 ? sampleRate / bestT : 0;
+    return { freq, clarity };
+  }
+
+  // ---- 倍音スコア（倍音ピークと隣接する谷の比較）----
+  // 有声音は k*f0 にピーク、(k+0.5)*f0 に谷ができる。
+  // ブロードバンドノイズや機械音はこの凹凸が小さい。
+  function harmonicScore(freqData, fundamentalHz, nyquist, bufLen) {
+    if (fundamentalHz <= 0) return 0;
+    const binHz = nyquist / bufLen;
+    const winR = 2; // ピーク探索 ±2ビン
+
+    let scoreSum = 0, checks = 0;
+    for (let k = 2; k <= 7; k++) {
+      const peakHz   = fundamentalHz * k;
+      const valleyHz = fundamentalHz * (k + 0.5); // 倍音どうしの中間
+      if (valleyHz > nyquist) break;
+
+      // ピーク位置の最大エネルギー
+      const peakBin = Math.round(peakHz / binHz);
+      let peakPow = 0;
+      for (let b = Math.max(1, peakBin - winR); b <= Math.min(bufLen - 1, peakBin + winR); b++) {
+        const p = Math.pow(10, freqData[b] / 10);
+        if (p > peakPow) peakPow = p;
+      }
+
+      // 谷位置の最小エネルギー
+      const valleyBin = Math.round(valleyHz / binHz);
+      let valleyPow = Infinity;
+      for (let b = Math.max(1, valleyBin - winR); b <= Math.min(bufLen - 1, valleyBin + winR); b++) {
+        const p = Math.pow(10, freqData[b] / 10);
+        if (p < valleyPow) valleyPow = p;
+      }
+
+      if (valleyPow <= 0 || !isFinite(valleyPow)) { checks++; continue; }
+
+      // ピーク/谷の比（dB）: 5dBで0.5点、10dB以上で満点
+      const diffDb = 10 * Math.log10(peakPow / valleyPow);
+      scoreSum += Math.max(0, Math.min(1, (diffDb - 2) / 8));
+      checks++;
+    }
+    return checks > 0 ? scoreSum / checks : 0;
+  }
+
+  // ---- フォルマント隆起スコア ----
+  // 声のフォルマント(500〜3000Hz)は高域(3000〜8000Hz)より明確に盛り上がる。
+  // 低域(HVAC等)は参照に含めない → 低域ノイズに影響されない。
+  // 広帯域ノイズの自然なロールオフ(ratio≒2〜3)より高い場合に声と判定。
+  function formantElevationScore(freqData, nyquist, bufLen) {
+    const binHz = nyquist / bufLen;
+    let midPow = 0, highPow = 0;
+    let midCount = 0, highCount = 0;
+    for (let i = 1; i < bufLen; i++) {
+      const f = i * binHz;
+      const p = Math.pow(10, freqData[i] / 10);
+      if (f >= 500 && f < 3000)  { midPow  += p; midCount++;  }
+      if (f >= 3000 && f < 8000) { highPow += p; highCount++; }
+    }
+    const midDens  = midCount  > 0 ? midPow  / midCount  : 0;
+    const highDens = highCount > 0 ? highPow / highCount : 1e-20;
+    const ratio = midDens / highDens;
+    // 広帯域ノイズのロールオフ: ratio ≒ 2〜3
+    // 声のフォルマント: ratio ≒ 5〜15
+    // → 3を下限、8以上で満点
+    return Math.min(1, Math.max(0, (ratio - 3) / 5));
+  }
+
+  // ---- 振幅変調スコア（音節リズム: 0.1〜0.4秒周期の強弱）----
+  function amScore(history) {
+    const mean = history.reduce((s, v) => s + v, 0) / history.length;
+    const variance = history.reduce((s, v) => s + (v - mean) ** 2, 0) / history.length;
+    const cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
+    return Math.min(1, cv * 3);
+  }
+
+  // ---- ピッチ変動スコア ----
+  // 機械音はピッチが一定、声は常に変動する。
+  function pitchVariabilityScore(history) {
+    const valid = history.filter(v => v > 0);
+    if (valid.length < 5) return 0;
+    const mean = valid.reduce((s, v) => s + v, 0) / valid.length;
+    const std = Math.sqrt(valid.reduce((s, v) => s + (v - mean) ** 2, 0) / valid.length);
+    const cv = mean > 0 ? std / mean : 0;
+    // cv > 0.05（5%変動）で満点。機械音は0.01以下
+    return Math.min(1, cv / 0.05);
+  }
+
+  // Build octave bar elements
+  const octBarsEl = document.getElementById('octave-bars');
+  OCTAVE_BANDS.forEach(b => {
+    const wrap = document.createElement('div');
+    wrap.className = 'oct-bar-wrap';
+    const fill = document.createElement('div');
+    fill.className = 'oct-bar-fill';
+    fill.style.height = '0%';
+    fill.id = 'oct-' + b.fc;
+    const lbl = document.createElement('div');
+    lbl.className = 'oct-label';
+    lbl.textContent = b.label;
+    const dbLbl = document.createElement('div');
+    dbLbl.className = 'oct-db';
+    dbLbl.id = 'octdb-' + b.fc;
+    wrap.appendChild(dbLbl);
+    wrap.appendChild(fill);
+    wrap.appendChild(lbl);
+    octBarsEl.appendChild(wrap);
+  });
+
+  function resizeCanvases() {
+    [specCanvas, waveCanvas, tsCanvas, hmCanvas].forEach(c => {
+      c.width = c.offsetWidth * window.devicePixelRatio;
+    });
+    specCanvas.height = 240 * window.devicePixelRatio;
+    waveCanvas.height = 120 * window.devicePixelRatio;
+    tsCanvas.height   = 160 * window.devicePixelRatio;
+    hmCanvas.height   =  80 * window.devicePixelRatio;
+  }
+  window.addEventListener('resize', resizeCanvases);
+  resizeCanvases();
+
+  function getGetUserMedia() {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      return constraints => navigator.mediaDevices.getUserMedia(constraints);
+    }
+    const legacy = navigator.getUserMedia
+      || navigator.webkitGetUserMedia
+      || navigator.mozGetUserMedia
+      || navigator.msGetUserMedia;
+    if (legacy) {
+      return constraints => new Promise((resolve, reject) =>
+        legacy.call(navigator, constraints, resolve, reject));
+    }
+    return null;
+  }
+
+  async function start() {
+    try {
+      const getUserMedia = getGetUserMedia();
+      if (!getUserMedia) {
+        status.textContent = 'このブラウザはマイク取得に対応していません。Chrome/Firefoxでお試しください。';
+        return;
+      }
+      if (!window.isSecureContext && location.protocol !== 'file:') {
+        status.textContent = 'HTTPS または localhost が必要です。';
+        return;
+      }
+      const stream = await getUserMedia({ audio: true, video: false });
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = parseInt(fftSizeEl.value);
+      analyser.smoothingTimeConstant = 0.8;
+      source = audioCtx.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      document.getElementById('val-sr').textContent = audioCtx.sampleRate + ' Hz';
+      // 開始時にセッション集計・ログをリセット
+      startTime = null;
+      sessionStartClock = formatClock();
+      lastLogTime = 0;
+      logData = [];
+      document.getElementById('log-list').innerHTML =
+        '<div id="log-empty">測定を開始すると<br>ここに記録されます</div>';
+      peakBuffer.fill(0);
+      peakBufIdx = 0;
+      sessionMax = -Infinity;
+      sessionSum = 0;
+      sessionCount = 0;
+      amHistory.fill(0);
+      amHistIdx = 0;
+      pitchHistory.fill(0);
+      pitchHistIdx = 0;
+      smoothVoiceScore = 0;
+      bgLevel = 10;
+      voiceFrameCount = 0;
+      totalFrameCount = 0;
+      voiceEventCount = 0;
+      voiceDbSum      = 0;
+      voiceDbCount    = 0;
+      prevWasVoice    = false;
+      document.getElementById('vstat-occupancy').textContent = '---%';
+      document.getElementById('vstat-events').innerHTML = '0<span class="meter-unit">回</span>';
+      document.getElementById('vstat-voicedb').innerHTML = '---<span class="meter-unit">dB</span>';
+      // スコアリセット
+      document.getElementById('score-number').textContent = '---';
+      document.getElementById('score-number').style.color = '#334466';
+      document.getElementById('score-grade').textContent  = '--';
+      document.getElementById('score-grade').style.color  = '#334466';
+      document.getElementById('score-stars').textContent  = '☆☆☆☆☆';
+      document.getElementById('score-stars').style.color  = '#334466';
+      document.getElementById('score-desc').textContent   = '測定開始後に評価されます';
+      document.getElementById('score-desc').style.color   = '#334466';
+      document.getElementById('sc-occ').textContent  = '--';
+      document.getElementById('sc-vol').textContent  = '--';
+      document.getElementById('sc-freq').textContent = '--';
+      document.getElementById('val-max').innerHTML = '---<span class="meter-unit">dB</span>';
+      document.getElementById('val-avg').innerHTML = '---<span class="meter-unit">dB</span>';
+      status.textContent = '測定中...';
+      btnStart.disabled = true;
+      btnStart.classList.remove('active');
+      btnStop.disabled = false;
+      btnStop.classList.add('active');
+      fftSizeEl.disabled = true;
+
+      draw();
+    } catch (e) {
+      status.textContent = 'マイクアクセスエラー: ' + e.message;
+    }
+  }
+
+  function stop() {
+    if (animId) cancelAnimationFrame(animId);
+    if (audioCtx) audioCtx.close();
+    status.textContent = '停止中';
+    btnStart.disabled = false;
+    btnStop.disabled = true;
+    btnStop.classList.remove('active');
+    fftSizeEl.disabled = false;
+    peakBuffer.fill(0);
+    peakBufIdx = 0;
+    clearCanvases();
+    // データがある場合はサマリーを表示
+    if (sessionCount > 0) showSummary();
+  }
+
+  function clearCanvases() {
+    specCtx.clearRect(0, 0, specCanvas.width, specCanvas.height);
+    waveCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+    tsCtx.clearRect(0, 0, tsCanvas.width, tsCanvas.height);
+    hmCtx.clearRect(0, 0, hmCanvas.width, hmCanvas.height);
+  }
+
+  function freqToX(freq, nyquist, w) {
+    // Logarithmic mapping 20Hz to nyquist
+    const minLog = Math.log10(20);
+    const maxLog = Math.log10(nyquist);
+    return ((Math.log10(freq) - minLog) / (maxLog - minLog)) * w;
+  }
+
+  function draw(timestamp = 0) {
+    animId = requestAnimationFrame(draw);
+
+    const fftSize = analyser.fftSize;
+    const bufLen = analyser.frequencyBinCount;
+    const freqData = new Float32Array(bufLen);
+    const timeData = new Float32Array(fftSize);
+    analyser.getFloatFrequencyData(freqData);
+    analyser.getFloatTimeDomainData(timeData);
+
+    const sampleRate = audioCtx.sampleRate;
+    const nyquist = sampleRate / 2;
+    const w = specCanvas.width;
+    const h = specCanvas.height;
+
+    // --- RMS dB ---
+    // NOISE_FLOOR_DB: マイクの背景ノイズ下限。これを「0 dB」の基準とする。
+    // 典型的なマイクの自己雑音は -80〜-60 dBFS 程度なので -80 を床とする。
+    const NOISE_FLOOR_DB = -80; // dBFS
+    let rms = 0;
+    for (let i = 0; i < timeData.length; i++) rms += timeData[i] * timeData[i];
+    rms = Math.sqrt(rms / timeData.length);
+    const dbRMS = rms > 0 ? 20 * Math.log10(rms) : -Infinity;
+    // 表示用: ノイズフロアを 0 dB にオフセット、下限を 0 にクランプ
+    const dbShifted = isFinite(dbRMS) ? Math.max(0, dbRMS - NOISE_FLOOR_DB) : 0;
+    const dbDisplay = dbShifted.toFixed(1);
+
+    // --- 直近3秒のローリング最大値 ---
+    peakBuffer[peakBufIdx % PEAK_WINDOW_FRAMES] = dbShifted;
+    peakBufIdx++;
+    const peakHold = Math.max(...peakBuffer);
+
+    // --- セッション最大・平均 ---
+    if (dbShifted > sessionMax) sessionMax = dbShifted;
+    sessionSum += dbShifted;
+    sessionCount++;
+    const sessionAvg = sessionCount > 0 ? sessionSum / sessionCount : 0;
+
+    // --- 卓越周波数（メーター更新ブロックより前に計算）---
+    let maxVal = -Infinity, maxIdx = 0;
+    for (let i = 1; i < bufLen; i++) {
+      if (freqData[i] > maxVal) { maxVal = freqData[i]; maxIdx = i; }
+    }
+    const domFreq = (maxIdx / bufLen) * nyquist;
+
+    // 経過時間の基準を初回フレームで確定
+    if (startTime === null) startTime = timestamp;
+    const elapsed = timestamp - startTime;
+
+    // 数値メーターは METER_INTERVAL_MS ごとにのみ更新（視認しやすくするため）
+    const shouldUpdateMeter = timestamp - lastMeterTime >= METER_INTERVAL_MS;
+    if (shouldUpdateMeter) {
+      lastMeterTime = timestamp;
+      document.getElementById('val-db').innerHTML = dbDisplay + '<span class="meter-unit">dB</span>';
+      document.getElementById('val-peak').innerHTML = peakHold.toFixed(1) + '<span class="meter-unit">dB</span>';
+      document.getElementById('val-max').innerHTML = (sessionMax > 0 ? sessionMax.toFixed(1) : '0.0') + '<span class="meter-unit">dB</span>';
+      document.getElementById('val-avg').innerHTML = sessionAvg.toFixed(1) + '<span class="meter-unit">dB</span>';
+      document.getElementById('db-bar-text').textContent = dbDisplay + ' dB';
+      const domDisplay = domFreq < 1000 ? domFreq.toFixed(0) + '<span class="meter-unit">Hz</span>'
+        : (domFreq / 1000).toFixed(2) + '<span class="meter-unit">kHz</span>';
+      document.getElementById('val-dom').innerHTML = domDisplay;
+
+      // --- 1秒ごとにログ記録 ---
+      if (elapsed - lastLogTime >= LOG_INTERVAL_MS) {
+        lastLogTime = elapsed;
+        const currentVoiceLabel = document.getElementById('voice-label').textContent || '---';
+        const occNow = totalFrameCount > 0
+          ? voiceFrameCount / totalFrameCount * 100 : 0;
+        const avgDbNow = voiceDbCount > 0
+          ? voiceDbSum / voiceDbCount : -1;
+        addLogEntry({
+          elapsed:     formatClock(),
+          dbVal:       dbShifted,
+          peak3s:      peakHold,
+          domFreqVal:  domFreq,
+          voiceLabel:  currentVoiceLabel,
+          occupancy:   occNow,
+          voiceEvents: voiceEventCount,
+          voiceAvgDb:  avgDbNow,
+        });
+      }
+    }
+
+    // --- dB bar (0..(-NOISE_FLOOR_DB) → 0..100%) ---
+    const dbRange = -NOISE_FLOOR_DB; // 80
+    const barPct = Math.min(100, (dbShifted / dbRange) * 100);
+    document.getElementById('db-bar-fill').style.width = barPct + '%';
+
+    // --- 騒音アラートチェック ---
+    if (document.getElementById('alert-enabled').checked) {
+      const threshold  = parseInt(document.getElementById('alert-threshold-slider').value);
+      const durationMs = parseFloat(document.getElementById('alert-duration-input').value) * 1000;
+
+      if (dbShifted >= threshold) {
+        if (alertExceedStart === null) {
+          alertExceedStart = timestamp;
+          alertDismissed = false;
+        }
+        const exceededMs = timestamp - alertExceedStart;
+        if (exceededMs >= durationMs && !alertFired && !alertDismissed) {
+          // アラート発動
+          alertFired = true;
+          const secStr = (exceededMs / 1000).toFixed(0);
+          document.getElementById('alert-banner-text').innerHTML =
+            `⚠ <strong>${dbShifted.toFixed(1)} dB</strong> が ${secStr}秒以上続いています（しきい値：${threshold} dB）`;
+          document.getElementById('alert-banner').classList.add('active');
+          document.getElementById('db-bar-bg').classList.add('alert-active');
+        }
+      } else if (dbShifted < threshold - 3) {
+        // ヒステリシス: しきい値より3dB下がったら自動解除
+        alertExceedStart = null;
+        if (alertFired) {
+          alertFired = false;
+          document.getElementById('alert-banner').classList.remove('active');
+          document.getElementById('db-bar-bg').classList.remove('alert-active');
+        }
+      }
+    }
+
+    // --- Spectrum canvas ---
+    specCtx.fillStyle = '#08080f';
+    specCtx.fillRect(0, 0, w, h);
+
+    // Grid lines
+    const gridFreqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+    specCtx.strokeStyle = '#1a2255';
+    specCtx.lineWidth = 1;
+    specCtx.font = `${11 * window.devicePixelRatio}px Courier New`;
+    specCtx.fillStyle = '#2233aa';
+    gridFreqs.forEach(f => {
+      if (f > nyquist) return;
+      const x = freqToX(f, nyquist, w);
+      specCtx.beginPath();
+      specCtx.moveTo(x, 0);
+      specCtx.lineTo(x, h - 20 * window.devicePixelRatio);
+      specCtx.stroke();
+      const label = f >= 1000 ? (f / 1000) + 'k' : f;
+      specCtx.fillText(label, x + 2, h - 6 * window.devicePixelRatio);
+    });
+
+    // dB grid — オフセット後スケール (0 = 静寂, 80 = 最大)
+    const dbLines = [0, 20, 40, 60, 80];
+    dbLines.forEach(db => {
+      const y = h - 20 * window.devicePixelRatio - (db / dbRange) * (h - 30 * window.devicePixelRatio);
+      specCtx.strokeStyle = '#1a2255';
+      specCtx.beginPath();
+      specCtx.moveTo(0, y);
+      specCtx.lineTo(w, y);
+      specCtx.stroke();
+      specCtx.fillStyle = '#2233aa';
+      specCtx.fillText(db + 'dB', 2, y - 2);
+    });
+
+    const mode = windowModeEl.value;
+    const bottomY = h - 20 * window.devicePixelRatio;
+    const chartH = h - 30 * window.devicePixelRatio;
+
+    if (mode === 'bar') {
+      // Draw bars — freqData は dBFS なので同じオフセットを適用
+      for (let i = 1; i < bufLen; i++) {
+        const freq = (i / bufLen) * nyquist;
+        if (freq < 20) continue;
+        const nextFreq = ((i + 1) / bufLen) * nyquist;
+        const x1 = freqToX(freq, nyquist, w);
+        const x2 = freqToX(nextFreq, nyquist, w);
+        const bw = Math.max(1, x2 - x1);
+        const db = freqData[i];
+        const norm = Math.max(0, (db - NOISE_FLOOR_DB) / dbRange);
+        const barH = norm * chartH;
+        const hue = 180 + norm * 120;
+        specCtx.fillStyle = `hsl(${hue}, 80%, 55%)`;
+        specCtx.fillRect(x1, bottomY - barH, bw - 0.5, barH);
+      }
+    } else {
+      // Line / fill
+      specCtx.beginPath();
+      let first = true;
+      for (let i = 1; i < bufLen; i++) {
+        const freq = (i / bufLen) * nyquist;
+        if (freq < 20) continue;
+        const x = freqToX(freq, nyquist, w);
+        const db = freqData[i];
+        const norm = Math.max(0, (db - NOISE_FLOOR_DB) / dbRange);
+        const y = bottomY - norm * chartH;
+        if (first) { specCtx.moveTo(x, y); first = false; }
+        else specCtx.lineTo(x, y);
+      }
+      if (mode === 'fill') {
+        specCtx.lineTo(w, bottomY);
+        specCtx.lineTo(0, bottomY);
+        specCtx.closePath();
+        const grad = specCtx.createLinearGradient(0, 0, 0, h);
+        grad.addColorStop(0, '#88ffcc88');
+        grad.addColorStop(1, '#4466ff22');
+        specCtx.fillStyle = grad;
+        specCtx.fill();
+      }
+      specCtx.strokeStyle = '#88ffcc';
+      specCtx.lineWidth = 1.5;
+      specCtx.stroke();
+    }
+
+    // Peak marker (peakHold はオフセット後スケール)
+    if (peakHold > 0) {
+      const peakNorm = Math.min(1, peakHold / dbRange);
+      const peakY = bottomY - peakNorm * chartH;
+      specCtx.strokeStyle = '#ff6644';
+      specCtx.lineWidth = 1;
+      specCtx.setLineDash([4, 4]);
+      specCtx.beginPath();
+      specCtx.moveTo(0, peakY);
+      specCtx.lineTo(w, peakY);
+      specCtx.stroke();
+      specCtx.setLineDash([]);
+      specCtx.fillStyle = '#ff6644';
+      specCtx.fillText('直近3秒最大 ' + peakHold.toFixed(1) + 'dB', 4, peakY - 3);
+    }
+
+    // --- Waveform canvas ---
+    const ww = waveCanvas.width;
+    const wh = waveCanvas.height;
+    waveCtx.fillStyle = '#08080f';
+    waveCtx.fillRect(0, 0, ww, wh);
+    waveCtx.strokeStyle = '#4466ff';
+    waveCtx.lineWidth = 1.5;
+    waveCtx.beginPath();
+    const sliceW = ww / timeData.length;
+    let wx = 0;
+    for (let i = 0; i < timeData.length; i++) {
+      const y = ((timeData[i] + 1) / 2) * wh;
+      if (i === 0) waveCtx.moveTo(wx, y);
+      else waveCtx.lineTo(wx, y);
+      wx += sliceW;
+    }
+    waveCtx.stroke();
+    // Center line
+    waveCtx.strokeStyle = '#1a2255';
+    waveCtx.lineWidth = 1;
+    waveCtx.beginPath();
+    waveCtx.moveTo(0, wh / 2);
+    waveCtx.lineTo(ww, wh / 2);
+    waveCtx.stroke();
+
+    // --- Octave bands ---
+    OCTAVE_BANDS.forEach(b => {
+      const fc = b.fc;
+      const fLow = fc / Math.SQRT2;
+      const fHigh = fc * Math.SQRT2;
+      let sum = 0, count = 0;
+      for (let i = 0; i < bufLen; i++) {
+        const f = (i / bufLen) * nyquist;
+        if (f >= fLow && f <= fHigh) {
+          const linear = Math.pow(10, freqData[i] / 20);
+          sum += linear * linear;
+          count++;
+        }
+      }
+      let dbOct = -Infinity;
+      if (count > 0 && sum > 0) dbOct = 10 * Math.log10(sum / count);
+      // オフセット後スケール (静寂=0)
+      const dbOctShifted = isFinite(dbOct) ? Math.max(0, dbOct - NOISE_FLOOR_DB) : 0;
+      const norm = Math.min(1, dbOctShifted / dbRange);
+      const fillEl = document.getElementById('oct-' + fc);
+      const dbEl = document.getElementById('octdb-' + fc);
+      if (fillEl) fillEl.style.height = (norm * 100) + '%';
+      if (dbEl) dbEl.textContent = dbOctShifted > 0 ? dbOctShifted.toFixed(0) : '0';
+    });
+
+    // =============================================
+    // --- 音源識別 ---
+    // =============================================
+
+    // --- 背景レベル自動追跡 ---
+    // 現在の音量が背景レベルに近い時だけゆっくり更新（突発音では更新しない）
+    if (dbShifted < bgLevel + 4) {
+      bgLevel = bgLevel * 0.992 + dbShifted * 0.008;
+    }
+    const activityDb = dbShifted - bgLevel; // 背景より何dB高いか
+
+    // 活動ゲート: 背景より 6dB 以上でなければ声ではない
+    if (dbShifted < 2 || activityDb < 6) {
+      smoothVoiceScore = smoothVoiceScore * 0.85;
+      if (shouldUpdateMeter) {
+        const gateLabel = dbShifted < 2 ? '静寂 / 無音' : '🔊 騒音・環境音';
+        document.getElementById('voice-label').textContent = gateLabel;
+        document.getElementById('voice-label').style.color = dbShifted < 2 ? '#334466' : '#ff6644';
+        document.getElementById('voice-confidence-bar').style.width = '0%';
+      }
+    } else {
+      // 各特徴量を計算（detectPitch は先頭512サンプルのみ使用して軽量化）
+      const pitchBuf = timeData.length > 512 ? timeData.slice(0, 512) : timeData;
+      const pitch = detectPitch(pitchBuf, sampleRate);
+      // ピッチスコア：人声域(80-300Hz)かつ明瞭度が高い
+      const pitchInRange = pitch.freq >= 80 && pitch.freq <= 300;
+      const pitchSc = pitchInRange ? Math.min(1, pitch.clarity * 1.5) : Math.min(0.3, pitch.clarity * 0.5);
+
+      const harmonicSc  = harmonicScore(freqData, pitch.freq, nyquist, bufLen);
+      const formantSc   = formantElevationScore(freqData, nyquist, bufLen);
+
+      // 重み付き合計（3指標に集約）
+      const voiceScore =
+        formantSc  * 0.50 +
+        pitchSc    * 0.30 +
+        harmonicSc * 0.20;
+
+      // EMA平滑化（ちらつき防止）
+      smoothVoiceScore = smoothVoiceScore * 0.7 + voiceScore * 0.3;
+
+      // メーター更新間隔に合わせてUI更新
+      if (shouldUpdateMeter) {
+        const pct = (smoothVoiceScore * 100).toFixed(0);
+        const isVoice = smoothVoiceScore >= 0.52;
+        const isMaybe = smoothVoiceScore >= 0.35;
+
+        const label  = isVoice ? '🎙 人の声'  : isMaybe ? '🔶 不明確' : '🔊 騒音・環境音';
+        const color  = isVoice ? '#44ffaa'    : isMaybe ? '#ffcc44'   : '#ff6644';
+        const barBg  = isVoice ? 'linear-gradient(90deg,#2244ff,#44ffaa)'
+                     : isMaybe ? 'linear-gradient(90deg,#884400,#ffcc44)'
+                     :           'linear-gradient(90deg,#881100,#ff6644)';
+
+        document.getElementById('voice-label').textContent = label;
+        document.getElementById('voice-label').style.color = color;
+        const bar = document.getElementById('voice-confidence-bar');
+        bar.style.width = Math.min(100, smoothVoiceScore / 0.8 * 100) + '%';
+        bar.style.background = barBg;
+
+        // サブスコア表示（3項目のみ）
+        const scores = [
+          { id: 'vs-pitch',    v: pitchSc },
+          { id: 'vs-harmonic', v: harmonicSc },
+          { id: 'vs-highband', v: formantSc },
+        ];
+        scores.forEach(s => {
+          const pctV = Math.round(s.v * 100);
+          const barEl = document.getElementById(s.id + '-bar');
+          const valEl = document.getElementById(s.id + '-val');
+          if (barEl) barEl.style.width = pctV + '%';
+          if (valEl) valEl.textContent = pctV + '%';
+        });
+
+        // 声の統計を更新
+        totalFrameCount++;
+        if (isVoice) {
+          voiceFrameCount++;
+          voiceDbSum += dbShifted;
+          voiceDbCount++;
+          if (!prevWasVoice) voiceEventCount++;
+        }
+        prevWasVoice = isVoice;
+
+        const occupancy = totalFrameCount > 0
+          ? (voiceFrameCount / totalFrameCount * 100).toFixed(1) : '--';
+        const voiceAvgDb = voiceDbCount > 0
+          ? (voiceDbSum / voiceDbCount).toFixed(1) : '---';
+
+        document.getElementById('vstat-occupancy').textContent = occupancy + '%';
+        document.getElementById('vstat-events').innerHTML =
+          voiceEventCount + '<span class="meter-unit">回</span>';
+        document.getElementById('vstat-voicedb').innerHTML =
+          voiceAvgDb + '<span class="meter-unit">dB</span>';
+
+        // 静粛スコア更新
+        updateSilenceScore(elapsed / 1000);
+      }
+    }
+  }
+
+  // =============================================
+  // --- 時系列グラフ ---
+  // =============================================
+  function drawTimeSeries() {
+    const dpr       = window.devicePixelRatio || 1;
+    const w         = tsCanvas.width;
+    const h         = tsCanvas.height;
+    const padL      = 36 * dpr;
+    const padR      = 10 * dpr;
+    const padT      = 14 * dpr;
+    const padB      = 28 * dpr;
+    const chartW    = w - padL - padR;
+    const chartH    = h - padT - padB;
+    const dbRange   = 80;
+    const windowSec = parseInt(document.getElementById('ts-window').value);
+    const entries   = logData.slice(-windowSec);
+
+    // 背景
+    tsCtx.fillStyle = '#08080f';
+    tsCtx.fillRect(0, 0, w, h);
+
+    // dBグリッド
+    tsCtx.font = `${10 * dpr}px Courier New`;
+    tsCtx.textBaseline = 'middle';
+    [0, 20, 40, 60, 80].forEach(db => {
+      const y = padT + chartH - (db / dbRange) * chartH;
+      tsCtx.strokeStyle = '#1a2255';
+      tsCtx.lineWidth = 1;
+      tsCtx.beginPath();
+      tsCtx.moveTo(padL, y); tsCtx.lineTo(padL + chartW, y);
+      tsCtx.stroke();
+      tsCtx.fillStyle = '#2233aa';
+      tsCtx.textAlign = 'right';
+      tsCtx.fillText(db, padL - 4, y);
+    });
+    tsCtx.textAlign = 'left';
+
+    // データ不足時メッセージ
+    if (entries.length < 2) {
+      tsCtx.fillStyle = '#2a3660';
+      tsCtx.textAlign = 'center';
+      tsCtx.font = `${12 * dpr}px Courier New`;
+      tsCtx.fillText('測定開始後にグラフが描画されます', padL + chartW / 2, padT + chartH / 2);
+      tsCtx.textAlign = 'left';
+      return;
+    }
+
+    // 各エントリのX座標（ウィンドウ全体に均等配置）
+    const xOf = i => padL + (i / (windowSec - 1)) * chartW;
+    const yOf = db  => padT + chartH - (Math.min(dbRange, Math.max(0, db)) / dbRange) * chartH;
+    const startIdx = windowSec - entries.length; // 最初のエントリのインデックス
+
+    // 塗りつぶし（声の色分け）
+    for (let i = 0; i < entries.length - 1; i++) {
+      const si = startIdx + i;
+      const x1 = xOf(si),     x2 = xOf(si + 1);
+      const y1 = yOf(entries[i].dbVal), y2 = yOf(entries[i + 1].dbVal);
+      const yBot = padT + chartH;
+      const lbl = entries[i].voiceLabel || '';
+      let fill;
+      if      (lbl.includes('人の声'))   fill = '#44ffaa30';
+      else if (lbl.includes('不明確'))   fill = '#ffcc4430';
+      else if (lbl.includes('騒音'))     fill = '#ff664428';
+      else                               fill = '#ffffff0a';
+      tsCtx.fillStyle = fill;
+      tsCtx.beginPath();
+      tsCtx.moveTo(x1, y1); tsCtx.lineTo(x2, y2);
+      tsCtx.lineTo(x2, yBot); tsCtx.lineTo(x1, yBot);
+      tsCtx.closePath(); tsCtx.fill();
+    }
+
+    // 折れ線（色分けセグメント）
+    tsCtx.lineWidth = 1.5 * dpr;
+    for (let i = 0; i < entries.length - 1; i++) {
+      const si = startIdx + i;
+      const lbl = entries[i].voiceLabel || '';
+      let stroke;
+      if      (lbl.includes('人の声'))  stroke = '#44ffaa';
+      else if (lbl.includes('不明確'))  stroke = '#ffcc44';
+      else if (lbl.includes('騒音'))    stroke = '#ff6644';
+      else                              stroke = '#2a3660';
+      tsCtx.strokeStyle = stroke;
+      tsCtx.beginPath();
+      tsCtx.moveTo(xOf(si),     yOf(entries[i].dbVal));
+      tsCtx.lineTo(xOf(si + 1), yOf(entries[i + 1].dbVal));
+      tsCtx.stroke();
+    }
+
+    // 時刻ラベル（最大5点）
+    tsCtx.fillStyle = '#2a3660';
+    tsCtx.font = `${9 * dpr}px Courier New`;
+    tsCtx.textAlign = 'center';
+    tsCtx.textBaseline = 'alphabetic';
+    const labelCount = 4;
+    for (let li = 0; li <= labelCount; li++) {
+      const ei = Math.round((entries.length - 1) * li / labelCount);
+      if (ei < 0 || ei >= entries.length) continue;
+      const si = startIdx + ei;
+      const x  = xOf(si);
+      // 目盛り線
+      tsCtx.strokeStyle = '#1a2255';
+      tsCtx.lineWidth = 1;
+      tsCtx.beginPath();
+      tsCtx.moveTo(x, padT + chartH);
+      tsCtx.lineTo(x, padT + chartH + 4 * dpr);
+      tsCtx.stroke();
+      tsCtx.fillText(entries[ei].elapsed, x, padT + chartH + 16 * dpr);
+    }
+    tsCtx.textAlign = 'left';
+
+    // 凡例
+    const legend = [
+      { color: '#44ffaa', label: '人の声' },
+      { color: '#ffcc44', label: '不明確' },
+      { color: '#ff6644', label: '騒音'   },
+    ];
+    tsCtx.font = `${9 * dpr}px Courier New`;
+    tsCtx.textBaseline = 'middle';
+    let lx = padL + 4 * dpr;
+    const ly = padT + 8 * dpr;
+    legend.forEach(l => {
+      tsCtx.fillStyle = l.color;
+      tsCtx.fillRect(lx, ly - 4 * dpr, 10 * dpr, 8 * dpr);
+      lx += 13 * dpr;
+      tsCtx.fillStyle = '#4455aa';
+      tsCtx.fillText(l.label, lx, ly);
+      lx += (tsCtx.measureText(l.label).width + 10 * dpr);
+    });
+  }
+
+  // ウィンドウ変更時も即再描画
+  document.getElementById('ts-window').addEventListener('change', drawTimeSeries);
+
+  // =============================================
+  // --- 時間帯ヒートマップ ---
+  // =============================================
+  function drawHeatmap() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = hmCanvas.width;
+    const h = hmCanvas.height;
+
+    // logData を HH:MM 単位でグループ化
+    const buckets = new Map();
+    logData.forEach(entry => {
+      const key = entry.elapsed.slice(0, 5); // "HH:MM"
+      if (!buckets.has(key)) buckets.set(key, { dbSum: 0, count: 0, voiceCount: 0 });
+      const b = buckets.get(key);
+      b.dbSum += entry.dbVal;
+      b.count++;
+      if ((entry.voiceLabel || '').includes('人の声')) b.voiceCount++;
+    });
+
+    const keys = [...buckets.keys()];
+
+    // 背景
+    hmCtx.fillStyle = '#08080f';
+    hmCtx.fillRect(0, 0, w, h);
+
+    if (keys.length === 0) {
+      hmCtx.fillStyle = '#2a3660';
+      hmCtx.font = `${11 * dpr}px Courier New`;
+      hmCtx.textAlign = 'center';
+      hmCtx.textBaseline = 'middle';
+      hmCtx.fillText('測定開始後にヒートマップが表示されます', w / 2, h / 2);
+      return;
+    }
+
+    const voiceBarH = 8 * dpr;
+    const labelH    = 14 * dpr;
+    const cellH     = h - voiceBarH - labelH;
+    const cellW     = w / keys.length;
+
+    keys.forEach((key, i) => {
+      const b = buckets.get(key);
+      const avgDb    = b.dbSum / b.count;
+      const voicePct = b.voiceCount / b.count;
+
+      const x = i * cellW;
+
+      // メインセル：HSL 色 (静か=200°青、騒がしい=0°赤)
+      const norm = Math.min(1, avgDb / 60);
+      const hue  = Math.round(200 - norm * 200);
+      const sat  = Math.round(60 + norm * 30);
+      const lit  = Math.round(22 + norm * 22);
+      hmCtx.fillStyle = `hsl(${hue},${sat}%,${lit}%)`;
+      hmCtx.fillRect(x, 0, cellW - 0.5, cellH);
+
+      // 声ストライプ
+      hmCtx.fillStyle = `rgba(68,255,170,${0.15 + voicePct * 0.85})`;
+      hmCtx.fillRect(x, cellH, cellW - 0.5, voiceBarH);
+
+      // 時刻ラベル（多すぎる場合は間引く）
+      const step = Math.ceil(keys.length / Math.max(1, Math.floor(w / (40 * dpr))));
+      if (i % step === 0) {
+        hmCtx.fillStyle = '#4466aa';
+        hmCtx.font = `${9 * dpr}px Courier New`;
+        hmCtx.textAlign = 'center';
+        hmCtx.textBaseline = 'top';
+        hmCtx.fillText(key, x + cellW / 2, cellH + voiceBarH + 1 * dpr);
+      }
+    });
+  }
+
+  // =============================================
+  // --- 静粛スコア ---
+  // =============================================
+  function updateSilenceScore(elapsedSec) {
+    if (totalFrameCount < 5) return; // データ不足時はスキップ
+
+    // ① 声の占有率スコア（0%=100点、50%以上=0点）
+    const occupancy   = totalFrameCount > 0 ? voiceFrameCount / totalFrameCount * 100 : 0;
+    const occScore    = Math.max(0, 100 - occupancy * 2);
+
+    // ② 平均音量スコア（0dB=100点、40dB以上=0点）
+    const avgDb       = sessionCount > 0 ? sessionSum / sessionCount : 0;
+    const volScore    = Math.max(0, 100 - avgDb * 2.5);
+
+    // ③ 会話頻度スコア（0回/分=100点、20回/分以上=0点）
+    const elapsedMin  = Math.max(1/60, elapsedSec / 60);
+    const eventsPerMin = voiceEventCount / elapsedMin;
+    const freqScore   = Math.max(0, 100 - eventsPerMin * 5);
+
+    // 合計（重み付き）
+    const total = Math.round(occScore * 0.40 + volScore * 0.30 + freqScore * 0.30);
+
+    // グレード・星・説明
+    let grade, stars, desc, color;
+    if      (total >= 80) { grade = 'A'; stars = '★★★★★'; desc = 'とても静かなオフィスです';   color = '#44ffaa'; }
+    else if (total >= 60) { grade = 'B'; stars = '★★★★☆'; desc = '比較的静かなオフィスです';  color = '#88ffcc'; }
+    else if (total >= 40) { grade = 'C'; stars = '★★★☆☆'; desc = 'やや騒がしいオフィスです';  color = '#ffcc44'; }
+    else if (total >= 20) { grade = 'D'; stars = '★★☆☆☆'; desc = '騒がしいオフィスです';      color = '#ff8844'; }
+    else                  { grade = 'E'; stars = '★☆☆☆☆'; desc = '非常に騒がしいオフィスです'; color = '#ff4444'; }
+
+    document.getElementById('score-number').textContent = total;
+    document.getElementById('score-number').style.color = color;
+    document.getElementById('score-grade').textContent  = grade;
+    document.getElementById('score-grade').style.color  = color;
+    document.getElementById('score-stars').textContent  = stars;
+    document.getElementById('score-stars').style.color  = color;
+    document.getElementById('score-desc').textContent   = desc;
+    document.getElementById('score-desc').style.color   = color;
+
+    document.getElementById('sc-occ').textContent  = Math.round(occScore);
+    document.getElementById('sc-vol').textContent  = Math.round(volScore);
+    document.getElementById('sc-freq').textContent = Math.round(freqScore);
+  }
+
+  // =============================================
+  // --- 測定ログ ---
+  // =============================================
+  const LOG_INTERVAL_MS = 1000; // 1秒ごとに記録
+  let lastLogTime = 0;
+  let logData = []; // CSVエクスポート用
+  let startTime = null;
+  let sessionStartClock = null; // 実時計での開始時刻
+
+  function formatClock() {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+  }
+
+  // 全列の定義（id・表示名・値フォーマッタ）
+  const LOG_COLS = [
+    { id: 'dbVal',       label: '音圧(dB)',          fmt: v => v.toFixed(1) },
+    { id: 'peak3s',      label: '直近3秒最大(dB)',   fmt: v => v.toFixed(1) },
+    { id: 'domFreqVal',  label: '卓越周波数(Hz)',     fmt: v => v.toFixed(1) },
+    { id: 'voiceLabel',  label: '音源識別',           fmt: v => `"${v}"` },
+    { id: 'occupancy',   label: '声の占有率(%)',      fmt: v => v.toFixed(1) },
+    { id: 'voiceEvents', label: '声のイベント数',     fmt: v => String(v) },
+    { id: 'voiceAvgDb',  label: '声の平均音圧(dB)',   fmt: v => v >= 0 ? v.toFixed(1) : '' },
+  ];
+
+  // 有効な列IDを取得
+  function getEnabledCols() {
+    return [...document.querySelectorAll('#log-settings-panel input[type=checkbox]')]
+      .filter(cb => cb.checked)
+      .map(cb => cb.dataset.col);
+  }
+
+  function addLogEntry(data) {
+    // 全フィールドを保存
+    logData.push(data);
+    drawTimeSeries();
+    drawHeatmap();
+
+    // DOM更新（表示は時刻・音圧・音源の3項目固定で簡潔に）
+    const empty = document.getElementById('log-empty');
+    if (empty) empty.remove();
+
+    const list = document.getElementById('log-list');
+    const entry = document.createElement('div');
+    entry.className = 'log-entry new';
+    setTimeout(() => entry.classList.remove('new'), 500);
+
+    entry.innerHTML = `
+      <span class="log-time">${data.elapsed}</span>
+      <span class="log-val-db">${data.dbVal.toFixed(1)} dB</span>
+      <span class="log-val-voice">${data.voiceLabel}</span>
+    `;
+    list.insertBefore(entry, list.firstChild);
+  }
+
+  function exportCSV() {
+    if (logData.length === 0) return;
+    const enabled = getEnabledCols();
+    const cols = LOG_COLS.filter(c => enabled.includes(c.id));
+
+    const header = ['時刻', ...cols.map(c => c.label)].join(',');
+    const rows = logData.map(d =>
+      [d.elapsed, ...cols.map(c => LOG_COLS.find(x => x.id === c.id).fmt(d[c.id]))].join(',')
+    );
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `noise-log-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById('btn-log-settings').addEventListener('click', () => {
+    document.getElementById('log-settings-panel').classList.toggle('open');
+  });
+  document.getElementById('btn-csv').addEventListener('click', exportCSV);
+  document.getElementById('btn-log-clear').addEventListener('click', () => {
+    logData = [];
+    const list = document.getElementById('log-list');
+    list.innerHTML = '<div id="log-empty">測定を開始すると<br>ここに記録されます</div>';
+  });
+
+  btnStart.addEventListener('click', start);
+  btnStop.addEventListener('click', stop);
+  fftSizeEl.addEventListener('change', () => {
+    if (analyser) analyser.fftSize = parseInt(fftSizeEl.value);
+  });
+
+  // ---- アラート設定 UI ----
+  document.getElementById('btn-alert-settings').addEventListener('click', () => {
+    const panel = document.getElementById('alert-settings-panel');
+    const btn   = document.getElementById('btn-alert-settings');
+    panel.classList.toggle('open');
+    btn.classList.toggle('alert-on', panel.classList.contains('open'));
+  });
+
+  document.getElementById('alert-threshold-slider').addEventListener('input', e => {
+    document.getElementById('alert-threshold-val').textContent = e.target.value + ' dB';
+    // しきい値変更時はアラート状態をリセット
+    alertExceedStart = null;
+    alertFired = false;
+    alertDismissed = false;
+    document.getElementById('alert-banner').classList.remove('active');
+    document.getElementById('db-bar-bg').classList.remove('alert-active');
+  });
+
+  document.getElementById('alert-enabled').addEventListener('change', e => {
+    document.getElementById('alert-enabled-label').textContent = e.target.checked ? 'ON' : 'OFF';
+    document.getElementById('alert-enabled-label').style.color = e.target.checked ? '#ff8844' : '#664400';
+    if (!e.target.checked) {
+      alertExceedStart = null;
+      alertFired = false;
+      document.getElementById('alert-banner').classList.remove('active');
+      document.getElementById('db-bar-bg').classList.remove('alert-active');
+    }
+  });
+
+  document.getElementById('btn-alert-dismiss').addEventListener('click', () => {
+    alertDismissed = true;
+    alertFired = false;
+    document.getElementById('alert-banner').classList.remove('active');
+    document.getElementById('db-bar-bg').classList.remove('alert-active');
+  });
+
+  // =============================================
+  // --- セッションサマリー ---
+  // =============================================
+  function showSummary() {
+    const endClock = formatClock();
+    const elapsedSec = sessionCount > 0 ? Math.round(sessionCount / 60 * (1000 / 300) * 0.3) : 0;
+    // 測定時間は logData の件数から計算（1件≒1秒）
+    const durationSec = logData.length;
+    const durationStr = durationSec >= 60
+      ? `${Math.floor(durationSec / 60)}分${durationSec % 60}秒`
+      : `${durationSec}秒`;
+
+    // 最大音量の時刻（logDataから探す）
+    let maxEntry = logData.length > 0
+      ? logData.reduce((a, b) => b.dbVal > a.dbVal ? b : a)
+      : null;
+
+    // 平均音量
+    const avgDb = sessionCount > 0 ? sessionSum / sessionCount : 0;
+
+    // 声の占有率
+    const occupancy = totalFrameCount > 0
+      ? (voiceFrameCount / totalFrameCount * 100) : 0;
+
+    // 声の平均音圧
+    const voiceAvgDb = voiceDbCount > 0 ? voiceDbSum / voiceDbCount : -1;
+
+    // 静粛スコア再計算
+    const occScore  = Math.max(0, 100 - occupancy * 2);
+    const volScore  = Math.max(0, 100 - avgDb * 2.5);
+    const elMin     = Math.max(1/60, durationSec / 60);
+    const freqScore = Math.max(0, 100 - (voiceEventCount / elMin) * 5);
+    const total     = Math.round(occScore * 0.40 + volScore * 0.30 + freqScore * 0.30);
+
+    let grade, stars, desc, color;
+    if      (total >= 80) { grade='A'; stars='★★★★★'; desc='とても静かなオフィスです';    color='#44ffaa'; }
+    else if (total >= 60) { grade='B'; stars='★★★★☆'; desc='比較的静かなオフィスです';   color='#88ffcc'; }
+    else if (total >= 40) { grade='C'; stars='★★★☆☆'; desc='やや騒がしいオフィスです';   color='#ffcc44'; }
+    else if (total >= 20) { grade='D'; stars='★★☆☆☆'; desc='騒がしいオフィスです';       color='#ff8844'; }
+    else                  { grade='E'; stars='★☆☆☆☆'; desc='非常に騒がしいオフィスです'; color='#ff4444'; }
+
+    // モーダルに値をセット
+    document.getElementById('summary-period').textContent =
+      `${sessionStartClock || '--:--:--'} 〜 ${endClock}`;
+
+    document.getElementById('sum-score-num').textContent   = total;
+    document.getElementById('sum-score-num').style.color   = color;
+    document.getElementById('sum-score-grade').textContent = grade;
+    document.getElementById('sum-score-grade').style.color = color;
+    document.getElementById('sum-score-stars').textContent = stars;
+    document.getElementById('sum-score-stars').style.color = color;
+    document.getElementById('sum-score-desc').textContent  = desc;
+    document.getElementById('sum-score-desc').style.color  = color;
+
+    document.getElementById('sum-duration').innerHTML =
+      durationStr.replace(/([分秒])/, '<span class="sum-cell-unit">$1</span>');
+    document.getElementById('sum-max').innerHTML =
+      (sessionMax > 0 ? sessionMax.toFixed(1) : '0.0') + '<span class="sum-cell-unit">dB</span>';
+    document.getElementById('sum-avg').innerHTML =
+      avgDb.toFixed(1) + '<span class="sum-cell-unit">dB</span>';
+    document.getElementById('sum-occ').innerHTML =
+      occupancy.toFixed(1) + '<span class="sum-cell-unit">%</span>';
+    document.getElementById('sum-events').innerHTML =
+      voiceEventCount + '<span class="sum-cell-unit">回</span>';
+    document.getElementById('sum-voicedb').innerHTML =
+      (voiceAvgDb >= 0 ? voiceAvgDb.toFixed(1) : '---') + '<span class="sum-cell-unit">dB</span>';
+    document.getElementById('sum-maxtime').textContent =
+      maxEntry ? maxEntry.elapsed : '--:--:--';
+    document.getElementById('sum-logcount').innerHTML =
+      logData.length + '<span class="sum-cell-unit">件</span>';
+
+    document.getElementById('summary-overlay').classList.add('open');
+  }
+
+  document.getElementById('btn-summary-close').addEventListener('click', () => {
+    document.getElementById('summary-overlay').classList.remove('open');
+  });
+  document.getElementById('summary-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('summary-overlay'))
+      document.getElementById('summary-overlay').classList.remove('open');
+  });
+  document.getElementById('btn-summary-csv').addEventListener('click', () => {
+    exportCSV();
+  });
+
+  // =============================================
+  // --- パネル管理（折りたたみ・並び替え）---
+  // =============================================
+  const PANEL_ORDER_KEY     = 'noiseAnalyzer_panelOrder';
+  const PANEL_COLLAPSED_KEY = 'noiseAnalyzer_panelCollapsed';
+
+  function savePanelState() {
+    const panels = [...document.querySelectorAll('#main-col .panel-section')];
+    const order  = panels.map(p => p.dataset.panel);
+    const collapsed = {};
+    panels.forEach(p => { collapsed[p.dataset.panel] = p.classList.contains('collapsed'); });
+    localStorage.setItem(PANEL_ORDER_KEY,     JSON.stringify(order));
+    localStorage.setItem(PANEL_COLLAPSED_KEY, JSON.stringify(collapsed));
+  }
+
+  function restorePanelState() {
+    const mainCol = document.getElementById('main-col');
+    try {
+      const collapsed = JSON.parse(localStorage.getItem(PANEL_COLLAPSED_KEY) || '{}');
+      const order     = JSON.parse(localStorage.getItem(PANEL_ORDER_KEY) || '[]');
+
+      // 折りたたみ状態を復元
+      document.querySelectorAll('.panel-section').forEach(p => {
+        if (collapsed[p.dataset.panel]) {
+          p.classList.add('collapsed');
+          // 現在の高さをmax-heightに設定してからcollapseできるようにする
+          const content = p.querySelector('.panel-content');
+          content.style.maxHeight = '0px';
+        } else {
+          const content = p.querySelector('.panel-content');
+          content.style.maxHeight = content.scrollHeight + 'px';
+        }
+      });
+
+      // 並び順を復元
+      if (order.length > 0) {
+        order.forEach(panelId => {
+          const el = mainCol.querySelector(`[data-panel="${panelId}"]`);
+          if (el) mainCol.appendChild(el);
+        });
+      }
+    } catch (e) { /* localStorageが空またはエラーの場合は無視 */ }
+
+    // 展開中パネルのmax-heightを初期設定
+    document.querySelectorAll('.panel-section:not(.collapsed) .panel-content').forEach(c => {
+      c.style.maxHeight = c.scrollHeight + 'px';
+    });
+  }
+
+  // --- 折りたたみトグル ---
+  document.getElementById('main-col').addEventListener('click', e => {
+    const btn = e.target.closest('.panel-toggle');
+    if (!btn) return;
+    const panel   = btn.closest('.panel-section');
+    const content = panel.querySelector('.panel-content');
+    if (panel.classList.contains('collapsed')) {
+      // 展開
+      panel.classList.remove('collapsed');
+      content.style.maxHeight = content.scrollHeight + 'px';
+      // アニメーション後に auto に変更してリサイズ対応
+      content.addEventListener('transitionend', () => {
+        if (!panel.classList.contains('collapsed')) content.style.maxHeight = 'none';
+        resizeCanvases();
+      }, { once: true });
+    } else {
+      // 折りたたみ（現在の高さを先に固定してからアニメーション）
+      content.style.maxHeight = content.scrollHeight + 'px';
+      requestAnimationFrame(() => {
+        panel.classList.add('collapsed');
+        content.style.maxHeight = '0px';
+      });
+    }
+    savePanelState();
+  });
+
+  // --- ドラッグ&ドロップ による並び替え ---
+  let dragSrc = null;
+
+  document.getElementById('main-col').addEventListener('mousedown', e => {
+    const handle = e.target.closest('.drag-handle');
+    if (!handle) return;
+    handle.closest('.panel-section').setAttribute('draggable', 'true');
+  });
+
+  document.getElementById('main-col').addEventListener('dragstart', e => {
+    const panel = e.target.closest('.panel-section');
+    if (!panel) return;
+    dragSrc = panel;
+    panel.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+
+  document.getElementById('main-col').addEventListener('dragend', e => {
+    const panel = e.target.closest('.panel-section');
+    if (!panel) return;
+    panel.setAttribute('draggable', 'false');
+    panel.classList.remove('dragging');
+    document.querySelectorAll('.panel-section.drag-over').forEach(p => p.classList.remove('drag-over'));
+    dragSrc = null;
+    savePanelState();
+    resizeCanvases();
+  });
+
+  document.getElementById('main-col').addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const over = e.target.closest('.panel-section');
+    if (!over || over === dragSrc) return;
+    document.querySelectorAll('.panel-section.drag-over').forEach(p => p.classList.remove('drag-over'));
+    over.classList.add('drag-over');
+  });
+
+  document.getElementById('main-col').addEventListener('dragleave', e => {
+    const over = e.target.closest('.panel-section');
+    if (over) over.classList.remove('drag-over');
+  });
+
+  document.getElementById('main-col').addEventListener('drop', e => {
+    e.preventDefault();
+    const over = e.target.closest('.panel-section');
+    if (!over || over === dragSrc || !dragSrc) return;
+    over.classList.remove('drag-over');
+    const mainCol = document.getElementById('main-col');
+    const panels  = [...mainCol.querySelectorAll('.panel-section')];
+    const srcIdx  = panels.indexOf(dragSrc);
+    const dstIdx  = panels.indexOf(over);
+    if (srcIdx < dstIdx) {
+      mainCol.insertBefore(dragSrc, over.nextSibling);
+    } else {
+      mainCol.insertBefore(dragSrc, over);
+    }
+  });
+
+  // 初期状態を復元
+  restorePanelState();
+
+  // ---- カスタムツールチップ ----
+  const tooltipEl = document.getElementById('tooltip');
+  let tooltipTimer;
+
+  document.addEventListener('mouseover', e => {
+    const target = e.target.closest('[data-tip]');
+    if (!target) return;
+    clearTimeout(tooltipTimer);
+    const sep = target.dataset.tip.indexOf('|');
+    const title = sep >= 0 ? target.dataset.tip.slice(0, sep) : target.dataset.tip;
+    const desc  = sep >= 0 ? target.dataset.tip.slice(sep + 1) : '';
+    tooltipEl.innerHTML = `<strong>${title}</strong>${desc ? '<br>' + desc : ''}`;
+    tooltipEl.classList.add('visible');
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!tooltipEl.classList.contains('visible')) return;
+    const offset = 14;
+    const tw = tooltipEl.offsetWidth;
+    const th = tooltipEl.offsetHeight;
+    const x = e.clientX + offset;
+    const y = e.clientY + offset;
+    tooltipEl.style.left = (x + tw > window.innerWidth  ? e.clientX - tw - offset : x) + 'px';
+    tooltipEl.style.top  = (y + th > window.innerHeight ? e.clientY - th - offset : y) + 'px';
+  });
+
+  document.addEventListener('mouseout', e => {
+    const target = e.target.closest('[data-tip]');
+    if (!target) return;
+    tooltipTimer = setTimeout(() => tooltipEl.classList.remove('visible'), 120);
+  });
+</script>
+</body>
+</html>
