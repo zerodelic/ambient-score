@@ -34,17 +34,21 @@
     }
 
     #app-body {
-      display: flex;
+      display: grid;
+      grid-template-columns: 1fr 1fr 260px;
       gap: 16px;
       align-items: flex-start;
     }
 
-    #main-col {
-      flex: 1;
+    .col-panel {
       min-width: 0;
       display: flex;
       flex-direction: column;
-      align-items: center;
+    }
+
+    .col-panel.drop-target {
+      outline: 2px dashed #4466ff44;
+      border-radius: 10px;
     }
 
     #log-col {
@@ -52,6 +56,16 @@
       flex-shrink: 0;
       position: sticky;
       top: 20px;
+    }
+
+    @media (max-width: 1100px) {
+      #app-body { grid-template-columns: 1fr 260px; }
+      #col-right { grid-column: 1; }
+      #log-col   { grid-column: 2; grid-row: 1 / 3; }
+    }
+    @media (max-width: 720px) {
+      #app-body { grid-template-columns: 1fr; }
+      #log-col  { width: 100%; }
     }
 
     #controls {
@@ -1019,7 +1033,7 @@
 </div>
 
 <div id="app-header">
-<h1>騒音周波数アナライザー <span id="app-version">v1.5.1 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
+<h1>騒音周波数アナライザー <span id="app-version">v1.6.0 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
 
 <div id="controls">
   <button id="btn-start" data-tip="マイク開始|マイクへのアクセスを許可し、リアルタイム測定を開始します。前回の最大・平均音量はこのタイミングでリセットされます。">マイク開始</button>
@@ -1070,7 +1084,7 @@
 </div><!-- /#app-header -->
 
 <div id="app-body">
-<div id="main-col">
+<div id="col-left" class="col-panel">
 
 <!-- ① メーター -->
 <div class="panel-section" data-panel="meters">
@@ -1156,6 +1170,10 @@
     </div>
   </div>
 </div>
+
+</div><!-- /#col-left -->
+
+<div id="col-right" class="col-panel">
 
 <!-- ⑤ 時間帯ヒートマップ -->
 <div class="panel-section" data-panel="heatmap">
@@ -1244,7 +1262,7 @@
   </div>
 </div>
 
-</div><!-- /#main-col -->
+</div><!-- /#col-right -->
 
 <div id="log-col">
   <div id="log-header">
@@ -2451,71 +2469,76 @@
   });
 
   // =============================================
-  // --- パネル管理（折りたたみ・並び替え）---
+  // --- パネル管理（折りたたみ・2列ドラッグ&ドロップ）---
   // =============================================
-  const PANEL_ORDER_KEY     = 'noiseAnalyzer_panelOrder';
-  const PANEL_COLLAPSED_KEY = 'noiseAnalyzer_panelCollapsed';
+  const PANEL_ORDER_KEY     = 'noiseAnalyzer_panelOrder2';
+  const PANEL_COLLAPSED_KEY = 'noiseAnalyzer_panelCollapsed2';
+
+  // デフォルトの列割り当て
+  const DEFAULT_COLS = {
+    'col-left':  ['meters', 'spectrum', 'waveform', 'timeseries'],
+    'col-right': ['heatmap', 'voice', 'octave'],
+  };
 
   function savePanelState() {
-    const panels = [...document.querySelectorAll('#main-col .panel-section')];
-    const order  = panels.map(p => p.dataset.panel);
+    const order = {};
+    ['col-left', 'col-right'].forEach(colId => {
+      const col = document.getElementById(colId);
+      if (col) order[colId] = [...col.querySelectorAll('.panel-section')].map(p => p.dataset.panel);
+    });
     const collapsed = {};
-    panels.forEach(p => { collapsed[p.dataset.panel] = p.classList.contains('collapsed'); });
+    document.querySelectorAll('.panel-section').forEach(p => {
+      collapsed[p.dataset.panel] = p.classList.contains('collapsed');
+    });
     localStorage.setItem(PANEL_ORDER_KEY,     JSON.stringify(order));
     localStorage.setItem(PANEL_COLLAPSED_KEY, JSON.stringify(collapsed));
   }
 
   function restorePanelState() {
-    const mainCol = document.getElementById('main-col');
     try {
+      const order     = JSON.parse(localStorage.getItem(PANEL_ORDER_KEY)     || '{}');
       const collapsed = JSON.parse(localStorage.getItem(PANEL_COLLAPSED_KEY) || '{}');
-      const order     = JSON.parse(localStorage.getItem(PANEL_ORDER_KEY) || '[]');
+
+      // 列の割り当てと順序を復元（保存データがなければデフォルトを使用）
+      const colData = (order['col-left'] || order['col-right'])
+        ? order : DEFAULT_COLS;
+
+      ['col-left', 'col-right'].forEach(colId => {
+        const col = document.getElementById(colId);
+        if (!col) return;
+        (colData[colId] || []).forEach(panelId => {
+          const el = document.querySelector(`.panel-section[data-panel="${panelId}"]`);
+          if (el) col.appendChild(el);
+        });
+      });
 
       // 折りたたみ状態を復元
       document.querySelectorAll('.panel-section').forEach(p => {
+        const content = p.querySelector('.panel-content');
         if (collapsed[p.dataset.panel]) {
           p.classList.add('collapsed');
-          // 現在の高さをmax-heightに設定してからcollapseできるようにする
-          const content = p.querySelector('.panel-content');
           content.style.maxHeight = '0px';
         } else {
-          const content = p.querySelector('.panel-content');
-          content.style.maxHeight = content.scrollHeight + 'px';
+          content.style.maxHeight = 'none';
         }
       });
-
-      // 並び順を復元
-      if (order.length > 0) {
-        order.forEach(panelId => {
-          const el = mainCol.querySelector(`[data-panel="${panelId}"]`);
-          if (el) mainCol.appendChild(el);
-        });
-      }
-    } catch (e) { /* localStorageが空またはエラーの場合は無視 */ }
-
-    // 展開中パネルのmax-heightを初期設定
-    document.querySelectorAll('.panel-section:not(.collapsed) .panel-content').forEach(c => {
-      c.style.maxHeight = c.scrollHeight + 'px';
-    });
+    } catch (e) { /* 無視 */ }
   }
 
-  // --- 折りたたみトグル ---
-  document.getElementById('main-col').addEventListener('click', e => {
+  // --- 折りたたみトグル（app-body全体で委譲）---
+  document.getElementById('app-body').addEventListener('click', e => {
     const btn = e.target.closest('.panel-toggle');
     if (!btn) return;
     const panel   = btn.closest('.panel-section');
     const content = panel.querySelector('.panel-content');
     if (panel.classList.contains('collapsed')) {
-      // 展開
       panel.classList.remove('collapsed');
       content.style.maxHeight = content.scrollHeight + 'px';
-      // アニメーション後に auto に変更してリサイズ対応
       content.addEventListener('transitionend', () => {
         if (!panel.classList.contains('collapsed')) content.style.maxHeight = 'none';
         resizeCanvases();
       }, { once: true });
     } else {
-      // 折りたたみ（現在の高さを先に固定してからアニメーション）
       content.style.maxHeight = content.scrollHeight + 'px';
       requestAnimationFrame(() => {
         panel.classList.add('collapsed');
@@ -2525,16 +2548,16 @@
     savePanelState();
   });
 
-  // --- ドラッグ&ドロップ による並び替え ---
+  // --- ドラッグ&ドロップ（列をまたいだ移動に対応）---
   let dragSrc = null;
 
-  document.getElementById('main-col').addEventListener('mousedown', e => {
+  document.getElementById('app-body').addEventListener('mousedown', e => {
     const handle = e.target.closest('.drag-handle');
     if (!handle) return;
     handle.closest('.panel-section').setAttribute('draggable', 'true');
   });
 
-  document.getElementById('main-col').addEventListener('dragstart', e => {
+  document.getElementById('app-body').addEventListener('dragstart', e => {
     const panel = e.target.closest('.panel-section');
     if (!panel) return;
     dragSrc = panel;
@@ -2542,44 +2565,61 @@
     e.dataTransfer.effectAllowed = 'move';
   });
 
-  document.getElementById('main-col').addEventListener('dragend', e => {
+  document.getElementById('app-body').addEventListener('dragend', e => {
     const panel = e.target.closest('.panel-section');
     if (!panel) return;
     panel.setAttribute('draggable', 'false');
     panel.classList.remove('dragging');
     document.querySelectorAll('.panel-section.drag-over').forEach(p => p.classList.remove('drag-over'));
+    document.querySelectorAll('.col-panel.drop-target').forEach(c => c.classList.remove('drop-target'));
     dragSrc = null;
     savePanelState();
     resizeCanvases();
   });
 
-  document.getElementById('main-col').addEventListener('dragover', e => {
+  document.getElementById('app-body').addEventListener('dragover', e => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    const over = e.target.closest('.panel-section');
-    if (!over || over === dragSrc) return;
     document.querySelectorAll('.panel-section.drag-over').forEach(p => p.classList.remove('drag-over'));
-    over.classList.add('drag-over');
-  });
-
-  document.getElementById('main-col').addEventListener('dragleave', e => {
-    const over = e.target.closest('.panel-section');
-    if (over) over.classList.remove('drag-over');
-  });
-
-  document.getElementById('main-col').addEventListener('drop', e => {
-    e.preventDefault();
-    const over = e.target.closest('.panel-section');
-    if (!over || over === dragSrc || !dragSrc) return;
-    over.classList.remove('drag-over');
-    const mainCol = document.getElementById('main-col');
-    const panels  = [...mainCol.querySelectorAll('.panel-section')];
-    const srcIdx  = panels.indexOf(dragSrc);
-    const dstIdx  = panels.indexOf(over);
-    if (srcIdx < dstIdx) {
-      mainCol.insertBefore(dragSrc, over.nextSibling);
+    document.querySelectorAll('.col-panel.drop-target').forEach(c => c.classList.remove('drop-target'));
+    const overPanel = e.target.closest('.panel-section');
+    if (overPanel && overPanel !== dragSrc) {
+      overPanel.classList.add('drag-over');
     } else {
-      mainCol.insertBefore(dragSrc, over);
+      const overCol = e.target.closest('.col-panel');
+      if (overCol) overCol.classList.add('drop-target');
+    }
+  });
+
+  document.getElementById('app-body').addEventListener('dragleave', e => {
+    const overPanel = e.target.closest('.panel-section');
+    if (overPanel) overPanel.classList.remove('drag-over');
+    const overCol = e.target.closest('.col-panel');
+    if (overCol && !overCol.contains(e.relatedTarget)) overCol.classList.remove('drop-target');
+  });
+
+  document.getElementById('app-body').addEventListener('drop', e => {
+    e.preventDefault();
+    if (!dragSrc) return;
+    document.querySelectorAll('.col-panel.drop-target').forEach(c => c.classList.remove('drop-target'));
+
+    const overPanel = e.target.closest('.panel-section');
+    const overCol   = e.target.closest('.col-panel');
+
+    if (overPanel && overPanel !== dragSrc) {
+      overPanel.classList.remove('drag-over');
+      const targetCol = overPanel.closest('.col-panel');
+      const panels    = [...targetCol.querySelectorAll('.panel-section')];
+      const srcInSame = dragSrc.closest('.col-panel') === targetCol;
+      if (srcInSame) {
+        const srcIdx = panels.indexOf(dragSrc);
+        const dstIdx = panels.indexOf(overPanel);
+        targetCol.insertBefore(dragSrc, srcIdx < dstIdx ? overPanel.nextSibling : overPanel);
+      } else {
+        targetCol.insertBefore(dragSrc, overPanel);
+      }
+    } else if (overCol && !overCol.contains(dragSrc)) {
+      overCol.appendChild(dragSrc);
     }
   });
 
