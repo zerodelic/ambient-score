@@ -461,6 +461,8 @@
     }
 
     .log-entry.new { border-color: #334488; }
+    .log-entry.alert-fire    { border-color: #ff4400; background: #1a0800; }
+    .log-entry.alert-dismiss { border-color: #334400; background: #0d0d00; }
 
     .log-time  { color: #4466aa; font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; }
     .log-val-db { color: #88ffcc; white-space: nowrap; flex-shrink: 0; }
@@ -1033,7 +1035,7 @@
 </div>
 
 <div id="app-header">
-<h1>騒音周波数アナライザー <span id="app-version">v1.6.0 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
+<h1>騒音周波数アナライザー <span id="app-version">v1.6.1 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
 
 <div id="controls">
   <button id="btn-start" data-tip="マイク開始|マイクへのアクセスを許可し、リアルタイム測定を開始します。前回の最大・平均音量はこのタイミングでリセットされます。">マイク開始</button>
@@ -1747,6 +1749,8 @@
             `⚠ <strong>${dbShifted.toFixed(1)} dB</strong> が ${secStr}秒以上続いています（しきい値：${threshold} dB）`;
           document.getElementById('alert-banner').classList.add('active');
           document.getElementById('db-bar-bg').classList.add('alert-active');
+          // ログに記録
+          addAlertLogEntry('fire', `⚠ アラート発動 ${dbShifted.toFixed(1)}dB（しきい値 ${threshold}dB を ${secStr}秒超過）`);
         }
       } else if (dbShifted < threshold - 3) {
         // ヒステリシス: しきい値より3dB下がったら自動解除
@@ -1755,6 +1759,8 @@
           alertFired = false;
           document.getElementById('alert-banner').classList.remove('active');
           document.getElementById('db-bar-bg').classList.remove('alert-active');
+          // ログに記録
+          addAlertLogEntry('dismiss', '　 アラート解除（音量が低下）');
         }
       }
     }
@@ -2289,6 +2295,19 @@
       .map(cb => cb.dataset.col);
   }
 
+  function addAlertLogEntry(type, message) {
+    const empty = document.getElementById('log-empty');
+    if (empty) empty.remove();
+    const list  = document.getElementById('log-list');
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type === 'fire' ? 'alert-fire' : 'alert-dismiss'}`;
+    entry.innerHTML = `
+      <span class="log-time">${formatClock()}</span>
+      <span class="log-val-voice" style="color:${type === 'fire' ? '#ff8844' : '#888844'}">${message}</span>
+    `;
+    list.insertBefore(entry, list.firstChild);
+  }
+
   function addLogEntry(data) {
     // 全フィールドを保存
     logData.push(data);
@@ -2381,6 +2400,7 @@
     alertFired = false;
     document.getElementById('alert-banner').classList.remove('active');
     document.getElementById('db-bar-bg').classList.remove('alert-active');
+    addAlertLogEntry('dismiss', '　 アラート解除（手動）');
   });
 
   // =============================================
