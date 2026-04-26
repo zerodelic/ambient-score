@@ -795,11 +795,37 @@
       margin-left: 3px;
     }
 
+    #summary-history-wrap {
+      border-top: 1px solid #1a2255;
+    }
+    #btn-summary-history-toggle {
+      background: transparent;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+    }
+    #btn-summary-history-toggle:hover { color: #6677cc; background: #0a0a18; }
+
+    .history-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 5px 0;
+      border-bottom: 1px solid #0d0d20;
+      font-size: 0.68rem;
+    }
+    .history-row:last-child { border-bottom: none; }
+    .history-period { color: #4466aa; }
+    .history-score  { font-weight: bold; }
+    .history-grade  { font-size: 0.9rem; font-weight: bold; }
+    .history-dur    { color: #334466; }
+
     #summary-footer {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       padding: 14px 20px;
       justify-content: flex-end;
+      flex-wrap: wrap;
     }
     #btn-summary-close {
       padding: 8px 20px;
@@ -1027,15 +1053,21 @@
         <div class="sum-cell-value" id="sum-logcount">--<span class="sum-cell-unit">件</span></div>
       </div>
     </div>
+    <div id="summary-history-wrap">
+      <button id="btn-summary-history-toggle" style="width:100%;text-align:left;padding:8px 20px;font-size:0.7rem;border:none;border-top:1px solid #1a2255;border-radius:0;color:#4455aa;">▶ 過去のセッション履歴</button>
+      <div id="summary-history-list" style="display:none;max-height:180px;overflow-y:auto;padding:0 20px 8px;"></div>
+    </div>
     <div id="summary-footer">
       <button id="btn-summary-close">閉じる</button>
-      <button id="btn-summary-csv">CSV ダウンロード</button>
+      <button id="btn-summary-history-csv" style="font-size:0.8rem;padding:8px 14px;">履歴CSV</button>
+      <button id="btn-summary-save-csv" style="font-size:0.8rem;padding:8px 14px;">サマリーCSV</button>
+      <button id="btn-summary-csv">ログCSV</button>
     </div>
   </div>
 </div>
 
 <div id="app-header">
-<h1>騒音周波数アナライザー <span id="app-version">v1.6.2 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
+<h1>騒音周波数アナライザー <span id="app-version">v1.6.3 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
 
 <div id="controls">
   <button id="btn-start" data-tip="マイク開始|マイクへのアクセスを許可し、リアルタイム測定を開始します。前回の最大・平均音量はこのタイミングでリセットされます。">マイク開始</button>
@@ -2505,7 +2537,77 @@
     document.getElementById('sum-logcount').innerHTML =
       logData.length + '<span class="sum-cell-unit">件</span>';
 
+    // ---- セッション履歴に保存 ----
+    const SESSION_HISTORY_KEY = 'noiseAnalyzer_sessionHistory';
+    const MAX_HISTORY = 50;
+    const sessionRecord = {
+      period:    `${sessionStartClock || '--:--:--'} 〜 ${endClock}`,
+      duration:  durationStr,
+      score:     total,
+      grade,
+      stars,
+      desc,
+      maxDb:     sessionMax > 0 ? sessionMax.toFixed(1) : '0.0',
+      avgDb:     avgDb.toFixed(1),
+      occupancy: occupancy.toFixed(1),
+      events:    voiceEventCount,
+      voiceAvgDb: voiceAvgDb >= 0 ? voiceAvgDb.toFixed(1) : '',
+      maxTime:   maxEntry ? maxEntry.elapsed : '',
+      logCount:  logData.length,
+    };
+    try {
+      const history = JSON.parse(localStorage.getItem(SESSION_HISTORY_KEY) || '[]');
+      history.unshift(sessionRecord);
+      if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
+      localStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(history));
+    } catch (e) {}
+
+    // ---- 履歴リストを描画 ----
+    renderSessionHistory();
+
     document.getElementById('summary-overlay').classList.add('open');
+  }
+
+  function renderSessionHistory() {
+    const SESSION_HISTORY_KEY = 'noiseAnalyzer_sessionHistory';
+    const list = document.getElementById('summary-history-list');
+    let history = [];
+    try { history = JSON.parse(localStorage.getItem(SESSION_HISTORY_KEY) || '[]'); } catch(e){}
+
+    if (history.length === 0) {
+      list.innerHTML = '<div style="color:#334466;font-size:0.68rem;padding:8px 0;">履歴はありません</div>';
+      return;
+    }
+    const gradeColors = { A:'#44ffaa', B:'#88ffcc', C:'#ffcc44', D:'#ff8844', E:'#ff4444' };
+    list.innerHTML = history.map((s, i) => `
+      <div class="history-row">
+        <span class="history-period">${i === 0 ? '▶ 今回　' : ''}${s.period}（${s.duration}）</span>
+        <span class="history-score" style="color:${gradeColors[s.grade]||'#88ffcc'}">${s.score}点</span>
+        <span class="history-grade" style="color:${gradeColors[s.grade]||'#88ffcc'}">${s.grade}</span>
+        <span class="history-dur">${s.occupancy}%</span>
+      </div>`).join('');
+  }
+
+  function exportSummaryCSV(single = true) {
+    const SESSION_HISTORY_KEY = 'noiseAnalyzer_sessionHistory';
+    let history = [];
+    try { history = JSON.parse(localStorage.getItem(SESSION_HISTORY_KEY) || '[]'); } catch(e){}
+    if (history.length === 0) return;
+
+    const rows = single ? [history[0]] : history;
+    const header = '測定期間,測定時間,静粛スコア,グレード,最大音量(dB),平均音量(dB),声の占有率(%),声のイベント数(回),声の平均音圧(dB),最大音量の時刻,ログ記録数';
+    const body = rows.map(s =>
+      [s.period, s.duration, s.score, s.grade, s.maxDb, s.avgDb,
+       s.occupancy, s.events, s.voiceAvgDb, s.maxTime, s.logCount].join(',')
+    );
+    const csv = [header, ...body].join('\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `noise-summary-${single ? 'session' : 'history'}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   document.getElementById('btn-summary-close').addEventListener('click', () => {
@@ -2515,8 +2617,16 @@
     if (e.target === document.getElementById('summary-overlay'))
       document.getElementById('summary-overlay').classList.remove('open');
   });
-  document.getElementById('btn-summary-csv').addEventListener('click', () => {
-    exportCSV();
+  document.getElementById('btn-summary-csv').addEventListener('click', exportCSV);
+  document.getElementById('btn-summary-save-csv').addEventListener('click', () => exportSummaryCSV(true));
+  document.getElementById('btn-summary-history-csv').addEventListener('click', () => exportSummaryCSV(false));
+  document.getElementById('btn-summary-history-toggle').addEventListener('click', () => {
+    const list = document.getElementById('summary-history-list');
+    const btn  = document.getElementById('btn-summary-history-toggle');
+    const open = list.style.display === 'none';
+    list.style.display = open ? 'block' : 'none';
+    btn.textContent = (open ? '▼' : '▶') + ' 過去のセッション履歴';
+    if (open) renderSessionHistory();
   });
 
   // =============================================
