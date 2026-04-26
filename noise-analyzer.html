@@ -1035,10 +1035,11 @@
 </div>
 
 <div id="app-header">
-<h1>騒音周波数アナライザー <span id="app-version">v1.6.1 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
+<h1>騒音周波数アナライザー <span id="app-version">v1.6.2 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
 
 <div id="controls">
   <button id="btn-start" data-tip="マイク開始|マイクへのアクセスを許可し、リアルタイム測定を開始します。前回の最大・平均音量はこのタイミングでリセットされます。">マイク開始</button>
+  <button id="btn-pause" disabled data-tip="一時停止 / 再開|測定を一時停止します。データはそのまま保持され、再開すると続きから測定できます。">⏸ 一時停止</button>
   <button id="btn-stop" disabled data-tip="停止|測定を停止します。最大・平均音量は保持されたままで、次の開始でリセットされます。">停止</button>
   <button id="btn-alert-settings" data-tip="騒音アラート設定|指定したdBレベルが一定時間続いたときに警告を表示します。しきい値と継続時間を自由に設定できます。">🔔 アラート</button>
   <select id="fft-size" data-tip="FFTサイズ|周波数分解能と応答速度のトレードオフ。数値が大きいほど周波数の細かい分析が可能ですが、応答が遅くなります。通常は2048が最適です。">
@@ -1314,7 +1315,9 @@
   const hmCtx   = hmCanvas.getContext('2d');
 
   const btnStart = document.getElementById('btn-start');
-  const btnStop = document.getElementById('btn-stop');
+  const btnPause = document.getElementById('btn-pause');
+  const btnStop  = document.getElementById('btn-stop');
+  let isPaused = false;
   const fftSizeEl = document.getElementById('fft-size');
   const windowModeEl = document.getElementById('window-mode');
   const status = document.getElementById('status');
@@ -1603,6 +1606,9 @@
       status.textContent = '測定中...';
       btnStart.disabled = true;
       btnStart.classList.remove('active');
+      btnPause.disabled = false;
+      btnPause.textContent = '⏸ 一時停止';
+      isPaused = false;
       btnStop.disabled = false;
       btnStop.classList.add('active');
       fftSizeEl.disabled = true;
@@ -1618,6 +1624,9 @@
     if (audioCtx) audioCtx.close();
     status.textContent = '停止中';
     btnStart.disabled = false;
+    btnPause.disabled = true;
+    btnPause.textContent = '⏸ 一時停止';
+    isPaused = false;
     btnStop.disabled = true;
     btnStop.classList.remove('active');
     fftSizeEl.disabled = false;
@@ -2360,7 +2369,29 @@
     list.innerHTML = '<div id="log-empty">測定を開始すると<br>ここに記録されます</div>';
   });
 
+  function pause() {
+    if (animId) cancelAnimationFrame(animId);
+    isPaused = true;
+    btnPause.textContent = '▶ 再開';
+    btnPause.classList.add('active');
+    status.textContent = '一時停止中';
+    addAlertLogEntry('dismiss', '⏸ 一時停止');
+  }
+
+  function resume() {
+    isPaused = false;
+    btnPause.textContent = '⏸ 一時停止';
+    btnPause.classList.remove('active');
+    status.textContent = '測定中...';
+    addAlertLogEntry('dismiss', '▶ 再開');
+    // startTime を一時停止分だけ前倒しして elapsed を継続させる
+    if (startTime !== null) startTime = null; // 次フレームで再設定
+    lastMeterTime = 0;
+    draw();
+  }
+
   btnStart.addEventListener('click', start);
+  btnPause.addEventListener('click', () => { isPaused ? resume() : pause(); });
   btnStop.addEventListener('click', stop);
   fftSizeEl.addEventListener('change', () => {
     if (analyser) analyser.fftSize = parseInt(fftSizeEl.value);
