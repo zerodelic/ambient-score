@@ -463,6 +463,35 @@
     .log-entry.new { border-color: #334488; }
     .log-entry.alert-fire    { border-color: #ff4400; background: #1a0800; }
     .log-entry.alert-dismiss { border-color: #334400; background: #0d0d00; }
+    .log-entry.manual-label  { border-color: #446688; background: #080d1a; }
+
+    #label-buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    #label-buttons .label-title {
+      color: #4466aa;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+    .label-btn {
+      padding: 6px 14px;
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      border-radius: 20px;
+      border: 1px solid #334466;
+      background: #080d1a;
+      color: #8899bb;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .label-btn:hover:not(:disabled) { background: #112244; color: #cce0ff; border-color: #5577aa; }
+    .label-btn:disabled { opacity: 0.25; cursor: not-allowed; }
 
     .log-time  { color: #4466aa; font-size: 0.65rem; white-space: nowrap; flex-shrink: 0; }
     .log-val-db { color: #88ffcc; white-space: nowrap; flex-shrink: 0; }
@@ -1067,7 +1096,7 @@
 </div>
 
 <div id="app-header">
-<h1>騒音周波数アナライザー <span id="app-version">v1.7.0 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
+<h1>騒音周波数アナライザー <span id="app-version">v1.7.1 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
 
 <div id="controls">
   <button id="btn-start" data-tip="マイク開始|マイクへのアクセスを許可し、リアルタイム測定を開始します。前回の最大・平均音量はこのタイミングでリセットされます。">マイク開始</button>
@@ -1085,6 +1114,14 @@
     <option value="line">ライン表示</option>
     <option value="fill">フィル表示</option>
   </select>
+</div>
+
+<div id="label-buttons" data-tip="手動ラベル|測定中にワンタップでその場の状況をログに記録します。CSVにも「手動ラベル」列として出力されます。">
+  <span class="label-title">📌 手動ラベル：</span>
+  <button class="label-btn" data-label="🎙 人の声がした"   data-color="#44ffaa" disabled>🎙 人の声がした</button>
+  <button class="label-btn" data-label="🌿 環境音のみ"     data-color="#44aaff" disabled>🌿 環境音のみ</button>
+  <button class="label-btn" data-label="🔊 とてもうるさい" data-color="#ff8844" disabled>🔊 とてもうるさい</button>
+  <button class="label-btn" data-label="🤫 静寂"           data-color="#aaaacc" disabled>🤫 静寂</button>
 </div>
 
 <div id="alert-settings-panel">
@@ -1644,6 +1681,7 @@
       btnStop.disabled = false;
       btnStop.classList.add('active');
       fftSizeEl.disabled = true;
+      setLabelButtons(true);
 
       draw();
     } catch (e) {
@@ -1662,6 +1700,7 @@
     btnStop.disabled = true;
     btnStop.classList.remove('active');
     fftSizeEl.disabled = false;
+    setLabelButtons(false);
     peakBuffer.fill(0);
     peakBufIdx = 0;
     clearCanvases();
@@ -1762,6 +1801,7 @@
           occupancy:   occNow,
           voiceEvents: voiceEventCount,
           voiceAvgDb:  avgDbNow,
+          manualLabel: '',
         });
       }
     }
@@ -2330,15 +2370,16 @@
     return `${hh}:${mm}:${ss}`;
   }
 
-  // 全列の定義（id・表示名・値フォーマッタ）
+  // 全列の定義（id・表示名・値フォーマッタ）※ null は空文字として出力
   const LOG_COLS = [
-    { id: 'dbVal',       label: '音圧(dB)',          fmt: v => v.toFixed(1) },
-    { id: 'peak3s',      label: '直近3秒最大(dB)',   fmt: v => v.toFixed(1) },
-    { id: 'domFreqVal',  label: '卓越周波数(Hz)',     fmt: v => v.toFixed(1) },
-    { id: 'voiceLabel',  label: '音源識別',           fmt: v => `"${v}"` },
-    { id: 'occupancy',   label: '声の占有率(%)',      fmt: v => v.toFixed(1) },
-    { id: 'voiceEvents', label: '声のイベント数',     fmt: v => String(v) },
-    { id: 'voiceAvgDb',  label: '声の平均音圧(dB)',   fmt: v => v >= 0 ? v.toFixed(1) : '' },
+    { id: 'dbVal',       label: '音圧(dB)',          fmt: v => v != null ? v.toFixed(1) : '' },
+    { id: 'peak3s',      label: '直近3秒最大(dB)',   fmt: v => v != null ? v.toFixed(1) : '' },
+    { id: 'domFreqVal',  label: '卓越周波数(Hz)',     fmt: v => v != null ? v.toFixed(1) : '' },
+    { id: 'voiceLabel',  label: '音源識別',           fmt: v => v != null ? `"${v}"` : '' },
+    { id: 'occupancy',   label: '声の占有率(%)',      fmt: v => v != null ? v.toFixed(1) : '' },
+    { id: 'voiceEvents', label: '声のイベント数',     fmt: v => v != null ? String(v) : '' },
+    { id: 'voiceAvgDb',  label: '声の平均音圧(dB)',   fmt: v => (v != null && v >= 0) ? v.toFixed(1) : '' },
+    { id: 'manualLabel', label: '手動ラベル',         fmt: v => v ? `"${v}"` : '' },
   ];
 
   // 有効な列IDを取得
@@ -2347,6 +2388,51 @@
       .filter(cb => cb.checked)
       .map(cb => cb.dataset.col);
   }
+
+  // ラベルボタンの有効/無効を切り替え
+  function setLabelButtons(enabled) {
+    document.querySelectorAll('.label-btn').forEach(btn => {
+      btn.disabled = !enabled;
+    });
+  }
+
+  // 手動ラベルをログに追加（アラートログ表示 + CSVデータ）
+  function addManualLabel(label, color) {
+    // アラートログに表示
+    const empty = document.getElementById('log-empty');
+    if (empty) empty.remove();
+    const list  = document.getElementById('log-list');
+    const entry = document.createElement('div');
+    entry.className = 'log-entry manual-label';
+    entry.innerHTML = `
+      <span class="log-time">${formatClock()}</span>
+      <span class="log-val-voice" style="color:${color}; font-weight:600;">📌 ${label}</span>
+    `;
+    list.insertBefore(entry, list.firstChild);
+
+    // CSVデータに追加（測定値はnull、手動ラベルのみ記録）
+    const sec = startTime != null ? Math.floor((Date.now() - startTime) / 1000) : 0;
+    const m   = Math.floor(sec / 60);
+    const s   = String(sec % 60).padStart(2, '0');
+    logData.push({
+      elapsed:     formatClock(),
+      dbVal:       null,
+      peak3s:      null,
+      domFreqVal:  null,
+      voiceLabel:  null,
+      occupancy:   null,
+      voiceEvents: null,
+      voiceAvgDb:  null,
+      manualLabel: label,
+    });
+  }
+
+  // ラベルボタンのクリックイベント
+  document.querySelectorAll('.label-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      addManualLabel(btn.dataset.label, btn.dataset.color);
+    });
+  });
 
   function addAlertLogEntry(type, message) {
     const empty = document.getElementById('log-empty');
@@ -2419,6 +2505,7 @@
     btnPause.textContent = '▶ 再開';
     btnPause.classList.add('active');
     status.textContent = '一時停止中';
+    setLabelButtons(false);
     addAlertLogEntry('dismiss', '⏸ 一時停止');
   }
 
@@ -2427,6 +2514,7 @@
     btnPause.textContent = '⏸ 一時停止';
     btnPause.classList.remove('active');
     status.textContent = '測定中...';
+    setLabelButtons(true);
     addAlertLogEntry('dismiss', '▶ 再開');
     // startTime を一時停止分だけ前倒しして elapsed を継続させる
     if (startTime !== null) startTime = null; // 次フレームで再設定
