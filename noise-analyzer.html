@@ -1067,7 +1067,7 @@
 </div>
 
 <div id="app-header">
-<h1>騒音周波数アナライザー <span id="app-version">v1.6.3 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
+<h1>騒音周波数アナライザー <span id="app-version">v1.7.0 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
 
 <div id="controls">
   <button id="btn-start" data-tip="マイク開始|マイクへのアクセスを許可し、リアルタイム測定を開始します。前回の最大・平均音量はこのタイミングでリセットされます。">マイク開始</button>
@@ -1379,7 +1379,7 @@
   let pitchHistIdx = 0;
 
   // 背景レベル自動追跡（VAD用）
-  let bgLevel = 10; // 起動直後の仮初期値
+  let bgLevel = 30; // 起動直後の仮初期値（実オフィスの典型的な環境音レベルに近い値）
 
   // ---- アラート状態 ----
   let alertExceedStart = null; // しきい値超え開始タイムスタンプ
@@ -1611,7 +1611,7 @@
       pitchHistory.fill(0);
       pitchHistIdx = 0;
       smoothVoiceScore = 0;
-      bgLevel = 10;
+      bgLevel = 30;
       voiceFrameCount = 0;
       totalFrameCount = 0;
       voiceEventCount = 0;
@@ -1961,8 +1961,11 @@
 
     // --- 背景レベル自動追跡 ---
     // 現在の音量が背景レベルに近い時だけゆっくり更新（突発音では更新しない）
+    // 起動時など bgLevel が実際の環境音から大きく乖離している場合は速めに追従
     if (dbShifted < bgLevel + 4) {
-      bgLevel = bgLevel * 0.992 + dbShifted * 0.008;
+      bgLevel = bgLevel * 0.992 + dbShifted * 0.008; // 通常：低速追従
+    } else if (bgLevel < dbShifted - 12) {
+      bgLevel = bgLevel * 0.97  + dbShifted * 0.03;  // 大きく乖離時：速めに追従（起動時対策）
     }
     const activityDb = dbShifted - bgLevel; // 背景より何dB高いか
 
@@ -1986,11 +1989,19 @@
       const harmonicSc  = harmonicScore(freqData, pitch.freq, nyquist, bufLen);
       const formantSc   = formantElevationScore(freqData, nyquist, bufLen);
 
-      // 重み付き合計（3指標に集約）
-      const voiceScore =
+      // 卓越周波数ゲート：人の声は200Hz以上にエネルギーが分散する特性がある
+      // 空調・換気扇ノイズは低域(〜200Hz)に集中するため抑制する
+      // 実測データ：通常オフィス(無声)の96.1%が200Hz未満、会議中(有声)の75%が200Hz以上
+      const freqGate = domFreq < 200 ? 0.15                              // 200Hz未満：強く抑制（空調ノイズ）
+                     : domFreq < 300 ? 0.15 + (domFreq - 200) / 100 * 0.85  // 200〜300Hz：線形に回復
+                     :                 1.0;                               // 300Hz以上：制限なし（人の声の典型域）
+
+      // 重み付き合計（3指標に集約）× 周波数ゲート
+      const voiceScore = (
         formantSc  * 0.50 +
         pitchSc    * 0.30 +
-        harmonicSc * 0.20;
+        harmonicSc * 0.20
+      ) * freqGate;
 
       // EMA平滑化（ちらつき防止）
       smoothVoiceScore = smoothVoiceScore * 0.7 + voiceScore * 0.3;
@@ -2267,9 +2278,10 @@
     const occupancy   = totalFrameCount > 0 ? voiceFrameCount / totalFrameCount * 100 : 0;
     const occScore    = Math.max(0, 100 - occupancy * 2);
 
-    // ② 平均音量スコア（0dB=100点、40dB以上=0点）
+    // ② 平均音量スコア（WELL Building Standard基準）
+    // 35dB以下=優良(75〜100点)、45dB=許容水準(50点)、65dB以上=0点
     const avgDb       = sessionCount > 0 ? sessionSum / sessionCount : 0;
-    const volScore    = Math.max(0, 100 - avgDb * 2.5);
+    const volScore    = Math.max(0, Math.min(100, (65 - avgDb) * 2.5));
 
     // ③ 会話頻度スコア（0回/分=100点、20回/分以上=0点）
     const elapsedMin  = Math.max(1/60, elapsedSec / 60);
@@ -2495,7 +2507,7 @@
 
     // 静粛スコア再計算
     const occScore  = Math.max(0, 100 - occupancy * 2);
-    const volScore  = Math.max(0, 100 - avgDb * 2.5);
+    const volScore  = Math.max(0, Math.min(100, (65 - avgDb) * 2.5)); // WELL基準: 35dB→75pt, 45dB→50pt
     const elMin     = Math.max(1/60, durationSec / 60);
     const freqScore = Math.max(0, 100 - (voiceEventCount / elMin) * 5);
     const total     = Math.round(occScore * 0.40 + volScore * 0.30 + freqScore * 0.30);
