@@ -1263,7 +1263,7 @@
   </div>
   <div class="panel-content">
     <div class="canvas-wrap">
-      <div class="canvas-title">20Hz – Nyquist</div>
+      <div class="canvas-title" id="spectrum-range-label">20Hz – Nyquist</div>
       <canvas id="spectrum" height="240"></canvas>
     </div>
   </div>
@@ -1700,8 +1700,11 @@
       source = audioCtx.createMediaStreamSource(stream);
       source.connect(analyser);
 
+      const sr = audioCtx.sampleRate;
       document.getElementById('val-sr').innerHTML =
-        audioCtx.sampleRate.toLocaleString() + '<span class="meter-unit">Hz</span>';
+        sr.toLocaleString() + '<span class="meter-unit">Hz</span>';
+      document.getElementById('spectrum-range-label').textContent =
+        '20Hz – ' + (sr / 2).toLocaleString() + 'Hz (Nyquist)';
       // 開始時にセッション集計・ログをリセット
       startTime = null;
       sessionStartClock = formatClock();
