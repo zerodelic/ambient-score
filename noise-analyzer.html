@@ -1151,7 +1151,7 @@
   <div id="live-clock-date">---</div>
   <div id="live-clock-time">--:--:--</div>
 </div>
-<h1>騒音周波数アナライザー <span id="app-version">v1.8.2 &nbsp;|&nbsp; 更新日：2026-05-01</span></h1>
+<h1>騒音周波数アナライザー <span id="app-version">v1.8.3 &nbsp;|&nbsp; 更新日：2026-05-01</span></h1>
 
 <div id="controls">
   <button id="btn-start" data-tip="マイク開始|マイクへのアクセスを許可し、リアルタイム測定を開始します。前回の最大・平均音量はこのタイミングでリセットされます。">マイク開始</button>
@@ -1920,10 +1920,10 @@
 
     // Grid lines
     const gridFreqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
-    specCtx.strokeStyle = '#1a2255';
+    specCtx.strokeStyle = '#2a3366';
     specCtx.lineWidth = 1;
     specCtx.font = `${11 * window.devicePixelRatio}px Courier New`;
-    specCtx.fillStyle = '#2233aa';
+    specCtx.fillStyle = '#7799cc';
     gridFreqs.forEach(f => {
       if (f > nyquist) return;
       const x = freqToX(f, nyquist, w);
@@ -1939,12 +1939,12 @@
     const dbLines = [0, 20, 40, 60, 80];
     dbLines.forEach(db => {
       const y = h - 20 * window.devicePixelRatio - (db / dbRange) * (h - 30 * window.devicePixelRatio);
-      specCtx.strokeStyle = '#1a2255';
+      specCtx.strokeStyle = '#2a3366';
       specCtx.beginPath();
       specCtx.moveTo(0, y);
       specCtx.lineTo(w, y);
       specCtx.stroke();
-      specCtx.fillStyle = '#2233aa';
+      specCtx.fillStyle = '#7799cc';
       specCtx.fillText(db + 'dB', 2, y - 2);
     });
 
@@ -2195,16 +2195,16 @@
     tsCtx.fillRect(0, 0, w, h);
 
     // dBグリッド
-    tsCtx.font = `${10 * dpr}px Courier New`;
+    tsCtx.font = `${11 * dpr}px Courier New`;
     tsCtx.textBaseline = 'middle';
     [0, 20, 40, 60, 80].forEach(db => {
       const y = padT + chartH - (db / dbRange) * chartH;
-      tsCtx.strokeStyle = '#1a2255';
+      tsCtx.strokeStyle = '#2a3366';
       tsCtx.lineWidth = 1;
       tsCtx.beginPath();
       tsCtx.moveTo(padL, y); tsCtx.lineTo(padL + chartW, y);
       tsCtx.stroke();
-      tsCtx.fillStyle = '#2233aa';
+      tsCtx.fillStyle = '#7799cc';
       tsCtx.textAlign = 'right';
       tsCtx.fillText(db, padL - 4, y);
     });
@@ -2212,7 +2212,7 @@
 
     // データ不足時メッセージ
     if (entries.length < 2) {
-      tsCtx.fillStyle = '#2a3660';
+      tsCtx.fillStyle = '#5566aa';
       tsCtx.textAlign = 'center';
       tsCtx.font = `${12 * dpr}px Courier New`;
       tsCtx.fillText('測定開始後にグラフが描画されます', padL + chartW / 2, padT + chartH / 2);
@@ -2262,8 +2262,8 @@
     }
 
     // 時刻ラベル（最大5点）
-    tsCtx.fillStyle = '#2a3660';
-    tsCtx.font = `${9 * dpr}px Courier New`;
+    tsCtx.fillStyle = '#7799bb';
+    tsCtx.font = `${10 * dpr}px Courier New`;
     tsCtx.textAlign = 'center';
     tsCtx.textBaseline = 'alphabetic';
     const labelCount = 4;
@@ -2273,7 +2273,7 @@
       const si = startIdx + ei;
       const x  = xOf(si);
       // 目盛り線
-      tsCtx.strokeStyle = '#1a2255';
+      tsCtx.strokeStyle = '#2a3366';
       tsCtx.lineWidth = 1;
       tsCtx.beginPath();
       tsCtx.moveTo(x, padT + chartH);
@@ -2289,7 +2289,7 @@
       { color: '#ffcc44', label: '不明確' },
       { color: '#ff6644', label: '騒音'   },
     ];
-    tsCtx.font = `${9 * dpr}px Courier New`;
+    tsCtx.font = `${10 * dpr}px Courier New`;
     tsCtx.textBaseline = 'middle';
     let lx = padL + 4 * dpr;
     const ly = padT + 8 * dpr;
@@ -2297,7 +2297,7 @@
       tsCtx.fillStyle = l.color;
       tsCtx.fillRect(lx, ly - 4 * dpr, 10 * dpr, 8 * dpr);
       lx += 13 * dpr;
-      tsCtx.fillStyle = '#4455aa';
+      tsCtx.fillStyle = '#aabbdd';
       tsCtx.fillText(l.label, lx, ly);
       lx += (tsCtx.measureText(l.label).width + 10 * dpr);
     });
@@ -2332,7 +2332,7 @@
     hmCtx.fillRect(0, 0, w, h);
 
     if (keys.length === 0) {
-      hmCtx.fillStyle = '#2a3660';
+      hmCtx.fillStyle = '#5566aa';
       hmCtx.font = `${11 * dpr}px Courier New`;
       hmCtx.textAlign = 'center';
       hmCtx.textBaseline = 'middle';
@@ -2367,8 +2367,8 @@
       // 時刻ラベル（多すぎる場合は間引く）
       const step = Math.ceil(keys.length / Math.max(1, Math.floor(w / (40 * dpr))));
       if (i % step === 0) {
-        hmCtx.fillStyle = '#4466aa';
-        hmCtx.font = `${9 * dpr}px Courier New`;
+        hmCtx.fillStyle = '#7799bb';
+        hmCtx.font = `${10 * dpr}px Courier New`;
         hmCtx.textAlign = 'center';
         hmCtx.textBaseline = 'top';
         hmCtx.fillText(key, x + cellW / 2, cellH + voiceBarH + 1 * dpr);
