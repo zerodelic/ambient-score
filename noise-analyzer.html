@@ -1242,9 +1242,13 @@
         <div class="meter-label">卓越周波数</div>
         <div class="meter-value" id="val-dom">---<span class="meter-unit">Hz</span></div>
       </div>
+      <div class="meter-box" data-tip="サンプリングレート|マイクが1秒間に音を記録する回数。48000Hzの場合、ナイキスト周波数（表現できる最高音）は24000Hzになります。">
+        <div class="meter-label">サンプリングレート</div>
+        <div class="meter-value" id="val-sr" style="font-size:1.1rem;">---<span class="meter-unit">Hz</span></div>
+      </div>
     </div>
     <div id="db-bar-wrap">
-      <div id="db-bar-label">音圧レベル: <span id="db-bar-text">--- dB</span><span id="val-sr" style="color:#6688aa;font-size:0.75rem;margin-left:12px;"></span></div>
+      <div id="db-bar-label">音圧レベル: <span id="db-bar-text">--- dB</span></div>
       <div id="db-bar-bg"><div id="db-bar-fill"></div></div>
     </div>
   </div>
@@ -1696,7 +1700,8 @@
       source = audioCtx.createMediaStreamSource(stream);
       source.connect(analyser);
 
-      document.getElementById('val-sr').textContent = audioCtx.sampleRate + ' Hz';
+      document.getElementById('val-sr').innerHTML =
+        audioCtx.sampleRate.toLocaleString() + '<span class="meter-unit">Hz</span>';
       // 開始時にセッション集計・ログをリセット
       startTime = null;
       sessionStartClock = formatClock();
