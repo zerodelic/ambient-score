@@ -849,6 +849,31 @@
     .history-grade  { font-size: 0.9rem; font-weight: bold; }
     .history-dur    { color: #334466; }
 
+    #summary-location-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    #summary-location-row label {
+      font-size: 0.7rem;
+      color: #4466aa;
+      white-space: nowrap;
+    }
+    #report-location {
+      flex: 1;
+      background: #0a0a20;
+      border: 1px solid #2233aa;
+      border-radius: 4px;
+      color: #88aaff;
+      font-size: 0.78rem;
+      padding: 5px 10px;
+      font-family: inherit;
+      outline: none;
+    }
+    #report-location::placeholder { color: #334466; }
+    #report-location:focus { border-color: #4466ff; }
+
     #summary-footer {
       display: flex;
       gap: 8px;
@@ -1039,6 +1064,10 @@
     <div id="summary-header">
       <div id="summary-title">測定セッションサマリー</div>
       <div id="summary-period">---</div>
+      <div id="summary-location-row">
+        <label>📍 場所メモ：</label>
+        <input id="report-location" type="text" placeholder="例：3F 会議室A、カフェXXX など">
+      </div>
     </div>
     <div id="summary-score-row">
       <div id="sum-score-num">--</div>
@@ -1091,12 +1120,13 @@
       <button id="btn-summary-history-csv" style="font-size:0.8rem;padding:8px 14px;">履歴CSV</button>
       <button id="btn-summary-save-csv" style="font-size:0.8rem;padding:8px 14px;">サマリーCSV</button>
       <button id="btn-summary-csv">ログCSV</button>
+      <button id="btn-report" style="font-size:0.8rem;padding:8px 14px;border-color:#44aa88;color:#44ffaa;">📄 レポート</button>
     </div>
   </div>
 </div>
 
 <div id="app-header">
-<h1>騒音周波数アナライザー <span id="app-version">v1.7.1 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
+<h1>騒音周波数アナライザー <span id="app-version">v1.8.0 &nbsp;|&nbsp; 作成日：2026-04-21</span></h1>
 
 <div id="controls">
   <button id="btn-start" data-tip="マイク開始|マイクへのアクセスを許可し、リアルタイム測定を開始します。前回の最大・平均音量はこのタイミングでリセットされます。">マイク開始</button>
@@ -1703,6 +1733,8 @@
     setLabelButtons(false);
     peakBuffer.fill(0);
     peakBufIdx = 0;
+    // レポート用に時系列グラフをキャプチャ（clearCanvases前に実行）
+    try { lastTsImageUrl = tsCanvas.toDataURL('image/png'); } catch(e) { lastTsImageUrl = null; }
     clearCanvases();
     // データがある場合はサマリーを表示
     if (sessionCount > 0) showSummary();
@@ -2361,6 +2393,7 @@
   let logData = []; // CSVエクスポート用
   let startTime = null;
   let sessionStartClock = null; // 実時計での開始時刻
+  let lastTsImageUrl = null;   // レポート用：停止時の時系列グラフ画像
 
   function formatClock() {
     const now = new Date();
@@ -2687,6 +2720,267 @@
         <span class="history-dur">${s.occupancy}%</span>
       </div>`).join('');
   }
+
+  // =============================================
+  // --- レポート生成 ---
+  // =============================================
+  function generateReport() {
+    const location  = document.getElementById('report-location').value.trim() || '未設定';
+    const period    = document.getElementById('summary-period').textContent;
+    const scoreNum  = document.getElementById('sum-score-num').textContent;
+    const scoreColor= document.getElementById('sum-score-num').style.color || '#44ffaa';
+    const grade     = document.getElementById('sum-score-grade').textContent;
+    const stars     = document.getElementById('sum-score-stars').textContent;
+    const desc      = document.getElementById('sum-score-desc').textContent;
+    const duration  = document.getElementById('sum-duration').textContent.replace(/<[^>]+>/g,'');
+    const maxDb     = document.getElementById('sum-max').textContent.replace(/<[^>]+>/g,'');
+    const avgDb     = document.getElementById('sum-avg').textContent.replace(/<[^>]+>/g,'');
+    const avgDbNum  = parseFloat(avgDb) || 0;
+    const occ       = document.getElementById('sum-occ').textContent.replace(/<[^>]+>/g,'');
+    const events    = document.getElementById('sum-events').textContent.replace(/<[^>]+>/g,'');
+    const voiceDb   = document.getElementById('sum-voicedb').textContent.replace(/<[^>]+>/g,'');
+    const maxTime   = document.getElementById('sum-maxtime').textContent;
+    const logCount  = document.getElementById('sum-logcount').textContent.replace(/<[^>]+>/g,'');
+    const occScore  = document.getElementById('sc-occ').textContent;
+    const volScore  = document.getElementById('sc-vol').textContent;
+    const freqScore = document.getElementById('sc-freq').textContent;
+    const today     = new Date().toLocaleDateString('ja-JP', {year:'numeric',month:'long',day:'numeric',weekday:'short'});
+
+    // WELL評価
+    const wellOpen    = avgDbNum <= 45;
+    const wellPrivate = avgDbNum <= 35;
+
+    // 手動ラベル一覧
+    const labels = logData.filter(d => d.manualLabel);
+
+    // 時系列グラフ画像
+    const chartImg = lastTsImageUrl
+      ? `<img src="${lastTsImageUrl}" style="width:100%;border-radius:6px;display:block;">`
+      : '<div style="color:#999;font-size:0.85rem;padding:20px;text-align:center;">グラフデータなし</div>';
+
+    const labelsHtml = labels.length === 0
+      ? '<tr><td colspan="2" style="color:#999;text-align:center;padding:10px;">手動ラベルの記録なし</td></tr>'
+      : labels.map(d => `
+          <tr>
+            <td style="color:#555;padding:5px 12px;white-space:nowrap;">${d.elapsed}</td>
+            <td style="padding:5px 12px;">${d.manualLabel}</td>
+          </tr>`).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>騒音測定レポート — ${location}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', 'Hiragino Sans', 'Meiryo', sans-serif;
+      background: #f4f6fa;
+      color: #1a1a2e;
+      padding: 24px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .report-wrap { max-width: 760px; margin: 0 auto; }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 12px #0001;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .card-header {
+      background: #1a1a3e;
+      color: #fff;
+      padding: 14px 20px;
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .card-body { padding: 20px; }
+    /* タイトルカード */
+    .report-title-card {
+      background: linear-gradient(135deg, #1a1a3e, #0d1a3a);
+      color: #fff;
+      border-radius: 10px;
+      padding: 28px 28px 22px;
+      margin-bottom: 20px;
+    }
+    .report-title-card h1 { font-size: 1.4rem; font-weight: 700; margin-bottom: 10px; letter-spacing: 0.05em; }
+    .report-meta { display: flex; flex-wrap: wrap; gap: 20px; font-size: 0.82rem; color: #aac; margin-top: 12px; }
+    .report-meta span b { color: #88aaff; margin-right: 6px; }
+    /* スコアカード */
+    .score-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+    .score-big { font-size: 3.5rem; font-weight: 900; line-height: 1; color: ${scoreColor}; }
+    .score-grade { font-size: 2rem; font-weight: 700; color: ${scoreColor}; }
+    .score-right { display: flex; flex-direction: column; gap: 4px; }
+    .score-stars { font-size: 1.4rem; color: ${scoreColor}; }
+    .score-desc  { font-size: 0.9rem; color: #555; }
+    .sub-scores  { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+    .sub-score-box {
+      flex: 1; min-width: 100px;
+      background: #f8f9fc;
+      border-radius: 8px;
+      padding: 10px 14px;
+      text-align: center;
+    }
+    .sub-score-label { font-size: 0.65rem; color: #888; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
+    .sub-score-val   { font-size: 1.5rem; font-weight: 700; color: #2244aa; }
+    /* メトリクスグリッド */
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .metric-box { background: #f8f9fc; border-radius: 8px; padding: 12px 16px; }
+    .metric-label { font-size: 0.62rem; color: #888; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
+    .metric-val   { font-size: 1.35rem; font-weight: 700; color: #1a2a5e; }
+    .metric-unit  { font-size: 0.7rem; color: #aaa; margin-left: 2px; }
+    /* WELL比較 */
+    .well-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #eee; }
+    .well-row:last-child { border-bottom: none; }
+    .well-badge { font-size: 1.1rem; width: 28px; text-align: center; flex-shrink: 0; }
+    .well-text  { flex: 1; }
+    .well-title { font-weight: 600; font-size: 0.88rem; }
+    .well-sub   { font-size: 0.75rem; color: #888; }
+    .well-result { font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
+    /* ラベルテーブル */
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { background: #f0f2f8; text-align: left; padding: 7px 12px; font-size: 0.7rem; color: #666; letter-spacing: 0.08em; }
+    tr:nth-child(even) td { background: #fafbfd; }
+    /* フッター */
+    .report-footer { text-align: center; color: #aaa; font-size: 0.72rem; padding: 20px 0 8px; }
+    /* 印刷ボタン */
+    .print-btn {
+      display: block; width: 100%; max-width: 760px; margin: 0 auto 20px;
+      padding: 13px; font-size: 1rem; font-weight: 600;
+      background: #2244aa; color: #fff; border: none; border-radius: 8px;
+      cursor: pointer; letter-spacing: 0.1em;
+    }
+    .print-btn:hover { background: #3355bb; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .print-btn { display: none; }
+      .card { box-shadow: none; border: 1px solid #ddd; }
+    }
+  </style>
+</head>
+<body>
+<div class="report-wrap">
+  <button class="print-btn" onclick="window.print()">🖨️ 印刷 / PDFとして保存</button>
+
+  <!-- タイトル -->
+  <div class="report-title-card">
+    <h1>🎙 騒音測定レポート</h1>
+    <div class="report-meta">
+      <span><b>📍 場所</b>${location}</span>
+      <span><b>📅 測定日</b>${today}</span>
+      <span><b>🕐 時間帯</b>${period}</span>
+      <span><b>⏱ 測定時間</b>${duration}</span>
+    </div>
+  </div>
+
+  <!-- 静粛スコア -->
+  <div class="card">
+    <div class="card-header">静粛スコア</div>
+    <div class="card-body">
+      <div class="score-row">
+        <div class="score-big">${scoreNum}</div>
+        <div class="score-grade">${grade}</div>
+        <div class="score-right">
+          <div class="score-stars">${stars}</div>
+          <div class="score-desc">${desc}</div>
+        </div>
+      </div>
+      <div class="sub-scores">
+        <div class="sub-score-box">
+          <div class="sub-score-label">占有率スコア</div>
+          <div class="sub-score-val">${occScore}</div>
+        </div>
+        <div class="sub-score-box">
+          <div class="sub-score-label">音量スコア</div>
+          <div class="sub-score-val">${volScore}</div>
+        </div>
+        <div class="sub-score-box">
+          <div class="sub-score-label">会話頻度スコア</div>
+          <div class="sub-score-val">${freqScore}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 測定データ -->
+  <div class="card">
+    <div class="card-header">測定データ</div>
+    <div class="card-body">
+      <div class="metrics-grid">
+        <div class="metric-box"><div class="metric-label">平均音量</div><div class="metric-val">${avgDb}<span class="metric-unit">dB</span></div></div>
+        <div class="metric-box"><div class="metric-label">最大音量</div><div class="metric-val">${maxDb}<span class="metric-unit">dB</span></div></div>
+        <div class="metric-box"><div class="metric-label">声の占有率</div><div class="metric-val">${occ}<span class="metric-unit">%</span></div></div>
+        <div class="metric-box"><div class="metric-label">声のイベント数</div><div class="metric-val">${events}<span class="metric-unit">回</span></div></div>
+        <div class="metric-box"><div class="metric-label">声の平均音圧</div><div class="metric-val">${voiceDb}<span class="metric-unit">dB</span></div></div>
+        <div class="metric-box"><div class="metric-label">最大音量の時刻</div><div class="metric-val" style="font-size:1rem;">${maxTime}</div></div>
+        <div class="metric-box"><div class="metric-label">ログ記録数</div><div class="metric-val">${logCount}<span class="metric-unit">件</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WELL Building Standard比較 -->
+  <div class="card">
+    <div class="card-header">WELL Building Standard 比較</div>
+    <div class="card-body">
+      <div class="well-row">
+        <div class="well-badge">${wellOpen ? '✅' : '❌'}</div>
+        <div class="well-text">
+          <div class="well-title">オープンオフィス目標（≤ 45 dB）</div>
+          <div class="well-sub">開放的なオフィス空間での推奨値</div>
+        </div>
+        <div class="well-result" style="color:${wellOpen ? '#22aa66' : '#cc3333'}">
+          ${wellOpen ? '達成' : '未達成'} — 測定値 ${avgDb}dB
+        </div>
+      </div>
+      <div class="well-row">
+        <div class="well-badge">${wellPrivate ? '✅' : '❌'}</div>
+        <div class="well-text">
+          <div class="well-title">個室オフィス目標（≤ 35 dB）</div>
+          <div class="well-sub">集中作業に適した静粛な環境の基準</div>
+        </div>
+        <div class="well-result" style="color:${wellPrivate ? '#22aa66' : '#cc3333'}">
+          ${wellPrivate ? '達成' : '未達成'} — 測定値 ${avgDb}dB
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 時系列グラフ -->
+  <div class="card">
+    <div class="card-header">音圧 時系列グラフ</div>
+    <div class="card-body" style="padding:14px 16px;">${chartImg}</div>
+  </div>
+
+  <!-- 手動ラベル -->
+  <div class="card">
+    <div class="card-header">手動ラベル記録（${labels.length}件）</div>
+    <div class="card-body" style="padding:0;">
+      <table>
+        <thead><tr><th>時刻</th><th>ラベル</th></tr></thead>
+        <tbody>${labelsHtml}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="report-footer">
+    騒音周波数アナライザー v1.8.0 で生成 — ${new Date().toLocaleString('ja-JP')}
+  </div>
+</div>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  document.getElementById('btn-report').addEventListener('click', generateReport);
 
   function exportSummaryCSV(single = true) {
     const SESSION_HISTORY_KEY = 'noiseAnalyzer_sessionHistory';
