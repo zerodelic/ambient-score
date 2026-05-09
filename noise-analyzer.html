@@ -1081,6 +1081,122 @@
       white-space: nowrap;
     }
     .score-sub span { color: #4466aa; }
+
+    /* ============================================================
+       テーマ切り替えボタン
+    ============================================================ */
+    #theme-toggle {
+      position: absolute;
+      top: 0;
+      right: 0;
+      padding: 4px 12px;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      border-width: 1px;
+      border-color: #2233aa;
+      color: #6677cc;
+    }
+
+    /* ============================================================
+       Airports テーマ  —  Ambient 1: Music for Airports
+       淡い青白・ミニマル・クリニカル
+    ============================================================ */
+    body.theme-airports {
+      background: #d0e2f2;
+      color: #182840;
+    }
+    body.theme-airports h1 { color: #1a3a6a; }
+    body.theme-airports #app-tagline { color: #5a7898; }
+    body.theme-airports #app-version { color: #3a6a9a; }
+    body.theme-airports #live-clock-date { color: #4a6888; }
+    body.theme-airports #live-clock-time { color: #0a2858; }
+    body.theme-airports #status { color: #8a5010; }
+    body.theme-airports #theme-toggle { border-color: #6a9ec8; color: #2a5080; }
+
+    body.theme-airports button { border-color: #2a5f9e; color: #1a3a6a; }
+    body.theme-airports button:hover { background: #2a5f9e22; }
+    body.theme-airports button.active { background: #2a5f9e; color: #fff; }
+    body.theme-airports button:disabled { opacity: 0.35; }
+    body.theme-airports select { border-color: #2a5f9e; background: #c8dcee; color: #1a3a6a; }
+
+    body.theme-airports .meter-box { background: #deeaf8; border-color: #6a9ec8; }
+    body.theme-airports .meter-label { color: #4a6888; }
+    body.theme-airports .meter-value { color: #0a5535; }
+    body.theme-airports .meter-unit  { color: #5a7898; }
+
+    body.theme-airports #db-bar-bg { background: #bcd0e4; border-color: #6a9ec8; }
+    body.theme-airports #db-bar-label { color: #4a6888; }
+
+    body.theme-airports .panel-section { background: #daeaf8; border-color: #88b4d0; }
+    body.theme-airports .panel-header  { background: #ccdaea; border-bottom-color: #88b4d0; }
+    body.theme-airports .panel-title   { color: #2a5080; }
+    body.theme-airports .panel-toggle  { border-color: #88b4d0; color: #4a7aaa; }
+    body.theme-airports .panel-toggle:hover { color: #2a5080; border-color: #4a8ac8; }
+    body.theme-airports .drag-handle   { color: #7aaaca; }
+    body.theme-airports .drag-handle:hover { color: #2a5f9e; }
+    body.theme-airports .panel-section.drag-over { border-color: #2a5f9e; box-shadow: 0 0 0 2px #2a5f9e44; }
+    body.theme-airports .col-panel.drop-target { outline-color: #2a5f9e44; }
+
+    body.theme-airports .canvas-wrap { background: #bcd0e4; border-color: #88b4d0; }
+    body.theme-airports .canvas-title { color: #3a6888; }
+    body.theme-airports .canvas-title-row select { border-color: #6a9ec8; color: #3a6888; background: #bcd0e4; }
+
+    body.theme-airports #octave-bars { background: #bcd0e4; border-color: #88b4d0; }
+    body.theme-airports .octave-title { color: #4a6888; }
+    body.theme-airports .oct-label { color: #4a6888; }
+    body.theme-airports .oct-db    { color: #0a5535; }
+
+    body.theme-airports #voice-result { background: #bcd0e4; border-color: #88b4d0; }
+    body.theme-airports #voice-confidence-wrap { background: #aac0d8; border-color: #6a9ec8; }
+    body.theme-airports .vscore-label   { color: #4a6888; }
+    body.theme-airports .vscore-bar-bg  { background: #aac0d8; }
+    body.theme-airports .vscore-val     { color: #3a5878; }
+    body.theme-airports .vstat-box      { background: #d4e8f8; border-color: #6a9ec8; }
+    body.theme-airports .vstat-label    { color: #4a6888; }
+    body.theme-airports .vstat-value    { color: #0a5535; }
+    body.theme-airports .vstat-sub      { color: #5a7898; }
+
+    body.theme-airports #label-buttons .label-title { color: #4a6888; }
+    body.theme-airports .label-btn { border-color: #88b4d0; background: #ccdcee; color: #3a5878; }
+    body.theme-airports .label-btn:hover:not(:disabled) { background: #b8ccde; color: #182840; border-color: #4a8ac8; }
+
+    body.theme-airports .log-title  { color: #4a6888; }
+    body.theme-airports #log-list   { scrollbar-color: #6a9ec8 #bcd0e4; }
+    body.theme-airports #log-list::-webkit-scrollbar-track { background: #bcd0e4; }
+    body.theme-airports #log-list::-webkit-scrollbar-thumb { background: #6a9ec8; }
+    body.theme-airports .log-entry  { background: #d4e8f8; border-color: #88b4d0; }
+    body.theme-airports .log-time   { color: #4a6888; }
+    body.theme-airports .log-val-db { color: #0a5535; }
+    body.theme-airports .log-val-voice { color: #182840; }
+    body.theme-airports #log-empty  { color: #5a7898; }
+    body.theme-airports .log-entry.manual-label { background: #cce0f4; border-color: #4a8ac8; }
+
+    body.theme-airports #log-settings-panel { background: #d4e8f8; border-color: #6a9ec8; }
+    body.theme-airports .log-settings-title { color: #5a7898; }
+    body.theme-airports .log-col-check { color: #3a5878; }
+    body.theme-airports .log-col-check input[type="checkbox"] { accent-color: #2a5f9e; }
+    body.theme-airports #btn-log-settings { border-color: #6a9ec8; color: #3a6888; }
+    body.theme-airports #btn-log-clear    { border-color: #9a7820; color: #7a5808; }
+
+    body.theme-airports #tooltip { background: #d8eaf8; border-color: #2a5f9e; color: #182840; }
+    body.theme-airports #tooltip strong { color: #1a3a6a; }
+
+    body.theme-airports #summary-modal  { background: #daeaf8; border-color: #2a5f9e; }
+    body.theme-airports #summary-header { background: #ccdaea; border-bottom-color: #6a9ec8; }
+    body.theme-airports #summary-title  { color: #2a5080; }
+    body.theme-airports #summary-period { color: #1a3a6a; }
+    body.theme-airports #summary-score-row { background: #c8daf0; border-bottom-color: #88b4d0; }
+    body.theme-airports #summary-grid   { background: #88b4d0; border-color: #88b4d0; }
+    body.theme-airports .sum-cell       { background: #daeaf8; }
+    body.theme-airports .sum-cell-label { color: #2a5080; }
+    body.theme-airports .sum-cell-value { color: #0a5535; }
+    body.theme-airports .sum-cell-unit  { color: #4a6888; }
+    body.theme-airports #report-location { background: #c8daf0; border-color: #6a9ec8; color: #1a3a6a; }
+    body.theme-airports #report-location::placeholder { color: #7aaaca; }
+    body.theme-airports #btn-summary-close { border-color: #6a9ec8; color: #3a6888; }
+
+    body.theme-airports #alert-settings-panel { background: #daeaf8; border-color: #aa8833; }
+    body.theme-airports .oct-bar-fill { background: linear-gradient(180deg, #4a9a7a, #2a5a9a); }
   </style>
 </head>
 <body>
@@ -1159,6 +1275,7 @@
   <div id="live-clock-date">---</div>
   <div id="live-clock-time">--:--:--</div>
 </div>
+<button id="theme-toggle" title="テーマ切り替え">🌙 Dark</button>
 <h1>AmbientScore 1 <span id="app-version">v1.9.1 &nbsp;|&nbsp; 更新日：2026-05-09</span></h1>
 <div id="app-tagline">Scoring the silence around you</div>
 
@@ -1471,6 +1588,69 @@
   // ノイズフロア定数（ウォーターフォールと draw() で共用）
   const NOISE_FLOOR_DB = -80; // dBFS
   const DB_RANGE       =  80; // -NOISE_FLOOR_DB
+
+  // ============================================================
+  // テーマシステム
+  // ============================================================
+  const CANVAS_THEMES = {
+    dark: {
+      bg:          '#08080f',
+      gridLine:    '#2a3366',
+      gridLabel:   '#7799cc',
+      waveStroke:  '#4466ff',
+      waveMid:     '#1a2255',
+      tsVoice:     '#44ff88',
+      tsNoise:     '#ff4444',
+      tsAmbig:     '#ffaa44',
+      tsPeak:      '#ff6644',
+      tsLegend:    '#aabbdd',
+      tsAxis:      '#7799cc',
+      tsTime:      '#7799bb',
+      specSat:     80,
+      specLit:     55,
+      specHueBase: 180,
+      octGrad:     ['#88ffcc', '#4466ff'],
+    },
+    airports: {
+      bg:          '#bcd0e4',
+      gridLine:    '#88aabf',
+      gridLabel:   '#4a6888',
+      waveStroke:  '#3a6a9a',
+      waveMid:     '#88aabf',
+      tsVoice:     '#226644',
+      tsNoise:     '#883322',
+      tsAmbig:     '#7755aa',
+      tsPeak:      '#884422',
+      tsLegend:    '#3a5a7a',
+      tsAxis:      '#4a6888',
+      tsTime:      '#4a6888',
+      specSat:     35,
+      specLit:     42,
+      specHueBase: 200,
+      octGrad:     ['#4a9a7a', '#2a5a9a'],
+    },
+  };
+
+  let currentTheme = localStorage.getItem('ambientScore_theme') || 'dark';
+  function CT() { return CANVAS_THEMES[currentTheme]; }
+
+  function applyTheme(name) {
+    currentTheme = name;
+    if (name === 'airports') {
+      document.body.classList.add('theme-airports');
+      document.getElementById('theme-toggle').textContent = '☀️ Airports';
+    } else {
+      document.body.classList.remove('theme-airports');
+      document.getElementById('theme-toggle').textContent = '🌙 Dark';
+    }
+    localStorage.setItem('ambientScore_theme', name);
+  }
+
+  applyTheme(currentTheme);
+
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    applyTheme(currentTheme === 'dark' ? 'airports' : 'dark');
+  });
 
   const btnStart = document.getElementById('btn-start');
   const btnPause = document.getElementById('btn-pause');
@@ -1874,7 +2054,9 @@
     // 周波数ラベルは毎フレーム固定位置に描き直す（スクロールに巻き込まれないよう）
     wtfCtx.clearRect(0, dataH, w, labelH);
     wtfCtx.font = `${10 * dpr}px Courier New`;
-    wtfCtx.fillStyle = 'rgba(200,220,255,0.8)';
+    wtfCtx.fillStyle = currentTheme === 'airports'
+      ? 'rgba(20,50,90,0.85)'
+      : 'rgba(200,220,255,0.8)';
     const labelFreqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
     labelFreqs.forEach(f => {
       if (f > nyquist) return;
@@ -2037,15 +2219,16 @@
     }
 
     // --- Spectrum canvas ---
-    specCtx.fillStyle = '#08080f';
+    const ct = CT();
+    specCtx.fillStyle = ct.bg;
     specCtx.fillRect(0, 0, w, h);
 
     // Grid lines
     const gridFreqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
-    specCtx.strokeStyle = '#2a3366';
+    specCtx.strokeStyle = ct.gridLine;
     specCtx.lineWidth = 1;
     specCtx.font = `${11 * window.devicePixelRatio}px Courier New`;
-    specCtx.fillStyle = '#7799cc';
+    specCtx.fillStyle = ct.gridLabel;
     gridFreqs.forEach(f => {
       if (f > nyquist) return;
       const x = freqToX(f, nyquist, w);
@@ -2061,12 +2244,12 @@
     const dbLines = [0, 20, 40, 60, 80];
     dbLines.forEach(db => {
       const y = h - 20 * window.devicePixelRatio - (db / dbRange) * (h - 30 * window.devicePixelRatio);
-      specCtx.strokeStyle = '#2a3366';
+      specCtx.strokeStyle = ct.gridLine;
       specCtx.beginPath();
       specCtx.moveTo(0, y);
       specCtx.lineTo(w, y);
       specCtx.stroke();
-      specCtx.fillStyle = '#7799cc';
+      specCtx.fillStyle = ct.gridLabel;
       specCtx.fillText(db + 'dB', 2, y - 2);
     });
 
@@ -2086,8 +2269,8 @@
         const db = freqData[i];
         const norm = Math.max(0, (db - NOISE_FLOOR_DB) / dbRange);
         const barH = norm * chartH;
-        const hue = 180 + norm * 120;
-        specCtx.fillStyle = `hsl(${hue}, 80%, 55%)`;
+        const hue = ct.specHueBase + norm * 120;
+        specCtx.fillStyle = `hsl(${hue}, ${ct.specSat}%, ${ct.specLit}%)`;
         specCtx.fillRect(x1, bottomY - barH, bw - 0.5, barH);
       }
     } else {
@@ -2109,12 +2292,12 @@
         specCtx.lineTo(0, bottomY);
         specCtx.closePath();
         const grad = specCtx.createLinearGradient(0, 0, 0, h);
-        grad.addColorStop(0, '#88ffcc88');
-        grad.addColorStop(1, '#4466ff22');
+        grad.addColorStop(0, ct.octGrad[0] + '88');
+        grad.addColorStop(1, ct.octGrad[1] + '22');
         specCtx.fillStyle = grad;
         specCtx.fill();
       }
-      specCtx.strokeStyle = '#88ffcc';
+      specCtx.strokeStyle = ct.octGrad[0];
       specCtx.lineWidth = 1.5;
       specCtx.stroke();
     }
@@ -2123,7 +2306,7 @@
     if (peakHold > 0) {
       const peakNorm = Math.min(1, peakHold / dbRange);
       const peakY = bottomY - peakNorm * chartH;
-      specCtx.strokeStyle = '#ff6644';
+      specCtx.strokeStyle = ct.tsPeak;
       specCtx.lineWidth = 1;
       specCtx.setLineDash([4, 4]);
       specCtx.beginPath();
@@ -2131,16 +2314,16 @@
       specCtx.lineTo(w, peakY);
       specCtx.stroke();
       specCtx.setLineDash([]);
-      specCtx.fillStyle = '#ff6644';
+      specCtx.fillStyle = ct.tsPeak;
       specCtx.fillText('直近3秒最大 ' + peakHold.toFixed(1) + 'dB', 4, peakY - 3);
     }
 
     // --- Waveform canvas ---
     const ww = waveCanvas.width;
     const wh = waveCanvas.height;
-    waveCtx.fillStyle = '#08080f';
+    waveCtx.fillStyle = ct.bg;
     waveCtx.fillRect(0, 0, ww, wh);
-    waveCtx.strokeStyle = '#4466ff';
+    waveCtx.strokeStyle = ct.waveStroke;
     waveCtx.lineWidth = 1.5;
     waveCtx.beginPath();
     const sliceW = ww / timeData.length;
@@ -2153,7 +2336,7 @@
     }
     waveCtx.stroke();
     // Center line
-    waveCtx.strokeStyle = '#1a2255';
+    waveCtx.strokeStyle = ct.waveMid;
     waveCtx.lineWidth = 1;
     waveCtx.beginPath();
     waveCtx.moveTo(0, wh / 2);
@@ -2316,7 +2499,8 @@
     const entries   = logData.slice(-windowSec);
 
     // 背景
-    tsCtx.fillStyle = '#08080f';
+    const tsCt = CT();
+    tsCtx.fillStyle = tsCt.bg;
     tsCtx.fillRect(0, 0, w, h);
 
     // dBグリッド
@@ -2324,12 +2508,12 @@
     tsCtx.textBaseline = 'middle';
     [0, 20, 40, 60, 80].forEach(db => {
       const y = padT + chartH - (db / dbRange) * chartH;
-      tsCtx.strokeStyle = '#2a3366';
+      tsCtx.strokeStyle = tsCt.gridLine;
       tsCtx.lineWidth = 1;
       tsCtx.beginPath();
       tsCtx.moveTo(padL, y); tsCtx.lineTo(padL + chartW, y);
       tsCtx.stroke();
-      tsCtx.fillStyle = '#7799cc';
+      tsCtx.fillStyle = tsCt.tsAxis;
       tsCtx.textAlign = 'right';
       tsCtx.fillText(db, padL - 4, y);
     });
@@ -2337,7 +2521,7 @@
 
     // データ不足時メッセージ
     if (entries.length < 2) {
-      tsCtx.fillStyle = '#5566aa';
+      tsCtx.fillStyle = tsCt.tsAxis;
       tsCtx.textAlign = 'center';
       tsCtx.font = `${12 * dpr}px Courier New`;
       tsCtx.fillText('測定開始後にグラフが描画されます', padL + chartW / 2, padT + chartH / 2);
@@ -2358,10 +2542,10 @@
       const yBot = padT + chartH;
       const lbl = entries[i].voiceLabel || '';
       let fill;
-      if      (lbl.includes('人の声'))   fill = '#44ffaa30';
-      else if (lbl.includes('不明確'))   fill = '#ffcc4430';
-      else if (lbl.includes('騒音'))     fill = '#ff664428';
-      else                               fill = '#ffffff0a';
+      if      (lbl.includes('人の声'))   fill = tsCt.tsVoice + '30';
+      else if (lbl.includes('不明確'))   fill = tsCt.tsAmbig + '30';
+      else if (lbl.includes('騒音'))     fill = tsCt.tsNoise + '28';
+      else                               fill = currentTheme === 'dark' ? '#ffffff0a' : '#00000008';
       tsCtx.fillStyle = fill;
       tsCtx.beginPath();
       tsCtx.moveTo(x1, y1); tsCtx.lineTo(x2, y2);
@@ -2375,10 +2559,10 @@
       const si = startIdx + i;
       const lbl = entries[i].voiceLabel || '';
       let stroke;
-      if      (lbl.includes('人の声'))  stroke = '#44ffaa';
-      else if (lbl.includes('不明確'))  stroke = '#ffcc44';
-      else if (lbl.includes('騒音'))    stroke = '#ff6644';
-      else                              stroke = '#2a3660';
+      if      (lbl.includes('人の声'))  stroke = tsCt.tsVoice;
+      else if (lbl.includes('不明確'))  stroke = tsCt.tsAmbig;
+      else if (lbl.includes('騒音'))    stroke = tsCt.tsNoise;
+      else                              stroke = tsCt.gridLine;
       tsCtx.strokeStyle = stroke;
       tsCtx.beginPath();
       tsCtx.moveTo(xOf(si),     yOf(entries[i].dbVal));
@@ -2387,7 +2571,7 @@
     }
 
     // 時刻ラベル（最大5点）
-    tsCtx.fillStyle = '#7799bb';
+    tsCtx.fillStyle = tsCt.tsTime;
     tsCtx.font = `${10 * dpr}px Courier New`;
     tsCtx.textAlign = 'center';
     tsCtx.textBaseline = 'alphabetic';
@@ -2398,7 +2582,7 @@
       const si = startIdx + ei;
       const x  = xOf(si);
       // 目盛り線
-      tsCtx.strokeStyle = '#2a3366';
+      tsCtx.strokeStyle = tsCt.gridLine;
       tsCtx.lineWidth = 1;
       tsCtx.beginPath();
       tsCtx.moveTo(x, padT + chartH);
@@ -2410,9 +2594,9 @@
 
     // 凡例
     const legend = [
-      { color: '#44ffaa', label: '人の声' },
-      { color: '#ffcc44', label: '不明確' },
-      { color: '#ff6644', label: '騒音'   },
+      { color: tsCt.tsVoice, label: '人の声' },
+      { color: tsCt.tsAmbig, label: '不明確' },
+      { color: tsCt.tsNoise, label: '騒音'   },
     ];
     tsCtx.font = `${10 * dpr}px Courier New`;
     tsCtx.textBaseline = 'middle';
@@ -2422,7 +2606,7 @@
       tsCtx.fillStyle = l.color;
       tsCtx.fillRect(lx, ly - 4 * dpr, 10 * dpr, 8 * dpr);
       lx += 13 * dpr;
-      tsCtx.fillStyle = '#aabbdd';
+      tsCtx.fillStyle = tsCt.tsLegend;
       tsCtx.fillText(l.label, lx, ly);
       lx += (tsCtx.measureText(l.label).width + 10 * dpr);
     });
