@@ -3256,6 +3256,7 @@
 
   // --- ドラッグ&ドロップ（列をまたいだ移動に対応）---
   let dragSrc = null;
+  let savedWtfImageData = null; // ウォーターフォール退避用
 
   document.getElementById('app-body').addEventListener('mousedown', e => {
     const handle = e.target.closest('.drag-handle');
@@ -3269,6 +3270,12 @@
     dragSrc = panel;
     panel.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
+    // ウォーターフォールパネルをドラッグする場合、DOM移動でcanvasがクリアされるため内容を退避
+    if (panel.dataset.panel === 'waterfall') {
+      try {
+        savedWtfImageData = wtfCtx.getImageData(0, 0, wtfCanvas.width, wtfCanvas.height);
+      } catch(err) { savedWtfImageData = null; }
+    }
   });
 
   document.getElementById('app-body').addEventListener('dragend', e => {
@@ -3280,7 +3287,16 @@
     document.querySelectorAll('.col-panel.drop-target').forEach(c => c.classList.remove('drop-target'));
     dragSrc = null;
     savePanelState();
-    resizeCanvases();
+    resizeCanvases(); // canvasのwidth/heightをリセット
+    // ウォーターフォール内容を復元（resizeCanvases後にスケールして書き戻す）
+    if (savedWtfImageData) {
+      const tmp = document.createElement('canvas');
+      tmp.width  = savedWtfImageData.width;
+      tmp.height = savedWtfImageData.height;
+      tmp.getContext('2d').putImageData(savedWtfImageData, 0, 0);
+      wtfCtx.drawImage(tmp, 0, 0, wtfCanvas.width, wtfCanvas.height);
+      savedWtfImageData = null;
+    }
   });
 
   document.getElementById('app-body').addEventListener('dragover', e => {
