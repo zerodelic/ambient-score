@@ -1854,20 +1854,34 @@
   const WTF_ROW_PX = 2; // 1秒あたりの行高さ（論理px）
 
   function drawWaterfall(freqData, nyquist, bufLen, elapsed) {
+    const dpr    = window.devicePixelRatio;
+    const w      = wtfCanvas.width;
+    const h      = wtfCanvas.height;
+    const rowH   = Math.max(1, Math.round(WTF_ROW_PX * dpr));
+    const labelH = Math.round(16 * dpr); // 周波数ラベル固定帯の高さ
+    const dataH  = h - labelH;           // スクロールするデータ領域の高さ
+
+    // 周波数ラベルは毎フレーム固定位置に描き直す（スクロールに巻き込まれないよう）
+    wtfCtx.clearRect(0, dataH, w, labelH);
+    wtfCtx.font = `${10 * dpr}px Courier New`;
+    wtfCtx.fillStyle = 'rgba(200,220,255,0.8)';
+    const labelFreqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
+    labelFreqs.forEach(f => {
+      if (f > nyquist) return;
+      const x = freqToX(f, nyquist, w);
+      wtfCtx.fillText(f >= 1000 ? (f / 1000) + 'k' : f, x + 2, h - 4 * dpr);
+    });
+
+    // 1秒ごとにのみデータ行を追加
     if (elapsed - lastWtfTime < LOG_INTERVAL_MS) return;
     lastWtfTime = elapsed;
 
-    const dpr = window.devicePixelRatio;
-    const w   = wtfCanvas.width;
-    const h   = wtfCanvas.height;
-    const rowH = Math.max(1, Math.round(WTF_ROW_PX * dpr));
-
-    // 既存画像を rowH ピクセル上へスクロール（最新データを下に追加）
-    if (h > rowH) {
-      wtfCtx.drawImage(wtfCanvas, 0, rowH, w, h - rowH, 0, 0, w, h - rowH);
+    // データ領域だけを rowH ピクセル上へスクロール
+    if (dataH > rowH) {
+      wtfCtx.drawImage(wtfCanvas, 0, rowH, w, dataH - rowH, 0, 0, w, dataH - rowH);
     }
 
-    // 新しい行のピクセルデータを構築
+    // 新しい行のピクセルデータを構築してデータ領域の最下行に配置
     const imageData = wtfCtx.createImageData(w, rowH);
     const data = imageData.data;
     const minLog = Math.log10(20);
@@ -1875,10 +1889,10 @@
 
     for (let px = 0; px < w; px++) {
       // X座標 → 周波数（対数スケール）→ FFTビン
-      const freq    = Math.pow(10, minLog + (px / w) * (maxLog - minLog));
-      const binIdx  = Math.max(0, Math.min(bufLen - 1, Math.round((freq / nyquist) * bufLen)));
-      const db      = freqData[binIdx];
-      const norm    = Math.max(0, Math.min(1, (db - NOISE_FLOOR_DB) / DB_RANGE));
+      const freq   = Math.pow(10, minLog + (px / w) * (maxLog - minLog));
+      const binIdx = Math.max(0, Math.min(bufLen - 1, Math.round((freq / nyquist) * bufLen)));
+      const db     = freqData[binIdx];
+      const norm   = Math.max(0, Math.min(1, (db - NOISE_FLOOR_DB) / DB_RANGE));
       const [r, g, b] = dbToWtfRgb(norm);
       for (let row = 0; row < rowH; row++) {
         const off = (row * w + px) * 4;
@@ -1888,17 +1902,7 @@
         data[off + 3] = 255;
       }
     }
-    wtfCtx.putImageData(imageData, 0, h - rowH);
-
-    // 周波数目盛り（下端に重ね描き）
-    wtfCtx.font = `${10 * dpr}px Courier New`;
-    wtfCtx.fillStyle = 'rgba(200,220,255,0.75)';
-    const labelFreqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
-    labelFreqs.forEach(f => {
-      if (f > nyquist) return;
-      const x = freqToX(f, nyquist, w);
-      wtfCtx.fillText(f >= 1000 ? (f / 1000) + 'k' : f, x + 2, h - 4 * dpr);
-    });
+    wtfCtx.putImageData(imageData, 0, dataH - rowH);
   }
 
   function draw(timestamp = 0) {
