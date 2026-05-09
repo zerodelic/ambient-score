@@ -1099,104 +1099,111 @@
 
     /* ============================================================
        Airports テーマ  —  Ambient 1: Music for Airports
-       淡い青白・ミニマル・クリニカル
+       ジャケットに忠実なクリーム × オリーブ × ティール × Helvetica
     ============================================================ */
     body.theme-airports {
-      background: #d0e2f2;
-      color: #182840;
+      background: #e8e4d0;
+      color: #1a1e14;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      letter-spacing: 0.04em;
     }
-    body.theme-airports h1 { color: #1a3a6a; }
-    body.theme-airports #app-tagline { color: #5a7898; }
-    body.theme-airports #app-version { color: #3a6a9a; }
-    body.theme-airports #live-clock-date { color: #4a6888; }
-    body.theme-airports #live-clock-time { color: #0a2858; }
-    body.theme-airports #status { color: #8a5010; }
-    body.theme-airports #theme-toggle { border-color: #6a9ec8; color: #2a5080; }
+    body.theme-airports h1 {
+      color: #1a2018;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-weight: 300;
+      letter-spacing: 0.28em;
+    }
+    body.theme-airports #app-tagline { color: #7a8a6a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports #app-version { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 300; }
+    body.theme-airports #live-clock-date { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 400; }
+    body.theme-airports #live-clock-time { color: #1a2a18; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 200; }
+    body.theme-airports #status { color: #7a5020; }
+    body.theme-airports #theme-toggle { border-color: #7a9a78; color: #3a5840; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 
-    body.theme-airports button { border-color: #2a5f9e; color: #1a3a6a; }
-    body.theme-airports button:hover { background: #2a5f9e22; }
-    body.theme-airports button.active { background: #2a5f9e; color: #fff; }
+    body.theme-airports button { border-color: #5a8a68; color: #1a3020; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 400; letter-spacing: 0.08em; }
+    body.theme-airports button:hover { background: #5a8a6818; }
+    body.theme-airports button.active { background: #2a6858; color: #f0edd8; border-color: #2a6858; }
     body.theme-airports button:disabled { opacity: 0.35; }
-    body.theme-airports select { border-color: #2a5f9e; background: #c8dcee; color: #1a3a6a; }
+    body.theme-airports select { border-color: #5a8a68; background: #dddac8; color: #1a2818; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 
-    body.theme-airports .meter-box { background: #deeaf8; border-color: #6a9ec8; }
-    body.theme-airports .meter-label { color: #4a6888; }
-    body.theme-airports .meter-value { color: #0a5535; }
-    body.theme-airports .meter-unit  { color: #5a7898; }
+    body.theme-airports .meter-box { background: #e2dece; border-color: #8aaa80; }
+    body.theme-airports .meter-label { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 400; letter-spacing: 0.06em; }
+    body.theme-airports .meter-value { color: #1a5038; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .meter-unit  { color: #6a8068; }
 
-    body.theme-airports #db-bar-bg { background: #bcd0e4; border-color: #6a9ec8; }
-    body.theme-airports #db-bar-label { color: #4a6888; }
+    body.theme-airports #db-bar-bg { background: #ccc8b4; border-color: #7a9a78; }
+    body.theme-airports #db-bar-label { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 
-    body.theme-airports .panel-section { background: #daeaf8; border-color: #88b4d0; }
-    body.theme-airports .panel-header  { background: #ccdaea; border-bottom-color: #88b4d0; }
-    body.theme-airports .panel-title   { color: #2a5080; }
-    body.theme-airports .panel-toggle  { border-color: #88b4d0; color: #4a7aaa; }
-    body.theme-airports .panel-toggle:hover { color: #2a5080; border-color: #4a8ac8; }
-    body.theme-airports .drag-handle   { color: #7aaaca; }
-    body.theme-airports .drag-handle:hover { color: #2a5f9e; }
-    body.theme-airports .panel-section.drag-over { border-color: #2a5f9e; box-shadow: 0 0 0 2px #2a5f9e44; }
-    body.theme-airports .col-panel.drop-target { outline-color: #2a5f9e44; }
+    body.theme-airports .panel-section { background: #e4e0cc; border-color: #9aaa88; }
+    body.theme-airports .panel-header  { background: #dedad0; border-bottom-color: #9aaa88; }
+    body.theme-airports .panel-title   { color: #3a5840; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 400; letter-spacing: 0.16em; }
+    body.theme-airports .panel-toggle  { border-color: #9aaa88; color: #5a7860; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .panel-toggle:hover { color: #2a5038; border-color: #5a8a68; }
+    body.theme-airports .drag-handle   { color: #aaba98; }
+    body.theme-airports .drag-handle:hover { color: #2a6858; }
+    body.theme-airports .panel-section.drag-over { border-color: #2a6858; box-shadow: 0 0 0 2px #2a685840; }
+    body.theme-airports .col-panel.drop-target { outline-color: #2a685840; }
 
-    body.theme-airports .canvas-wrap { background: #bcd0e4; border-color: #88b4d0; }
-    body.theme-airports .canvas-title { color: #3a6888; }
-    body.theme-airports .canvas-title-row select { border-color: #6a9ec8; color: #3a6888; background: #bcd0e4; }
+    body.theme-airports .canvas-wrap { background: #ccc8b4; border-color: #9aaa88; }
+    body.theme-airports .canvas-title { color: #4a6050; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; letter-spacing: 0.14em; }
+    body.theme-airports .canvas-title-row select { border-color: #7a9a78; color: #4a6050; background: #ccc8b4; }
 
-    body.theme-airports #octave-bars { background: #bcd0e4; border-color: #88b4d0; }
-    body.theme-airports .octave-title { color: #4a6888; }
-    body.theme-airports .oct-label { color: #4a6888; }
-    body.theme-airports .oct-db    { color: #0a5535; }
+    body.theme-airports #octave-bars { background: #ccc8b4; border-color: #9aaa88; }
+    body.theme-airports .octave-title { color: #5a7060; }
+    body.theme-airports .oct-label { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .oct-db    { color: #1a5038; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .oct-bar-fill { background: linear-gradient(180deg, #2a8a68, #1a5040); }
 
-    body.theme-airports #voice-result { background: #bcd0e4; border-color: #88b4d0; }
-    body.theme-airports #voice-confidence-wrap { background: #aac0d8; border-color: #6a9ec8; }
-    body.theme-airports .vscore-label   { color: #4a6888; }
-    body.theme-airports .vscore-bar-bg  { background: #aac0d8; }
-    body.theme-airports .vscore-val     { color: #3a5878; }
-    body.theme-airports .vstat-box      { background: #d4e8f8; border-color: #6a9ec8; }
-    body.theme-airports .vstat-label    { color: #4a6888; }
-    body.theme-airports .vstat-value    { color: #0a5535; }
-    body.theme-airports .vstat-sub      { color: #5a7898; }
+    body.theme-airports #voice-result { background: #ccc8b4; border-color: #9aaa88; }
+    body.theme-airports #voice-confidence-wrap { background: #bcb8a4; border-color: #7a9a78; }
+    body.theme-airports .vscore-label   { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .vscore-bar-bg  { background: #bcb8a4; }
+    body.theme-airports .vscore-val     { color: #3a5040; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .vstat-box      { background: #dedad0; border-color: #8aaa80; }
+    body.theme-airports .vstat-label    { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .vstat-value    { color: #1a5038; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .vstat-sub      { color: #7a8a6a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
 
-    body.theme-airports #label-buttons .label-title { color: #4a6888; }
-    body.theme-airports .label-btn { border-color: #88b4d0; background: #ccdcee; color: #3a5878; }
-    body.theme-airports .label-btn:hover:not(:disabled) { background: #b8ccde; color: #182840; border-color: #4a8ac8; }
+    body.theme-airports #label-buttons .label-title { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .label-btn { border-color: #9aaa88; background: #dedad0; color: #3a5040; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .label-btn:hover:not(:disabled) { background: #ccc8b8; color: #1a2018; border-color: #5a8a68; }
 
-    body.theme-airports .log-title  { color: #4a6888; }
-    body.theme-airports #log-list   { scrollbar-color: #6a9ec8 #bcd0e4; }
-    body.theme-airports #log-list::-webkit-scrollbar-track { background: #bcd0e4; }
-    body.theme-airports #log-list::-webkit-scrollbar-thumb { background: #6a9ec8; }
-    body.theme-airports .log-entry  { background: #d4e8f8; border-color: #88b4d0; }
-    body.theme-airports .log-time   { color: #4a6888; }
-    body.theme-airports .log-val-db { color: #0a5535; }
-    body.theme-airports .log-val-voice { color: #182840; }
-    body.theme-airports #log-empty  { color: #5a7898; }
-    body.theme-airports .log-entry.manual-label { background: #cce0f4; border-color: #4a8ac8; }
+    body.theme-airports .log-title  { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports #log-list   { scrollbar-color: #7a9a78 #ccc8b4; }
+    body.theme-airports #log-list::-webkit-scrollbar-track { background: #ccc8b4; }
+    body.theme-airports #log-list::-webkit-scrollbar-thumb { background: #7a9a78; }
+    body.theme-airports .log-entry  { background: #dedad0; border-color: #9aaa88; }
+    body.theme-airports .log-time   { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .log-val-db { color: #1a5038; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .log-val-voice { color: #1a1e14; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports #log-empty  { color: #7a8a6a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .log-entry.manual-label { background: #d4d8c4; border-color: #5a8a68; }
 
-    body.theme-airports #log-settings-panel { background: #d4e8f8; border-color: #6a9ec8; }
-    body.theme-airports .log-settings-title { color: #5a7898; }
-    body.theme-airports .log-col-check { color: #3a5878; }
-    body.theme-airports .log-col-check input[type="checkbox"] { accent-color: #2a5f9e; }
-    body.theme-airports #btn-log-settings { border-color: #6a9ec8; color: #3a6888; }
-    body.theme-airports #btn-log-clear    { border-color: #9a7820; color: #7a5808; }
+    body.theme-airports #log-settings-panel { background: #dedad0; border-color: #7a9a78; }
+    body.theme-airports .log-settings-title { color: #7a8a6a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .log-col-check { color: #3a5040; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .log-col-check input[type="checkbox"] { accent-color: #2a6858; }
+    body.theme-airports #btn-log-settings { border-color: #7a9a78; color: #4a6050; }
+    body.theme-airports #btn-log-clear    { border-color: #9a8030; color: #7a6018; }
 
-    body.theme-airports #tooltip { background: #d8eaf8; border-color: #2a5f9e; color: #182840; }
-    body.theme-airports #tooltip strong { color: #1a3a6a; }
+    body.theme-airports #tooltip { background: #e4e0cc; border-color: #5a8a68; color: #1a1e14; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports #tooltip strong { color: #1a3828; }
 
-    body.theme-airports #summary-modal  { background: #daeaf8; border-color: #2a5f9e; }
-    body.theme-airports #summary-header { background: #ccdaea; border-bottom-color: #6a9ec8; }
-    body.theme-airports #summary-title  { color: #2a5080; }
-    body.theme-airports #summary-period { color: #1a3a6a; }
-    body.theme-airports #summary-score-row { background: #c8daf0; border-bottom-color: #88b4d0; }
-    body.theme-airports #summary-grid   { background: #88b4d0; border-color: #88b4d0; }
-    body.theme-airports .sum-cell       { background: #daeaf8; }
-    body.theme-airports .sum-cell-label { color: #2a5080; }
-    body.theme-airports .sum-cell-value { color: #0a5535; }
-    body.theme-airports .sum-cell-unit  { color: #4a6888; }
-    body.theme-airports #report-location { background: #c8daf0; border-color: #6a9ec8; color: #1a3a6a; }
-    body.theme-airports #report-location::placeholder { color: #7aaaca; }
-    body.theme-airports #btn-summary-close { border-color: #6a9ec8; color: #3a6888; }
+    body.theme-airports #summary-modal  { background: #e4e0cc; border-color: #5a8a68; }
+    body.theme-airports #summary-header { background: #dedad0; border-bottom-color: #7a9a78; }
+    body.theme-airports #summary-title  { color: #3a5840; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports #summary-period { color: #1a2818; }
+    body.theme-airports #summary-score-row { background: #d8d4c0; border-bottom-color: #9aaa88; }
+    body.theme-airports #summary-grid   { background: #9aaa88; border-color: #9aaa88; }
+    body.theme-airports .sum-cell       { background: #e4e0cc; }
+    body.theme-airports .sum-cell-label { color: #3a5840; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .sum-cell-value { color: #1a5038; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    body.theme-airports .sum-cell-unit  { color: #5a7060; }
+    body.theme-airports #report-location { background: #d8d4c0; border-color: #7a9a78; color: #1a2818; }
+    body.theme-airports #report-location::placeholder { color: #9aaa88; }
+    body.theme-airports #btn-summary-close { border-color: #7a9a78; color: #4a6050; }
 
-    body.theme-airports #alert-settings-panel { background: #daeaf8; border-color: #aa8833; }
-    body.theme-airports .oct-bar-fill { background: linear-gradient(180deg, #4a9a7a, #2a5a9a); }
+    body.theme-airports #alert-settings-panel { background: #e4e0cc; border-color: #9a8030; }
   </style>
 </head>
 <body>
@@ -1276,7 +1283,7 @@
   <div id="live-clock-time">--:--:--</div>
 </div>
 <button id="theme-toggle" title="テーマ切り替え">🌙 Dark</button>
-<h1>AmbientScore 1 <span id="app-version">v1.9.2 &nbsp;|&nbsp; 更新日：2026-05-09</span></h1>
+<h1>AmbientScore 1 <span id="app-version">v1.9.3 &nbsp;|&nbsp; 更新日：2026-05-09</span></h1>
 <div id="app-tagline">Scoring the silence around you</div>
 
 <div id="controls">
@@ -1612,22 +1619,22 @@
       octGrad:     ['#88ffcc', '#4466ff'],
     },
     airports: {
-      bg:          '#bcd0e4',
-      gridLine:    '#88aabf',
-      gridLabel:   '#4a6888',
-      waveStroke:  '#3a6a9a',
-      waveMid:     '#88aabf',
-      tsVoice:     '#226644',
-      tsNoise:     '#883322',
-      tsAmbig:     '#7755aa',
-      tsPeak:      '#884422',
-      tsLegend:    '#3a5a7a',
-      tsAxis:      '#4a6888',
-      tsTime:      '#4a6888',
-      specSat:     35,
-      specLit:     42,
-      specHueBase: 200,
-      octGrad:     ['#4a9a7a', '#2a5a9a'],
+      bg:          '#c8c4b0',  // クリーム地図の影部分
+      gridLine:    '#7a9a78',  // オリーブグリーン（地図の境界線）
+      gridLabel:   '#4a6050',  // 深いオリーブ
+      waveStroke:  '#2a6858',  // ティール（地図の川線）
+      waveMid:     '#9aaa88',  // くすんだグリーン
+      tsVoice:     '#2a7858',  // ティールグリーン
+      tsNoise:     '#8a4030',  // くすんだテラコッタ
+      tsAmbig:     '#8a7830',  // くすんだオリーブイエロー
+      tsPeak:      '#8a4030',  // テラコッタ
+      tsLegend:    '#3a5040',  // 深いオリーブ
+      tsAxis:      '#5a7060',  // ミッドオリーブ
+      tsTime:      '#5a7060',
+      specSat:     28,
+      specLit:     40,
+      specHueBase: 130,        // 緑〜ティール系
+      octGrad:     ['#2a8a68', '#1a5040'],
     },
   };
 
@@ -2055,7 +2062,7 @@
     wtfCtx.clearRect(0, dataH, w, labelH);
     wtfCtx.font = `${10 * dpr}px Courier New`;
     wtfCtx.fillStyle = currentTheme === 'airports'
-      ? 'rgba(20,50,90,0.85)'
+      ? 'rgba(30,50,30,0.80)'
       : 'rgba(200,220,255,0.8)';
     const labelFreqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
     labelFreqs.forEach(f => {
