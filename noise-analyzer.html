@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AmbientScore 1</title>
+  <title>Ambient Score 1 — リアルタイム環境音アナライザー</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -47,11 +47,13 @@
     }
 
     h1 {
-      font-size: 1.4rem;
-      letter-spacing: 0.2em;
+      font-size: 1.5rem;
+      letter-spacing: 0.3em;
       color: #88aaff;
-      margin-bottom: 20px;
+      margin-bottom: 6px;
       text-transform: uppercase;
+      font-family: 'Optima', 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', sans-serif;
+      font-weight: 300;
     }
 
     #app-body {
@@ -609,8 +611,16 @@
       color: #6688aa;
       letter-spacing: 0.18em;
       font-style: italic;
+      font-family: 'Optima', 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', sans-serif;
+      font-weight: 300;
       margin-top: 2px;
-      margin-bottom: 2px;
+      margin-bottom: 4px;
+    }
+    #app-subtitle {
+      font-size: 0.72rem;
+      color: #5577aa;
+      letter-spacing: 0.14em;
+      margin-bottom: 18px;
     }
 
     /* ---- アラート設定パネル ---- */
@@ -1163,8 +1173,9 @@
   <div id="live-clock-date">---</div>
   <div id="live-clock-time">--:--:--</div>
 </div>
-<h1>AmbientScore 1 <span id="app-version">v1.9.4 &nbsp;|&nbsp; 更新日：2026-05-10</span></h1>
+<h1>Ambient Score 1 <span id="app-version">v1.9.4 &nbsp;|&nbsp; 更新日：2026-05-10</span></h1>
 <div id="app-tagline">Scoring the silence around you</div>
+<div id="app-subtitle">リアルタイム環境音アナライザー</div>
 
 <div id="controls">
   <button id="btn-start" data-tip="マイク開始|マイクへのアクセスを許可し、リアルタイム測定を開始します。前回の最大・平均音量はこのタイミングでリセットされます。">マイク開始</button>
