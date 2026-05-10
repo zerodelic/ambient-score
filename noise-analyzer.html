@@ -1083,127 +1083,8 @@
     .score-sub span { color: #4466aa; }
 
     /* ============================================================
-       テーマ切り替えボタン
+       （将来のテーマ用スペース）
     ============================================================ */
-    #theme-toggle {
-      position: absolute;
-      top: 0;
-      right: 0;
-      padding: 4px 12px;
-      font-size: 0.72rem;
-      letter-spacing: 0.08em;
-      border-width: 1px;
-      border-color: #2233aa;
-      color: #6677cc;
-    }
-
-    /* ============================================================
-       Airports テーマ  —  Ambient 1: Music for Airports
-       ジャケットに忠実なクリーム × オリーブ × ティール × Helvetica
-    ============================================================ */
-    body.theme-airports {
-      background: #e8e4d0;
-      color: #1a1e14;
-      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      letter-spacing: 0.04em;
-    }
-    body.theme-airports h1 {
-      color: #1a2018;
-      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-      font-weight: 300;
-      letter-spacing: 0.28em;
-    }
-    body.theme-airports #app-tagline { color: #7a8a6a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports #app-version { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 300; }
-    body.theme-airports #live-clock-date { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 400; }
-    body.theme-airports #live-clock-time { color: #1a2a18; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 200; }
-    body.theme-airports #status { color: #7a5020; }
-    body.theme-airports #theme-toggle { border-color: #7a9a78; color: #3a5840; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-
-    body.theme-airports button { border-color: #5a8a68; color: #1a3020; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 400; letter-spacing: 0.08em; }
-    body.theme-airports button:hover { background: #5a8a6818; }
-    body.theme-airports button.active { background: #2a6858; color: #f0edd8; border-color: #2a6858; }
-    body.theme-airports button:disabled { opacity: 0.35; }
-    body.theme-airports select { border-color: #5a8a68; background: #dddac8; color: #1a2818; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-
-    body.theme-airports .meter-box { background: #e2dece; border-color: #8aaa80; }
-    body.theme-airports .meter-label { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 400; letter-spacing: 0.06em; }
-    body.theme-airports .meter-value { color: #1a5038; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .meter-unit  { color: #6a8068; }
-
-    body.theme-airports #db-bar-bg { background: #ccc8b4; border-color: #7a9a78; }
-    body.theme-airports #db-bar-label { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-
-    body.theme-airports .panel-section { background: #e4e0cc; border-color: #9aaa88; }
-    body.theme-airports .panel-header  { background: #dedad0; border-bottom-color: #9aaa88; }
-    body.theme-airports .panel-title   { color: #3a5840; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-weight: 400; letter-spacing: 0.16em; }
-    body.theme-airports .panel-toggle  { border-color: #9aaa88; color: #5a7860; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .panel-toggle:hover { color: #2a5038; border-color: #5a8a68; }
-    body.theme-airports .drag-handle   { color: #aaba98; }
-    body.theme-airports .drag-handle:hover { color: #2a6858; }
-    body.theme-airports .panel-section.drag-over { border-color: #2a6858; box-shadow: 0 0 0 2px #2a685840; }
-    body.theme-airports .col-panel.drop-target { outline-color: #2a685840; }
-
-    body.theme-airports .canvas-wrap { background: #ccc8b4; border-color: #9aaa88; }
-    body.theme-airports .canvas-title { color: #4a6050; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; letter-spacing: 0.14em; }
-    body.theme-airports .canvas-title-row select { border-color: #7a9a78; color: #4a6050; background: #ccc8b4; }
-
-    body.theme-airports #octave-bars { background: #ccc8b4; border-color: #9aaa88; }
-    body.theme-airports .octave-title { color: #5a7060; }
-    body.theme-airports .oct-label { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .oct-db    { color: #1a5038; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .oct-bar-fill { background: linear-gradient(180deg, #2a8a68, #1a5040); }
-
-    body.theme-airports #voice-result { background: #ccc8b4; border-color: #9aaa88; }
-    body.theme-airports #voice-confidence-wrap { background: #bcb8a4; border-color: #7a9a78; }
-    body.theme-airports .vscore-label   { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .vscore-bar-bg  { background: #bcb8a4; }
-    body.theme-airports .vscore-val     { color: #3a5040; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .vstat-box      { background: #dedad0; border-color: #8aaa80; }
-    body.theme-airports .vstat-label    { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .vstat-value    { color: #1a5038; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .vstat-sub      { color: #7a8a6a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-
-    body.theme-airports #label-buttons .label-title { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .label-btn { border-color: #9aaa88; background: #dedad0; color: #3a5040; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .label-btn:hover:not(:disabled) { background: #ccc8b8; color: #1a2018; border-color: #5a8a68; }
-
-    body.theme-airports .log-title  { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports #log-list   { scrollbar-color: #7a9a78 #ccc8b4; }
-    body.theme-airports #log-list::-webkit-scrollbar-track { background: #ccc8b4; }
-    body.theme-airports #log-list::-webkit-scrollbar-thumb { background: #7a9a78; }
-    body.theme-airports .log-entry  { background: #dedad0; border-color: #9aaa88; }
-    body.theme-airports .log-time   { color: #5a7060; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .log-val-db { color: #1a5038; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .log-val-voice { color: #1a1e14; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports #log-empty  { color: #7a8a6a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .log-entry.manual-label { background: #d4d8c4; border-color: #5a8a68; }
-
-    body.theme-airports #log-settings-panel { background: #dedad0; border-color: #7a9a78; }
-    body.theme-airports .log-settings-title { color: #7a8a6a; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .log-col-check { color: #3a5040; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .log-col-check input[type="checkbox"] { accent-color: #2a6858; }
-    body.theme-airports #btn-log-settings { border-color: #7a9a78; color: #4a6050; }
-    body.theme-airports #btn-log-clear    { border-color: #9a8030; color: #7a6018; }
-
-    body.theme-airports #tooltip { background: #e4e0cc; border-color: #5a8a68; color: #1a1e14; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports #tooltip strong { color: #1a3828; }
-
-    body.theme-airports #summary-modal  { background: #e4e0cc; border-color: #5a8a68; }
-    body.theme-airports #summary-header { background: #dedad0; border-bottom-color: #7a9a78; }
-    body.theme-airports #summary-title  { color: #3a5840; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports #summary-period { color: #1a2818; }
-    body.theme-airports #summary-score-row { background: #d8d4c0; border-bottom-color: #9aaa88; }
-    body.theme-airports #summary-grid   { background: #9aaa88; border-color: #9aaa88; }
-    body.theme-airports .sum-cell       { background: #e4e0cc; }
-    body.theme-airports .sum-cell-label { color: #3a5840; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .sum-cell-value { color: #1a5038; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
-    body.theme-airports .sum-cell-unit  { color: #5a7060; }
-    body.theme-airports #report-location { background: #d8d4c0; border-color: #7a9a78; color: #1a2818; }
-    body.theme-airports #report-location::placeholder { color: #9aaa88; }
-    body.theme-airports #btn-summary-close { border-color: #7a9a78; color: #4a6050; }
-
-    body.theme-airports #alert-settings-panel { background: #e4e0cc; border-color: #9a8030; }
   </style>
 </head>
 <body>
@@ -1282,8 +1163,7 @@
   <div id="live-clock-date">---</div>
   <div id="live-clock-time">--:--:--</div>
 </div>
-<button id="theme-toggle" title="テーマ切り替え">🌙 Dark</button>
-<h1>AmbientScore 1 <span id="app-version">v1.9.3 &nbsp;|&nbsp; 更新日：2026-05-09</span></h1>
+<h1>AmbientScore 1 <span id="app-version">v1.9.4 &nbsp;|&nbsp; 更新日：2026-05-10</span></h1>
 <div id="app-tagline">Scoring the silence around you</div>
 
 <div id="controls">
@@ -1596,68 +1476,26 @@
   const NOISE_FLOOR_DB = -80; // dBFS
   const DB_RANGE       =  80; // -NOISE_FLOOR_DB
 
-  // ============================================================
-  // テーマシステム
-  // ============================================================
-  const CANVAS_THEMES = {
-    dark: {
-      bg:          '#08080f',
-      gridLine:    '#2a3366',
-      gridLabel:   '#7799cc',
-      waveStroke:  '#4466ff',
-      waveMid:     '#1a2255',
-      tsVoice:     '#44ff88',
-      tsNoise:     '#ff4444',
-      tsAmbig:     '#ffaa44',
-      tsPeak:      '#ff6644',
-      tsLegend:    '#aabbdd',
-      tsAxis:      '#7799cc',
-      tsTime:      '#7799bb',
-      specSat:     80,
-      specLit:     55,
-      specHueBase: 180,
-      octGrad:     ['#88ffcc', '#4466ff'],
-    },
-    airports: {
-      bg:          '#c8c4b0',  // クリーム地図の影部分
-      gridLine:    '#7a9a78',  // オリーブグリーン（地図の境界線）
-      gridLabel:   '#4a6050',  // 深いオリーブ
-      waveStroke:  '#2a6858',  // ティール（地図の川線）
-      waveMid:     '#9aaa88',  // くすんだグリーン
-      tsVoice:     '#2a7858',  // ティールグリーン
-      tsNoise:     '#8a4030',  // くすんだテラコッタ
-      tsAmbig:     '#8a7830',  // くすんだオリーブイエロー
-      tsPeak:      '#8a4030',  // テラコッタ
-      tsLegend:    '#3a5040',  // 深いオリーブ
-      tsAxis:      '#5a7060',  // ミッドオリーブ
-      tsTime:      '#5a7060',
-      specSat:     28,
-      specLit:     40,
-      specHueBase: 130,        // 緑〜ティール系
-      octGrad:     ['#2a8a68', '#1a5040'],
-    },
+  // キャンバス描画カラー定数
+  const CANVAS_THEME = {
+    bg:          '#08080f',
+    gridLine:    '#2a3366',
+    gridLabel:   '#7799cc',
+    waveStroke:  '#4466ff',
+    waveMid:     '#1a2255',
+    tsVoice:     '#44ff88',
+    tsNoise:     '#ff4444',
+    tsAmbig:     '#ffaa44',
+    tsPeak:      '#ff6644',
+    tsLegend:    '#aabbdd',
+    tsAxis:      '#7799cc',
+    tsTime:      '#7799bb',
+    specSat:     80,
+    specLit:     55,
+    specHueBase: 180,
+    octGrad:     ['#88ffcc', '#4466ff'],
   };
-
-  let currentTheme = localStorage.getItem('ambientScore_theme') || 'dark';
-  function CT() { return CANVAS_THEMES[currentTheme]; }
-
-  function applyTheme(name) {
-    currentTheme = name;
-    if (name === 'airports') {
-      document.body.classList.add('theme-airports');
-      document.getElementById('theme-toggle').textContent = '☀️ Airports';
-    } else {
-      document.body.classList.remove('theme-airports');
-      document.getElementById('theme-toggle').textContent = '🌙 Dark';
-    }
-    localStorage.setItem('ambientScore_theme', name);
-  }
-
-  applyTheme(currentTheme);
-
-  document.getElementById('theme-toggle').addEventListener('click', () => {
-    applyTheme(currentTheme === 'dark' ? 'airports' : 'dark');
-  });
+  function CT() { return CANVAS_THEME; }
 
   const btnStart = document.getElementById('btn-start');
   const btnPause = document.getElementById('btn-pause');
@@ -2061,9 +1899,7 @@
     // 周波数ラベルは毎フレーム固定位置に描き直す（スクロールに巻き込まれないよう）
     wtfCtx.clearRect(0, dataH, w, labelH);
     wtfCtx.font = `${10 * dpr}px Courier New`;
-    wtfCtx.fillStyle = currentTheme === 'airports'
-      ? 'rgba(30,50,30,0.80)'
-      : 'rgba(200,220,255,0.8)';
+    wtfCtx.fillStyle = 'rgba(200,220,255,0.8)';
     const labelFreqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
     labelFreqs.forEach(f => {
       if (f > nyquist) return;
@@ -2552,7 +2388,7 @@
       if      (lbl.includes('人の声'))   fill = tsCt.tsVoice + '30';
       else if (lbl.includes('不明確'))   fill = tsCt.tsAmbig + '30';
       else if (lbl.includes('騒音'))     fill = tsCt.tsNoise + '28';
-      else                               fill = currentTheme === 'dark' ? '#ffffff0a' : '#00000008';
+      else                               fill = '#ffffff0a';
       tsCtx.fillStyle = fill;
       tsCtx.beginPath();
       tsCtx.moveTo(x1, y1); tsCtx.lineTo(x2, y2);
