@@ -377,6 +377,31 @@
       color: #8899cc;
     }
 
+    #bgm-indicator {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 5px 10px;
+      background: rgba(180, 100, 255, 0.10);
+      border: 1px solid rgba(180, 100, 255, 0.35);
+      border-radius: 6px;
+      font-size: 0.78rem;
+      color: #cc88ff;
+      cursor: default;
+    }
+    #bgm-indicator.active {
+      display: flex;
+    }
+    #bgm-badge {
+      letter-spacing: 0.05em;
+    }
+    #bgm-sigma-val {
+      font-size: 0.7rem;
+      color: #9966cc;
+      margin-left: auto;
+    }
+
     #voice-stats {
       display: flex;
       gap: 12px;
@@ -1374,6 +1399,10 @@
         </div>
         <div id="voice-scores"></div>
       </div>
+      <div id="bgm-indicator" data-tip="BGM自動検出|直近約10秒間の音圧変動（標準偏差σ）がリズム性の高さを示す場合、BGM（音楽）が流れていると推定します。ボーカルを人の声と誤検知するリスクを軽減する目的で使用します。">
+        <span id="bgm-badge">🎵 BGM 推定中</span>
+        <span id="bgm-sigma-val"></span>
+      </div>
       <div id="voice-stats">
         <div class="vstat-box" data-tip="声の占有率|測定開始からの時間のうち、人の声が検出されていた割合。30%なら「3割の時間は声が聞こえていた」ことを意味します。オフィスの騒音度合いを示す最も直接的な指標です。">
           <div class="vstat-label">声の占有率</div>
@@ -1531,6 +1560,15 @@
   const PITCH_HISTORY_LEN = 20;
   const pitchHistory = new Array(PITCH_HISTORY_LEN).fill(0);
   let pitchHistIdx = 0;
+
+  // --- BGM自動検出用 ---
+  // 直近 ~10秒分のdBサンプルを保持し、σ（標準偏差）でリズム性を検出
+  const BGM_BUF_SIZE   = 30;   // 30サンプル × 300ms ≈ 9秒
+  const BGM_SIGMA_TH   =  8;   // σ閾値（dB）: 音楽のビートによる変動
+  const BGM_MEAN_TH    = 35;   // 平均dB閾値: ある程度の音量がある場合のみ判定
+  const bgmDbBuffer    = [];
+  let   smoothBgmSigma = 0;
+  let   bgmDetected    = false;
 
   // 背景レベル自動追跡（VAD用）
   let bgLevel = 30; // 起動直後の仮初期値（実オフィスの典型的な環境音レベルに近い値）
@@ -1782,6 +1820,10 @@
       pitchHistIdx = 0;
       smoothVoiceScore = 0;
       bgLevel = 30;
+      bgmDbBuffer.length = 0;
+      smoothBgmSigma = 0;
+      bgmDetected    = false;
+      document.getElementById('bgm-indicator').classList.remove('active');
       voiceFrameCount = 0;
       totalFrameCount = 0;
       voiceEventCount = 0;
@@ -1993,6 +2035,26 @@
     const shouldUpdateMeter = timestamp - lastMeterTime >= METER_INTERVAL_MS;
     if (shouldUpdateMeter) {
       lastMeterTime = timestamp;
+
+      // --- BGM自動検出（300msごとにサンプリング） ---
+      bgmDbBuffer.push(dbShifted);
+      if (bgmDbBuffer.length > BGM_BUF_SIZE) bgmDbBuffer.shift();
+      if (bgmDbBuffer.length >= 10) { // 最低3秒分たまったら判定
+        const n    = bgmDbBuffer.length;
+        const mean = bgmDbBuffer.reduce((a, b) => a + b, 0) / n;
+        const sigma = Math.sqrt(bgmDbBuffer.reduce((s, x) => s + (x - mean) ** 2, 0) / n);
+        smoothBgmSigma = smoothBgmSigma * 0.7 + sigma * 0.3;
+        const wasBgm = bgmDetected;
+        bgmDetected = smoothBgmSigma > BGM_SIGMA_TH && mean > BGM_MEAN_TH;
+        if (bgmDetected !== wasBgm) {
+          const ind = document.getElementById('bgm-indicator');
+          bgmDetected ? ind.classList.add('active') : ind.classList.remove('active');
+        }
+        if (bgmDetected) {
+          document.getElementById('bgm-sigma-val').textContent =
+            `σ ${smoothBgmSigma.toFixed(1)} dB`;
+        }
+      }
       document.getElementById('val-db').innerHTML = dbDisplay + '<span class="meter-unit">dB</span>';
       document.getElementById('val-peak').innerHTML = peakHold.toFixed(1) + '<span class="meter-unit">dB</span>';
       document.getElementById('val-max').innerHTML = (sessionMax > 0 ? sessionMax.toFixed(1) : '0.0') + '<span class="meter-unit">dB</span>';
