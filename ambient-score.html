@@ -1302,7 +1302,7 @@
       </div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.0.0 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.0.1 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -1700,7 +1700,9 @@
   const BGM_BUF_SIZE   = 30;   // 30サンプル × 300ms ≈ 9秒
   const BGM_SIGMA_TH   =  8;   // σ閾値（dB）: 音楽のビートによる変動
   const BGM_MEAN_TH    = 35;   // 平均dB閾値: ある程度の音量がある場合のみ判定
+  const BGM_OCC_TH     = 40;   // 声占有率閾値(%): これ以上なら会議と判断してBGM判定を抑制
   const bgmDbBuffer    = [];
+  const bgmVoiceBuffer = [];   // BGMと同じ9秒ウィンドウの声判定履歴（0/1）
   let   smoothBgmSigma = 0;
   let   bgmDetected    = false;
 
@@ -1955,6 +1957,7 @@
       smoothVoiceScore = 0;
       bgLevel = 30;
       bgmDbBuffer.length = 0;
+      bgmVoiceBuffer.length = 0;
       specAvgBuffer = null;
       smoothBgmSigma = 0;
       bgmDetected    = false;
@@ -2176,6 +2179,10 @@
       lastMeterTime = timestamp;
 
       // --- BGM自動検出（300msごとにサンプリング） ---
+      // 声スコアによる直近9秒の声判定をdBバッファと同じウィンドウで記録
+      bgmVoiceBuffer.push(smoothVoiceScore >= 0.52 ? 1 : 0);
+      if (bgmVoiceBuffer.length > BGM_BUF_SIZE) bgmVoiceBuffer.shift();
+
       bgmDbBuffer.push(dbShifted);
       if (bgmDbBuffer.length > BGM_BUF_SIZE) bgmDbBuffer.shift();
       if (bgmDbBuffer.length >= 10) { // 最低3秒分たまったら判定
@@ -2183,8 +2190,15 @@
         const mean = bgmDbBuffer.reduce((a, b) => a + b, 0) / n;
         const sigma = Math.sqrt(bgmDbBuffer.reduce((s, x) => s + (x - mean) ** 2, 0) / n);
         smoothBgmSigma = smoothBgmSigma * 0.7 + sigma * 0.3;
+
+        // 直近9秒の声の占有率：高ければ会議/会話でありBGMではない
+        const recentVoiceOcc = bgmVoiceBuffer.length > 0
+          ? bgmVoiceBuffer.reduce((a, b) => a + b, 0) / bgmVoiceBuffer.length * 100 : 0;
+
         const wasBgm = bgmDetected;
-        bgmDetected = smoothBgmSigma > BGM_SIGMA_TH && mean > BGM_MEAN_TH;
+        bgmDetected = smoothBgmSigma > BGM_SIGMA_TH
+                   && mean > BGM_MEAN_TH
+                   && recentVoiceOcc < BGM_OCC_TH; // 声が多い＝会議と判断
         if (bgmDetected !== wasBgm) {
           const ind = document.getElementById('bgm-indicator');
           bgmDetected ? ind.classList.add('active') : ind.classList.remove('active');
