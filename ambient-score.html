@@ -578,6 +578,42 @@
     .label-btn:hover:not(:disabled) { background: #112244; color: #cce0ff; border-color: #5577aa; }
     .label-btn:disabled { opacity: 0.25; cursor: not-allowed; }
 
+    #memo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      margin-left: 4px;
+    }
+    #memo-input {
+      padding: 4px 8px;
+      font-size: 0.74rem;
+      font-family: inherit;
+      background: #080d1a;
+      border: 1px solid #334466;
+      border-radius: 12px 0 0 12px;
+      color: #aabbdd;
+      width: 130px;
+      outline: none;
+      letter-spacing: 0.03em;
+      transition: border-color 0.15s;
+    }
+    #memo-input::placeholder { color: #3a4a66; }
+    #memo-input:focus { border-color: #5577aa; }
+    #memo-input:disabled { opacity: 0.25; }
+    #btn-memo-send {
+      padding: 4px 8px;
+      font-size: 0.74rem;
+      border: 1px solid #334466;
+      border-left: none;
+      border-radius: 0 12px 12px 0;
+      background: #0d1428;
+      color: #8899bb;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    #btn-memo-send:hover:not(:disabled) { background: #112244; color: #cce0ff; border-color: #5577aa; }
+    #btn-memo-send:disabled { opacity: 0.25; cursor: not-allowed; }
+
     .log-time  { color: #6688aa; font-size: 0.72rem; white-space: nowrap; flex-shrink: 0; }
     .log-val-db { color: #88ffcc; white-space: nowrap; flex-shrink: 0; }
     .log-val-voice { color: #e0e0ff; font-size: 0.73rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1277,6 +1313,10 @@
       <button class="label-btn" data-label="🔊 とてもうるさい" data-color="#ff8844" disabled>🔊 うるさい</button>
       <button class="label-btn" data-label="🤫 静寂"           data-color="#aaaacc" disabled>🤫 静寂</button>
       <button class="label-btn" data-label="🎵 BGM"            data-color="#cc88ff" disabled>🎵 BGM</button>
+      <div id="memo-wrap" data-tip="メモ|測定中に自由なメモを残せます。Enterまたは→で送信し、ログとCSVに記録されます。">
+        <input type="text" id="memo-input" placeholder="📝 メモ…" disabled maxlength="100">
+        <button id="btn-memo-send" disabled>→</button>
+      </div>
     </div>
   </div>
 
@@ -1536,6 +1576,7 @@
     <label class="log-col-check" data-tip="声のイベント数|測定開始からそのログ行の時点までの「非声→声への切り替わり」回数を記録します。会話が始まった回数の目安です。"><input type="checkbox" data-col="voiceEvents" checked> 声のイベント数</label>
     <label class="log-col-check" data-tip="声の平均音圧 (dB)|声が検出された時間帯だけの平均音量を記録します。声が出ていない時間は含まないため、実際の発話の大きさを反映します。"><input type="checkbox" data-col="voiceAvgDb"  checked> 声の平均音圧 (dB)</label>
     <label class="log-col-check" data-tip="手動ラベル|📌 ボタンで記録した手動ラベルの文字列を出力します。ラベルを押した行のみ値が入り、通常の測定行は空欄になります。"><input type="checkbox" data-col="manualLabel" checked> 手動ラベル</label>
+    <label class="log-col-check" data-tip="メモ|測定中に入力した自由記述メモを出力します。メモを送信した行のみ値が入ります。"><input type="checkbox" data-col="memo" checked> メモ</label>
   </div>
   <div id="log-list">
     <div id="log-empty">測定を開始すると<br>ここに記録されます</div>
@@ -2153,6 +2194,7 @@
           voiceEvents: voiceEventCount,
           voiceAvgDb:  avgDbNow,
           manualLabel: '',
+          memo:        '',
         });
       }
     }
@@ -2790,6 +2832,7 @@
     { id: 'voiceEvents', label: '声のイベント数',     fmt: v => v != null ? String(v) : '' },
     { id: 'voiceAvgDb',  label: '声の平均音圧(dB)',   fmt: v => (v != null && v >= 0) ? v.toFixed(1) : '' },
     { id: 'manualLabel', label: '手動ラベル',         fmt: v => v ? `"${v}"` : '' },
+    { id: 'memo',        label: 'メモ',               fmt: v => v ? `"${v}"` : '' },
   ];
 
   // 有効な列IDを取得
@@ -2799,11 +2842,14 @@
       .map(cb => cb.dataset.col);
   }
 
-  // ラベルボタンの有効/無効を切り替え
+  // ラベルボタン・メモ入力欄の有効/無効を切り替え
   function setLabelButtons(enabled) {
     document.querySelectorAll('.label-btn').forEach(btn => {
       btn.disabled = !enabled;
     });
+    document.getElementById('memo-input').disabled    = !enabled;
+    document.getElementById('btn-memo-send').disabled = !enabled;
+    if (!enabled) document.getElementById('memo-input').value = '';
   }
 
   // 手動ラベルをログに追加（アラートログ表示 + CSVデータ）
@@ -2842,6 +2888,45 @@
     btn.addEventListener('click', () => {
       addManualLabel(btn.dataset.label, btn.dataset.color);
     });
+  });
+
+  // メモ送信
+  function sendMemo() {
+    const input = document.getElementById('memo-input');
+    const text  = input.value.trim();
+    if (!text) return;
+
+    // ログ表示に追加
+    const empty = document.getElementById('log-empty');
+    if (empty) empty.remove();
+    const entry = document.createElement('div');
+    entry.className = 'log-entry manual-label';
+    entry.innerHTML = `
+      <span class="log-time">${formatClock()}</span>
+      <span class="log-val-voice" style="color:#aaccff;">📝 ${text}</span>
+    `;
+    document.getElementById('log-list').insertBefore(entry, document.getElementById('log-list').firstChild);
+
+    // CSVデータに追加
+    logData.push({
+      elapsed:     formatClock(),
+      dbVal:       null,
+      peak3s:      null,
+      domFreqVal:  null,
+      voiceLabel:  null,
+      occupancy:   null,
+      voiceEvents: null,
+      voiceAvgDb:  null,
+      manualLabel: null,
+      memo:        text,
+    });
+
+    input.value = '';
+  }
+
+  document.getElementById('btn-memo-send').addEventListener('click', sendMemo);
+  document.getElementById('memo-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendMemo();
   });
 
   function addAlertLogEntry(type, message) {
