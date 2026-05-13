@@ -42,9 +42,10 @@
       min-width: 130px;
     }
 
-    #live-clock {
-      text-align: left;
-      line-height: 1.2;
+    #live-clock-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
     }
     #live-clock-date {
       font-size: 0.72rem;
@@ -1044,6 +1045,19 @@
     .panel-toggle:hover { color: #4466aa; border-color: #2233aa; }
     .panel-section.collapsed .panel-toggle { transform: rotate(-90deg); }
 
+    .panel-select {
+      padding: 2px 6px;
+      font-size: 0.7rem;
+      border-width: 1px;
+      border-color: #1a2255;
+      background: transparent;
+      color: #4466aa;
+      border-radius: 3px;
+      cursor: pointer;
+      margin-left: auto;
+    }
+    .panel-select:hover { border-color: #2233aa; color: #6688cc; }
+
     .panel-content {
       overflow: hidden;
       transition: max-height 0.3s ease;
@@ -1228,11 +1242,11 @@
   <!-- Row 1: 時計＋ステータス（左） ── タイトル（中央） ── スペーサー（右） -->
   <div id="header-row1">
     <div id="header-left">
-      <div id="live-clock">
-        <div id="live-clock-date">---</div>
+      <div id="live-clock-date">---</div>
+      <div id="live-clock-row">
         <div id="live-clock-time">--:--:--</div>
+        <div id="status">マイクへのアクセスを許可してください</div>
       </div>
-      <div id="status">マイクへのアクセスを許可してください</div>
     </div>
     <div id="header-title">
       <h1>Ambient Score 1 <span id="app-version">v1.9.5 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
@@ -1253,11 +1267,6 @@
         <option value="2048" selected>FFT 2048</option>
         <option value="4096">FFT 4096</option>
         <option value="8192">FFT 8192</option>
-      </select>
-      <select id="window-mode" data-tip="スペクトラム表示形式|バー：各周波数の強度を棒グラフで表示。ライン：折れ線グラフ。フィル：塗りつぶし。">
-        <option value="bar">バー</option>
-        <option value="line">ライン</option>
-        <option value="fill">フィル</option>
       </select>
     </div>
     <div id="header-divider"></div>
@@ -1351,6 +1360,11 @@
   <div class="panel-header">
     <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
     <span class="panel-title">周波数スペクトラム</span>
+    <select id="window-mode" class="panel-select" data-tip="スペクトラム表示形式|バー：各周波数の強度を棒グラフで表示。ライン：折れ線グラフ。フィル：塗りつぶし。">
+      <option value="bar">バー</option>
+      <option value="line">ライン</option>
+      <option value="fill">フィル</option>
+    </select>
     <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
   </div>
   <div class="panel-content">
