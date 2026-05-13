@@ -1575,8 +1575,7 @@
     <label class="log-col-check" data-tip="声の占有率 (%)|測定開始からそのログ行の時点までの間で、人の声と判定されていた時間の割合を記録します。"><input type="checkbox" data-col="occupancy"   checked> 声の占有率 (%)</label>
     <label class="log-col-check" data-tip="声のイベント数|測定開始からそのログ行の時点までの「非声→声への切り替わり」回数を記録します。会話が始まった回数の目安です。"><input type="checkbox" data-col="voiceEvents" checked> 声のイベント数</label>
     <label class="log-col-check" data-tip="声の平均音圧 (dB)|声が検出された時間帯だけの平均音量を記録します。声が出ていない時間は含まないため、実際の発話の大きさを反映します。"><input type="checkbox" data-col="voiceAvgDb"  checked> 声の平均音圧 (dB)</label>
-    <label class="log-col-check" data-tip="手動ラベル|📌 ボタンで記録した手動ラベルの文字列を出力します。ラベルを押した行のみ値が入り、通常の測定行は空欄になります。"><input type="checkbox" data-col="manualLabel" checked> 手動ラベル</label>
-    <label class="log-col-check" data-tip="メモ|測定中に入力した自由記述メモを出力します。メモを送信した行のみ値が入ります。"><input type="checkbox" data-col="memo" checked> メモ</label>
+    <label class="log-col-check" data-tip="注記|📌 手動ラベルまたは 📝 メモを記録した行に出力されます。通常の測定行は空欄になります。"><input type="checkbox" data-col="note" checked> 注記</label>
   </div>
   <div id="log-list">
     <div id="log-empty">測定を開始すると<br>ここに記録されます</div>
@@ -2193,8 +2192,7 @@
           occupancy:   occNow,
           voiceEvents: voiceEventCount,
           voiceAvgDb:  avgDbNow,
-          manualLabel: '',
-          memo:        '',
+          note:        '',
         });
       }
     }
@@ -2831,8 +2829,7 @@
     { id: 'occupancy',   label: '声の占有率(%)',      fmt: v => v != null ? v.toFixed(1) : '' },
     { id: 'voiceEvents', label: '声のイベント数',     fmt: v => v != null ? String(v) : '' },
     { id: 'voiceAvgDb',  label: '声の平均音圧(dB)',   fmt: v => (v != null && v >= 0) ? v.toFixed(1) : '' },
-    { id: 'manualLabel', label: '手動ラベル',         fmt: v => v ? `"${v}"` : '' },
-    { id: 'memo',        label: 'メモ',               fmt: v => v ? `"${v}"` : '' },
+    { id: 'note',        label: '注記',               fmt: v => v ? `"${v}"` : '' },
   ];
 
   // 有効な列IDを取得
@@ -2879,7 +2876,7 @@
       occupancy:   null,
       voiceEvents: null,
       voiceAvgDb:  null,
-      manualLabel: label,
+      note:        label,
     });
   }
 
@@ -2917,8 +2914,7 @@
       occupancy:   null,
       voiceEvents: null,
       voiceAvgDb:  null,
-      manualLabel: null,
-      memo:        text,
+      note:        text,
     });
 
     input.value = '';
@@ -3213,7 +3209,7 @@
     const wellPrivate = avgDbNum <= 35;
 
     // 手動ラベル一覧
-    const labels = logData.filter(d => d.manualLabel);
+    const labels = logData.filter(d => d.note);
 
     // 時系列グラフ画像
     const chartImg = lastTsImageUrl
@@ -3225,7 +3221,7 @@
       : labels.map(d => `
           <tr>
             <td style="color:#555;padding:5px 12px;white-space:nowrap;">${d.elapsed}</td>
-            <td style="padding:5px 12px;">${d.manualLabel}</td>
+            <td style="padding:5px 12px;">${d.note}</td>
           </tr>`).join('');
 
     const html = `<!DOCTYPE html>
