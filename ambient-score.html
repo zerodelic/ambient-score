@@ -1625,6 +1625,11 @@
   const pitchHistory = new Array(PITCH_HISTORY_LEN).fill(0);
   let pitchHistIdx = 0;
 
+  // --- スペクトラム平均（フィルモード用）---
+  // 各周波数ビンのEMAで「直近の環境の地」を保持する
+  const SPEC_AVG_ALPHA = 0.995; // 60fps × 200frame ≈ 3秒の記憶
+  let specAvgBuffer = null;     // bufLen確定後に初期化（Float32Array）
+
   // --- BGM自動検出用 ---
   // 直近 ~10秒分のdBサンプルを保持し、σ（標準偏差）でリズム性を検出
   const BGM_BUF_SIZE   = 30;   // 30サンプル × 300ms ≈ 9秒
@@ -1885,6 +1890,7 @@
       smoothVoiceScore = 0;
       bgLevel = 30;
       bgmDbBuffer.length = 0;
+      specAvgBuffer = null;
       smoothBgmSigma = 0;
       bgmDetected    = false;
       document.getElementById('bgm-indicator').classList.remove('active');
@@ -2245,30 +2251,83 @@
         specCtx.fillStyle = `hsl(${hue}, ${ct.specSat}%, ${ct.specLit}%)`;
         specCtx.fillRect(x1, bottomY - barH, bw - 0.5, barH);
       }
-    } else {
-      // Line / fill
+    } else if (mode === 'line') {
+      // ---- ラインモード：現在の瞬間値を折れ線で描画 ----
       specCtx.beginPath();
       let first = true;
       for (let i = 1; i < bufLen; i++) {
         const freq = (i / bufLen) * nyquist;
         if (freq < 20) continue;
         const x = freqToX(freq, nyquist, w);
-        const db = freqData[i];
-        const norm = Math.max(0, (db - NOISE_FLOOR_DB) / dbRange);
+        const norm = Math.max(0, (freqData[i] - NOISE_FLOOR_DB) / dbRange);
         const y = bottomY - norm * chartH;
         if (first) { specCtx.moveTo(x, y); first = false; }
         else specCtx.lineTo(x, y);
       }
-      if (mode === 'fill') {
-        specCtx.lineTo(w, bottomY);
-        specCtx.lineTo(0, bottomY);
-        specCtx.closePath();
-        const grad = specCtx.createLinearGradient(0, 0, 0, h);
-        grad.addColorStop(0, ct.octGrad[0] + '88');
-        grad.addColorStop(1, ct.octGrad[1] + '22');
-        specCtx.fillStyle = grad;
-        specCtx.fill();
+      specCtx.strokeStyle = ct.octGrad[0];
+      specCtx.lineWidth = 1.5;
+      specCtx.stroke();
+
+    } else {
+      // ---- フィルモード：現在 vs 平均の2層比較表示 ----
+
+      // EMA平均バッファの初期化 / 更新
+      if (!specAvgBuffer || specAvgBuffer.length !== bufLen) {
+        specAvgBuffer = new Float32Array(bufLen);
+        specAvgBuffer.fill(NOISE_FLOOR_DB);
       }
+      for (let i = 1; i < bufLen; i++) {
+        specAvgBuffer[i] = specAvgBuffer[i] * SPEC_AVG_ALPHA
+                         + freqData[i]       * (1 - SPEC_AVG_ALPHA);
+      }
+
+      // 描画用に両方の座標を先に計算しておく
+      const pts = [];
+      for (let i = 1; i < bufLen; i++) {
+        const freq = (i / bufLen) * nyquist;
+        if (freq < 20) continue;
+        const x      = freqToX(freq, nyquist, w);
+        const yCurr  = bottomY - Math.max(0, (freqData[i]      - NOISE_FLOOR_DB) / dbRange) * chartH;
+        const yAvg   = bottomY - Math.max(0, (specAvgBuffer[i] - NOISE_FLOOR_DB) / dbRange) * chartH;
+        pts.push({ x, yCurr, yAvg });
+      }
+
+      // --- 層① 平均fill（青：「環境の地」） ---
+      specCtx.beginPath();
+      pts.forEach((p, idx) => idx === 0 ? specCtx.moveTo(p.x, p.yAvg) : specCtx.lineTo(p.x, p.yAvg));
+      specCtx.lineTo(pts[pts.length - 1].x, bottomY);
+      specCtx.lineTo(pts[0].x, bottomY);
+      specCtx.closePath();
+      const avgGrad = specCtx.createLinearGradient(0, 0, 0, h);
+      avgGrad.addColorStop(0, 'rgba(40,80,200,0.45)');
+      avgGrad.addColorStop(1, 'rgba(20,40,120,0.15)');
+      specCtx.fillStyle = avgGrad;
+      specCtx.fill();
+
+      // --- 層② 現在が平均を超えた部分のfill（緑：「今起きていること」） ---
+      // 現在パスを順方向→平均パスを逆方向で囲い、current > avg の領域だけ塗る
+      specCtx.beginPath();
+      pts.forEach((p, idx) => {
+        const y = Math.min(p.yCurr, p.yAvg); // 現在が上なら現在、下なら平均と同じ高さ
+        idx === 0 ? specCtx.moveTo(p.x, y) : specCtx.lineTo(p.x, y);
+      });
+      for (let idx = pts.length - 1; idx >= 0; idx--) {
+        specCtx.lineTo(pts[idx].x, pts[idx].yAvg);
+      }
+      specCtx.closePath();
+      specCtx.fillStyle = 'rgba(80,220,160,0.35)';
+      specCtx.fill();
+
+      // --- 平均ライン（薄い青） ---
+      specCtx.beginPath();
+      pts.forEach((p, idx) => idx === 0 ? specCtx.moveTo(p.x, p.yAvg) : specCtx.lineTo(p.x, p.yAvg));
+      specCtx.strokeStyle = 'rgba(80,140,255,0.55)';
+      specCtx.lineWidth = 1;
+      specCtx.stroke();
+
+      // --- 現在ライン（明るい緑） ---
+      specCtx.beginPath();
+      pts.forEach((p, idx) => idx === 0 ? specCtx.moveTo(p.x, p.yCurr) : specCtx.lineTo(p.x, p.yCurr));
       specCtx.strokeStyle = ct.octGrad[0];
       specCtx.lineWidth = 1.5;
       specCtx.stroke();
