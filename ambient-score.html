@@ -1466,28 +1466,7 @@
 
 <div id="col-right" class="col-panel">
 
-<!-- ⑤ 時間帯ヒートマップ -->
-<div class="panel-section" data-panel="heatmap">
-  <div class="panel-header">
-    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
-    <span class="panel-title">時間帯ヒートマップ</span>
-    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
-  </div>
-  <div class="panel-content">
-    <div class="canvas-wrap" data-tip="時間帯ヒートマップ|1分単位で音量を色で表示します。青〜緑=静か、黄〜赤=騒がしい。下端の緑ストライプは声の占有率を示します。">
-      <canvas id="heatmap" height="80"></canvas>
-    </div>
-    <div id="heatmap-legend">
-      <span>静か</span>
-      <div id="heatmap-legend-bar"></div>
-      <span>騒がしい</span>
-      <span style="margin-left:12px; color:#44ffaa88;">▌</span>
-      <span>声の割合</span>
-    </div>
-  </div>
-</div>
-
-<!-- ⑥ 音源識別 -->
+<!-- ⑤ 音源識別 -->
 <div class="panel-section" data-panel="voice">
   <div class="panel-header">
     <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
@@ -1539,6 +1518,27 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ⑥ 時間帯ヒートマップ -->
+<div class="panel-section" data-panel="heatmap">
+  <div class="panel-header">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <span class="panel-title">時間帯ヒートマップ</span>
+    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
+  </div>
+  <div class="panel-content">
+    <div class="canvas-wrap" data-tip="時間帯ヒートマップ|1分単位で音量を色で表示します。青〜緑=静か、黄〜赤=騒がしい。下端の緑ストライプは声の占有率を示します。">
+      <canvas id="heatmap" height="80"></canvas>
+    </div>
+    <div id="heatmap-legend">
+      <span>静か</span>
+      <div id="heatmap-legend-bar"></div>
+      <span>騒がしい</span>
+      <span style="margin-left:12px; color:#44ffaa88;">▌</span>
+      <span>声の割合</span>
     </div>
   </div>
 </div>
@@ -3478,13 +3478,13 @@
   // =============================================
   // --- パネル管理（折りたたみ・2列ドラッグ&ドロップ）---
   // =============================================
-  const PANEL_ORDER_KEY     = 'noiseAnalyzer_panelOrder2';
-  const PANEL_COLLAPSED_KEY = 'noiseAnalyzer_panelCollapsed2';
+  const PANEL_ORDER_KEY     = 'noiseAnalyzer_panelOrder3';
+  const PANEL_COLLAPSED_KEY = 'noiseAnalyzer_panelCollapsed3';
 
   // デフォルトの列割り当て
   const DEFAULT_COLS = {
     'col-left':  ['meters', 'spectrum', 'waterfall', 'waveform', 'timeseries'],
-    'col-right': ['heatmap', 'voice', 'octave'],
+    'col-right': ['voice', 'heatmap', 'octave'],
   };
 
   function savePanelState() {
