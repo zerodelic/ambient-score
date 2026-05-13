@@ -1661,6 +1661,12 @@
   // スコアの平滑化（ちらつき防止）
   let smoothVoiceScore = 0;
 
+  // ラベル/メモ記録時に使う最新測定値スナップショット
+  let latestSnap = {
+    dbVal: 0, peak3s: 0, domFreqVal: 0, voiceLabel: '---',
+    occupancy: 0, voiceEvents: 0, voiceAvgDb: 0,
+  };
+
   // ピッチ履歴（安定性判定用）
   const PITCH_HISTORY_LEN = 20;
   const pitchHistory = new Array(PITCH_HISTORY_LEN).fill(0);
@@ -2176,22 +2182,25 @@
       document.getElementById('val-dom').innerHTML = domDisplay;
 
       // --- 1秒ごとにログ記録 ---
+      // 最新測定値を常にスナップショットに保持（ラベル/メモ記録時に使用）
+      const currentVoiceLabel = document.getElementById('voice-label').textContent || '---';
+      const occNow    = totalFrameCount > 0 ? voiceFrameCount / totalFrameCount * 100 : 0;
+      const avgDbNow  = voiceDbCount > 0 ? voiceDbSum / voiceDbCount : -1;
+      latestSnap = {
+        dbVal:      dbShifted,
+        peak3s:     peakHold,
+        domFreqVal: domFreq,
+        voiceLabel: currentVoiceLabel,
+        occupancy:  occNow,
+        voiceEvents: voiceEventCount,
+        voiceAvgDb:  avgDbNow,
+      };
+
       if (elapsed - lastLogTime >= LOG_INTERVAL_MS) {
         lastLogTime = elapsed;
-        const currentVoiceLabel = document.getElementById('voice-label').textContent || '---';
-        const occNow = totalFrameCount > 0
-          ? voiceFrameCount / totalFrameCount * 100 : 0;
-        const avgDbNow = voiceDbCount > 0
-          ? voiceDbSum / voiceDbCount : -1;
         addLogEntry({
           elapsed:     formatClock(),
-          dbVal:       dbShifted,
-          peak3s:      peakHold,
-          domFreqVal:  domFreq,
-          voiceLabel:  currentVoiceLabel,
-          occupancy:   occNow,
-          voiceEvents: voiceEventCount,
-          voiceAvgDb:  avgDbNow,
+          ...latestSnap,
           note:        '',
         });
       }
@@ -2863,20 +2872,11 @@
     `;
     list.insertBefore(entry, list.firstChild);
 
-    // CSVデータに追加（測定値はnull、手動ラベルのみ記録）
-    const sec = startTime != null ? Math.floor((Date.now() - startTime) / 1000) : 0;
-    const m   = Math.floor(sec / 60);
-    const s   = String(sec % 60).padStart(2, '0');
+    // CSVデータに追加（その瞬間の測定値 + 注記）
     logData.push({
-      elapsed:     formatClock(),
-      dbVal:       null,
-      peak3s:      null,
-      domFreqVal:  null,
-      voiceLabel:  null,
-      occupancy:   null,
-      voiceEvents: null,
-      voiceAvgDb:  null,
-      note:        label,
+      elapsed: formatClock(),
+      ...latestSnap,
+      note: label,
     });
   }
 
@@ -2904,17 +2904,11 @@
     `;
     document.getElementById('log-list').insertBefore(entry, document.getElementById('log-list').firstChild);
 
-    // CSVデータに追加
+    // CSVデータに追加（その瞬間の測定値 + メモ）
     logData.push({
-      elapsed:     formatClock(),
-      dbVal:       null,
-      peak3s:      null,
-      domFreqVal:  null,
-      voiceLabel:  null,
-      occupancy:   null,
-      voiceEvents: null,
-      voiceAvgDb:  null,
-      note:        text,
+      elapsed: formatClock(),
+      ...latestSnap,
+      note: text,
     });
 
     input.value = '';
