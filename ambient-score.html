@@ -33,11 +33,18 @@
       margin-bottom: 6px;
     }
 
-    #live-clock {
+    #header-left {
       flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      min-width: 130px;
+    }
+
+    #live-clock {
       text-align: left;
       line-height: 1.2;
-      min-width: 90px;
     }
     #live-clock-date {
       font-size: 0.72rem;
@@ -57,10 +64,9 @@
       text-align: center;
     }
 
-    #header-status {
+    #header-right {
       flex: 0 0 auto;
-      min-width: 90px;
-      text-align: right;
+      min-width: 130px;
     }
 
     h1 {
@@ -163,7 +169,7 @@
       font-size: 0.72rem;
       color: #ffaa44;
       letter-spacing: 0.08em;
-      text-align: right;
+      text-align: left;
       white-space: nowrap;
     }
 
@@ -1219,19 +1225,20 @@
 
 <div id="app-header">
 
-  <!-- Row 1: 時計 ── タイトル ── ステータス -->
+  <!-- Row 1: 時計＋ステータス（左） ── タイトル（中央） ── スペーサー（右） -->
   <div id="header-row1">
-    <div id="live-clock">
-      <div id="live-clock-date">---</div>
-      <div id="live-clock-time">--:--:--</div>
+    <div id="header-left">
+      <div id="live-clock">
+        <div id="live-clock-date">---</div>
+        <div id="live-clock-time">--:--:--</div>
+      </div>
+      <div id="status">マイクへのアクセスを許可してください</div>
     </div>
     <div id="header-title">
       <h1>Ambient Score 1 <span id="app-version">v1.9.5 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
-    <div id="header-status">
-      <div id="status">マイクへのアクセスを許可してください</div>
-    </div>
+    <div id="header-right"></div>
   </div>
 
   <!-- Row 2: コントロール | 手動ラベル -->
