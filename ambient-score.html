@@ -728,6 +728,23 @@
       color: #ff8844;
     }
 
+    #btn-filelog {
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      border-color: #335533;
+      color: #88bb88;
+    }
+    #btn-filelog.active {
+      background: #00ff4422;
+      border-color: #44cc66;
+      color: #44ff88;
+      animation: pulse-file 2s ease-in-out infinite;
+    }
+    @keyframes pulse-file {
+      0%, 100% { box-shadow: 0 0 4px #44ff8844; }
+      50%       { box-shadow: 0 0 10px #44ff88aa; }
+    }
+
     #alert-settings-panel {
       display: none;
       background: #0d0d1a;
@@ -1285,7 +1302,7 @@
       </div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v1.9.5 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.0.0 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -1298,6 +1315,7 @@
       <button id="btn-pause" disabled data-tip="一時停止 / 再開|測定を一時停止します。データはそのまま保持され、再開すると続きから測定できます。">⏸</button>
       <button id="btn-stop" disabled data-tip="停止|測定を停止します。最大・平均音量は保持されたままで、次の開始でリセットされます。">■ 停止</button>
       <button id="btn-alert-settings" data-tip="騒音アラート設定|指定したdBレベルが一定時間続いたときに警告を表示します。しきい値と継続時間を自由に設定できます。">🔔 アラート</button>
+      <button id="btn-filelog" data-tip="ファイルへ保存|測定中のログをリアルタイムでCSVファイルに書き込みます。開始時にファイルを選択し、停止時に自動で閉じます（Chrome/Edge専用）。">📁 ファイル</button>
       <select id="fft-size" data-tip="FFTサイズ|周波数分解能と応答速度のトレードオフ。数値が大きいほど周波数の細かい分析が可能ですが、応答が遅くなります。通常は2048が最適です。">
         <option value="1024">FFT 1024</option>
         <option value="2048" selected>FFT 2048</option>
@@ -1975,6 +1993,9 @@
       fftSizeEl.disabled = true;
       setLabelButtons(true);
 
+      // ファイルログを開く（キャンセルされても測定は続行）
+      await openFileLog();
+
       draw();
     } catch (e) {
       status.textContent = 'マイクアクセスエラー: ' + e.message;
@@ -1984,6 +2005,7 @@
   function stop() {
     if (animId) cancelAnimationFrame(animId);
     if (audioCtx) audioCtx.close();
+    closeFileLog(); // ファイルログを閉じる（非同期だが待たない）
     status.textContent = '停止中';
     btnStart.disabled = false;
     btnPause.disabled = true;
@@ -2821,6 +2843,69 @@
   let sessionStartClock = null; // 実時計での開始時刻
   let lastTsImageUrl = null;   // レポート用：停止時の時系列グラフ画像
 
+  // =============================================
+  // --- リアルタイムファイルログ (File System Access API) ---
+  // =============================================
+  let _fileWriter = null; // FileSystemWritableFileStream
+  let _fileOffset = 0;    // 現在の書き込みバイト位置
+
+  // ファイルを開いてヘッダーを書く（start()から呼び出す）
+  async function openFileLog() {
+    if (!window.showSaveFilePicker) return; // 非対応ブラウザはスキップ
+    try {
+      const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName: `ambient-log-${ts}.csv`,
+        types: [{ description: 'CSV ファイル', accept: { 'text/csv': ['.csv'] } }],
+      });
+      _fileWriter = await fileHandle.createWritable();
+      _fileOffset = 0;
+
+      // UTF-8 BOM + ヘッダー行を書き込む
+      const header = '﻿時刻,' + LOG_COLS.map(c => c.label).join(',') + '\n';
+      const encoded = new TextEncoder().encode(header);
+      await _fileWriter.write({ type: 'write', position: _fileOffset, data: encoded });
+      _fileOffset += encoded.byteLength;
+
+      // ボタンをアクティブに
+      document.getElementById('btn-filelog').classList.add('active');
+      document.getElementById('btn-filelog').title = fileHandle.name + ' へ書き込み中';
+    } catch (e) {
+      // キャンセル or エラー → ファイルなしで続行
+      _fileWriter = null;
+      _fileOffset = 0;
+    }
+  }
+
+  // ファイルを閉じる（stop()から呼び出す）
+  async function closeFileLog() {
+    if (!_fileWriter) return;
+    try {
+      await _fileWriter.close();
+    } catch (_) { /* ignore */ }
+    _fileWriter = null;
+    _fileOffset = 0;
+    document.getElementById('btn-filelog').classList.remove('active');
+    document.getElementById('btn-filelog').title = '';
+  }
+
+  // 1行分のCSVを追記する
+  async function appendRowToFile(data) {
+    if (!_fileWriter) return;
+    try {
+      const row = [
+        data.elapsed,
+        ...LOG_COLS.map(c => {
+          const col = LOG_COLS.find(x => x.id === c.id);
+          return col ? col.fmt(data[c.id]) : '';
+        }),
+      ].join(',') + '\n';
+      const encoded = new TextEncoder().encode(row);
+      await _fileWriter.write({ type: 'write', position: _fileOffset, data: encoded });
+      _fileOffset += encoded.byteLength;
+    } catch (_) { /* ignore write errors */ }
+  }
+
   function formatClock() {
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, '0');
@@ -2873,11 +2958,9 @@
     list.insertBefore(entry, list.firstChild);
 
     // CSVデータに追加（その瞬間の測定値 + 注記）
-    logData.push({
-      elapsed: formatClock(),
-      ...latestSnap,
-      note: label,
-    });
+    const labelRow = { elapsed: formatClock(), ...latestSnap, note: label };
+    logData.push(labelRow);
+    appendRowToFile(labelRow); // ファイルにリアルタイム追記
   }
 
   // ラベルボタンのクリックイベント
@@ -2905,11 +2988,9 @@
     document.getElementById('log-list').insertBefore(entry, document.getElementById('log-list').firstChild);
 
     // CSVデータに追加（その瞬間の測定値 + メモ）
-    logData.push({
-      elapsed: formatClock(),
-      ...latestSnap,
-      note: text,
-    });
+    const memoRow = { elapsed: formatClock(), ...latestSnap, note: text };
+    logData.push(memoRow);
+    appendRowToFile(memoRow); // ファイルにリアルタイム追記
 
     input.value = '';
   }
@@ -2935,6 +3016,7 @@
   function addLogEntry(data) {
     // 全フィールドを保存
     logData.push(data);
+    appendRowToFile(data); // ファイルにリアルタイム追記
     drawTimeSeries();
     drawHeatmap();
 
