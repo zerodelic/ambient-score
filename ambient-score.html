@@ -482,7 +482,11 @@
     #log-col {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 0;
+      background: #08080f;
+      border: 1px solid #1a2255;
+      border-radius: 10px;
+      overflow: hidden;
     }
 
     #log-header {
@@ -490,6 +494,9 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      background: #0a0a18;
+      border-bottom: 1px solid #1a2255;
+      padding: 8px 14px;
     }
 
     .log-title {
@@ -516,11 +523,12 @@
     }
 
     #log-list {
-      height: calc(100vh - 120px);
+      height: calc(100vh - 210px);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: 4px;
+      padding: 8px;
       scrollbar-width: thin;
       scrollbar-color: #2233aa #08080f;
     }
@@ -556,10 +564,8 @@
       gap: 5px;
       align-items: center;
       flex-wrap: wrap;
-      margin-left: auto;
-      border: 1px solid #2a3a55;
-      border-radius: 10px;
-      padding: 5px 10px;
+      padding: 8px 14px;
+      border-bottom: 1px solid #1a2255;
       background: #070c18;
     }
     #label-buttons .label-title {
@@ -678,7 +684,7 @@
     @media (max-width: 720px) {
       #app-body { flex-direction: column; }
       #log-col { width: 100%; }
-      #log-list { height: 300px; }
+      #log-list { height: 260px; }
     }
 
     /* ---- カスタムツールチップ ---- */
@@ -1306,7 +1312,7 @@
       </div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.0.4 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.0.5 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -1326,19 +1332,6 @@
         <option value="4096">FFT 4096</option>
         <option value="8192">FFT 8192</option>
       </select>
-    </div>
-    <div id="header-divider"></div>
-    <div id="label-buttons" data-tip="手動ラベル|測定中にワンタップでその場の状況をログに記録します。CSVにも「手動ラベル」列として出力されます。">
-      <span class="label-title">📌</span>
-      <button class="label-btn" data-label="🎙 人の声がした"   data-color="#44ffaa" disabled>🎙 人の声</button>
-      <button class="label-btn" data-label="🌿 環境音のみ"     data-color="#44aaff" disabled>🌿 環境音</button>
-      <button class="label-btn" data-label="🔊 とてもうるさい" data-color="#ff8844" disabled>🔊 うるさい</button>
-      <button class="label-btn" data-label="🤫 静寂"           data-color="#aaaacc" disabled>🤫 静寂</button>
-      <button class="label-btn" data-label="🎵 BGM"            data-color="#cc88ff" disabled>🎵 BGM</button>
-      <div id="memo-wrap" data-tip="メモ|測定中に自由なメモを残せます。Enterまたは→で送信し、ログとCSVに記録されます。">
-        <input type="text" id="memo-input" placeholder="📝 メモ…" disabled maxlength="100">
-        <button id="btn-memo-send" disabled>→</button>
-      </div>
     </div>
   </div>
 
@@ -1598,6 +1591,18 @@
     <label class="log-col-check" data-tip="声のイベント数|測定開始からそのログ行の時点までの「非声→声への切り替わり」回数を記録します。会話が始まった回数の目安です。"><input type="checkbox" data-col="voiceEvents" checked> 声のイベント数</label>
     <label class="log-col-check" data-tip="声の平均音圧 (dB)|声が検出された時間帯だけの平均音量を記録します。声が出ていない時間は含まないため、実際の発話の大きさを反映します。"><input type="checkbox" data-col="voiceAvgDb"  checked> 声の平均音圧 (dB)</label>
     <label class="log-col-check" data-tip="注記|📌 手動ラベルまたは 📝 メモを記録した行に出力されます。通常の測定行は空欄になります。"><input type="checkbox" data-col="note" checked> 注記</label>
+  </div>
+  <div id="label-buttons" data-tip="手動ラベル|測定中にワンタップでその場の状況をログに記録します。CSVにも「注記」列として出力されます。">
+    <span class="label-title">📌</span>
+    <button class="label-btn" data-label="🎙 人の声がした"   data-color="#44ffaa" disabled>🎙 人の声</button>
+    <button class="label-btn" data-label="🌿 環境音のみ"     data-color="#44aaff" disabled>🌿 環境音</button>
+    <button class="label-btn" data-label="🔊 とてもうるさい" data-color="#ff8844" disabled>🔊 うるさい</button>
+    <button class="label-btn" data-label="🤫 静寂"           data-color="#aaaacc" disabled>🤫 静寂</button>
+    <button class="label-btn" data-label="🎵 BGM"            data-color="#cc88ff" disabled>🎵 BGM</button>
+    <div id="memo-wrap" data-tip="メモ|測定中に自由なメモを残せます。Enterまたは→で送信し、ログとCSVに記録されます。">
+      <input type="text" id="memo-input" placeholder="📝 メモ…" disabled maxlength="100">
+      <button id="btn-memo-send" disabled>→</button>
+    </div>
   </div>
   <div id="log-list">
     <div id="log-empty">測定を開始すると<br>ここに記録されます</div>
