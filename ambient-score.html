@@ -557,6 +557,10 @@
       align-items: center;
       flex-wrap: wrap;
       margin-left: auto;
+      border: 1px solid #2a3a55;
+      border-radius: 10px;
+      padding: 5px 10px;
+      background: #070c18;
     }
     #label-buttons .label-title {
       color: #7799bb;
@@ -1302,7 +1306,7 @@
       </div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.0.3 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.0.4 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -3014,7 +3018,7 @@
 
   document.getElementById('btn-memo-send').addEventListener('click', sendMemo);
   document.getElementById('memo-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') sendMemo();
+    if (e.key === 'Enter' && !e.isComposing) sendMemo(); // isComposing=true の間はIME変換中なのでスキップ
   });
 
   function addAlertLogEntry(type, message) {
