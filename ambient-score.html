@@ -1302,7 +1302,7 @@
       </div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.0.1 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.0.2 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -3106,6 +3106,16 @@
   btnStart.addEventListener('click', start);
   btnPause.addEventListener('click', () => { isPaused ? resume() : pause(); });
   btnStop.addEventListener('click', stop);
+
+  // ---- ファイルログボタン：非対応ブラウザ（Safari等）では無効化 ----
+  (function initFileLogButton() {
+    const btn = document.getElementById('btn-filelog');
+    if (!window.showSaveFilePicker) {
+      btn.disabled = true;
+      btn.dataset.tip = 'ファイルへ保存（非対応）|このブラウザはFile System Access APIに対応していません。Chrome または Edge をご利用ください。';
+      btn.textContent = '📁 ファイル';
+    }
+  })();
   fftSizeEl.addEventListener('change', () => {
     if (analyser) analyser.fftSize = parseInt(fftSizeEl.value);
   });
