@@ -1302,7 +1302,7 @@
       </div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.0.2 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.0.3 &nbsp;|&nbsp; 更新日：2026-05-13</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -1315,7 +1315,7 @@
       <button id="btn-pause" disabled data-tip="一時停止 / 再開|測定を一時停止します。データはそのまま保持され、再開すると続きから測定できます。">⏸</button>
       <button id="btn-stop" disabled data-tip="停止|測定を停止します。最大・平均音量は保持されたままで、次の開始でリセットされます。">■ 停止</button>
       <button id="btn-alert-settings" data-tip="騒音アラート設定|指定したdBレベルが一定時間続いたときに警告を表示します。しきい値と継続時間を自由に設定できます。">🔔 アラート</button>
-      <button id="btn-filelog" data-tip="ファイルへ保存|測定中のログをリアルタイムでCSVファイルに書き込みます。開始時にファイルを選択し、停止時に自動で閉じます（Chrome/Edge専用）。">📁 ファイル</button>
+      <button id="btn-filelog" disabled data-tip="ファイルへ保存|測定開始後にクリックすると保存先ファイルを選択できます。測定中はリアルタイムで追記し、停止時に自動クローズします（Chrome/Edge専用）。">📁 ファイル</button>
       <select id="fft-size" data-tip="FFTサイズ|周波数分解能と応答速度のトレードオフ。数値が大きいほど周波数の細かい分析が可能ですが、応答が遅くなります。通常は2048が最適です。">
         <option value="1024">FFT 1024</option>
         <option value="2048" selected>FFT 2048</option>
@@ -1995,9 +1995,11 @@
       btnStop.classList.add('active');
       fftSizeEl.disabled = true;
       setLabelButtons(true);
-
-      // ファイルログを開く（キャンセルされても測定は続行）
-      await openFileLog();
+      // 📁ボタンを有効化（対応ブラウザのみ・クリック時に保存先を選択）
+      const fileBtn = document.getElementById('btn-filelog');
+      if (!fileBtn.classList.contains('filelog-unsupported')) {
+        fileBtn.disabled = false;
+      }
 
       draw();
     } catch (e) {
@@ -2009,6 +2011,7 @@
     if (animId) cancelAnimationFrame(animId);
     if (audioCtx) audioCtx.close();
     closeFileLog(); // ファイルログを閉じる（非同期だが待たない）
+    document.getElementById('btn-filelog').disabled = true; // 対応/非対応問わず停止中は無効
     status.textContent = '停止中';
     btnStart.disabled = false;
     btnPause.disabled = true;
@@ -3107,13 +3110,16 @@
   btnPause.addEventListener('click', () => { isPaused ? resume() : pause(); });
   btnStop.addEventListener('click', stop);
 
-  // ---- ファイルログボタン：非対応ブラウザ（Safari等）では無効化 ----
+  // ---- ファイルログボタン ----
   (function initFileLogButton() {
     const btn = document.getElementById('btn-filelog');
     if (!window.showSaveFilePicker) {
-      btn.disabled = true;
+      // 非対応ブラウザ（Safari等）: 永続的に無効化してツールチップで理由を表示
       btn.dataset.tip = 'ファイルへ保存（非対応）|このブラウザはFile System Access APIに対応していません。Chrome または Edge をご利用ください。';
-      btn.textContent = '📁 ファイル';
+      btn.classList.add('filelog-unsupported'); // stop()でdisabledを解除しないようにマーク
+    } else {
+      // 対応ブラウザ：クリックで保存先選択（測定中のみ有効）
+      btn.addEventListener('click', openFileLog);
     }
   })();
   fftSizeEl.addEventListener('change', () => {
