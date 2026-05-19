@@ -1306,7 +1306,7 @@
       </div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.0.5 &nbsp;|&nbsp; 更新日：2026-05-18</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.0.6 &nbsp;|&nbsp; 更新日：2026-05-19</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -1700,7 +1700,7 @@
   // --- BGM自動検出用 ---
   // 直近 ~10秒分のdBサンプルを保持し、σ（標準偏差）でリズム性を検出
   const BGM_BUF_SIZE   = 30;   // 30サンプル × 300ms ≈ 9秒
-  const BGM_SIGMA_TH   =  8;   // σ閾値（dB）: 音楽のビートによる変動
+  const BGM_SIGMA_TH   = 10;   // σ閾値（dB）: 音楽のビートによる変動（実測: 誤検知σ≈8〜8.6, 本物BGMσ≈12.5）
   const BGM_MEAN_TH    = 35;   // 平均dB閾値: ある程度の音量がある場合のみ判定
   const BGM_OCC_TH     = 40;   // 声占有率閾値(%): これ以上なら会議と判断してBGM判定を抑制
   const bgmDbBuffer    = [];
@@ -2530,8 +2530,9 @@
       // 卓越周波数ゲート：人の声は200Hz以上にエネルギーが分散する特性がある
       // 空調・換気扇ノイズは低域(〜200Hz)に集中するため抑制する
       // 実測データ：通常オフィス(無声)の96.1%が200Hz未満、会議中(有声)の75%が200Hz以上
-      const freqGate = domFreq < 200 ? 0.15                              // 200Hz未満：強く抑制（空調ノイズ）
-                     : domFreq < 300 ? 0.15 + (domFreq - 200) / 100 * 0.85  // 200〜300Hz：線形に回復
+      // ※下限を0.40に設定：HVAC環境でも大音量の声は検出できるよう最低感度を確保
+      const freqGate = domFreq < 200 ? 0.40                              // 200Hz未満：抑制するが最低感度40%を維持
+                     : domFreq < 300 ? 0.40 + (domFreq - 200) / 100 * 0.60  // 200〜300Hz：線形に回復
                      :                 1.0;                               // 300Hz以上：制限なし（人の声の典型域）
 
       // 重み付き合計（3指標に集約）× 周波数ゲート
