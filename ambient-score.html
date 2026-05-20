@@ -1308,7 +1308,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.1.3 &nbsp;|&nbsp; 更新日：2026-05-21</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.1.4 &nbsp;|&nbsp; 更新日：2026-05-21</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -1646,8 +1646,8 @@
   const wtfCtx  = wtfCanvas.getContext('2d');
   const joyCanvas = document.getElementById('joyplot');
   const joyCtx    = joyCanvas.getContext('2d');
-  const JOY_MAX_RIDGES = 32;    // 表示する最大ライン数
-  const JOY_INTERVAL_MS = 1500; // 何msごとにスナップショットを取るか
+  const JOY_MAX_RIDGES = 32;    // 表示する最大ライン数（32本 × 5秒 ≈ 約2.5分分）
+  const JOY_INTERVAL_MS = 5000; // 何msごとにスナップショットを取るか
   let   joyRidges = [];        // [{data: Float32Array, elapsed: number}]
   let   joyLastCapture = 0;
 
