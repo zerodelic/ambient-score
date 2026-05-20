@@ -191,9 +191,9 @@
     }
 
     .meter-label {
-      font-size: 0.72rem;
-      color: #8899cc;
-      letter-spacing: 0.08em;
+      font-size: 0.75rem;
+      color: #aabbd8;
+      letter-spacing: 0.06em;
       margin-bottom: 4px;
       text-transform: uppercase;
       white-space: nowrap;
@@ -208,8 +208,8 @@
     }
 
     .meter-unit {
-      font-size: 0.72rem;
-      color: #6677aa;
+      font-size: 0.74rem;
+      color: #8899cc;
       margin-left: 2px;
     }
 
@@ -255,9 +255,9 @@
     }
 
     .canvas-title {
-      font-size: 0.78rem;
-      letter-spacing: 0.15em;
-      color: #7788cc;
+      font-size: 0.84rem;
+      letter-spacing: 0.12em;
+      color: #99aadd;
       padding: 8px 16px 4px;
       text-transform: uppercase;
     }
@@ -327,15 +327,15 @@
     .oct-label {
       position: absolute;
       bottom: -22px;
-      font-size: 0.68rem;
-      color: #6677aa;
+      font-size: 0.73rem;
+      color: #8899cc;
       white-space: nowrap;
     }
 
     .oct-db {
       position: absolute;
       top: -16px;
-      font-size: 0.68rem;
+      font-size: 0.73rem;
       color: #88ffcc;
     }
 
@@ -391,9 +391,9 @@
     }
 
     .vscore-label {
-      font-size: 0.73rem;
-      color: #7788bb;
-      letter-spacing: 0.08em;
+      font-size: 0.76rem;
+      color: #99aacc;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
     }
 
@@ -412,8 +412,8 @@
     }
 
     .vscore-val {
-      font-size: 0.75rem;
-      color: #8899cc;
+      font-size: 0.78rem;
+      color: #aabbdd;
     }
 
     #bgm-indicator {
@@ -458,9 +458,9 @@
     }
 
     .vstat-label {
-      font-size: 0.73rem;
-      color: #8899cc;
-      letter-spacing: 0.08em;
+      font-size: 0.76rem;
+      color: #aabbd8;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       margin-bottom: 4px;
     }
@@ -473,8 +473,8 @@
     }
 
     .vstat-sub {
-      font-size: 0.68rem;
-      color: #5566aa;
+      font-size: 0.72rem;
+      color: #7799bb;
       margin-top: 3px;
     }
 
@@ -1071,7 +1071,7 @@
     .panel-section.collapsed .panel-header { border-bottom-color: transparent; }
 
     .drag-handle {
-      color: #2a3660;
+      color: #4466aa;
       font-size: 1.1rem;
       cursor: grab;
       line-height: 1;
@@ -1084,22 +1084,22 @@
 
     .panel-title {
       flex: 1;
-      font-size: 0.68rem;
-      color: #4466aa;
-      letter-spacing: 0.18em;
+      font-size: 0.82rem;
+      color: #88aaee;
+      letter-spacing: 0.14em;
       text-transform: uppercase;
     }
 
     .panel-toggle {
       padding: 2px 8px;
-      font-size: 0.65rem;
+      font-size: 0.70rem;
       border-width: 1px;
-      border-color: #1a2255;
-      color: #2a3660;
+      border-color: #2a3a6a;
+      color: #5577aa;
       line-height: 1.4;
       transition: transform 0.25s, color 0.15s;
     }
-    .panel-toggle:hover { color: #4466aa; border-color: #2233aa; }
+    .panel-toggle:hover { color: #88aaee; border-color: #4466cc; }
     .panel-section.collapsed .panel-toggle { transform: rotate(-90deg); }
 
     .panel-select {
@@ -1217,7 +1217,7 @@
       white-space: nowrap;
     }
     .score-sub span { color: #aaccff; }
-    .score-sub-unit { color: #556688; font-size: 0.85em; margin-left: 1px; }
+    .score-sub-unit { color: #8899bb; font-size: 0.85em; margin-left: 1px; }
 
     /* ============================================================
        （将来のテーマ用スペース）
@@ -1308,7 +1308,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.1.2 &nbsp;|&nbsp; 更新日：2026-05-21</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.1.3 &nbsp;|&nbsp; 更新日：2026-05-21</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -1646,8 +1646,8 @@
   const wtfCtx  = wtfCanvas.getContext('2d');
   const joyCanvas = document.getElementById('joyplot');
   const joyCtx    = joyCanvas.getContext('2d');
-  const JOY_MAX_RIDGES = 32;   // 表示する最大ライン数
-  const JOY_INTERVAL_MS = 600; // 何msごとにスナップショットを取るか
+  const JOY_MAX_RIDGES = 32;    // 表示する最大ライン数
+  const JOY_INTERVAL_MS = 1500; // 何msごとにスナップショットを取るか
   let   joyRidges = [];        // [{data: Float32Array, elapsed: number}]
   let   joyLastCapture = 0;
 
@@ -1658,8 +1658,8 @@
   // キャンバス描画カラー定数
   const CANVAS_THEME = {
     bg:          '#08080f',
-    gridLine:    '#2a3366',
-    gridLabel:   '#7799cc',
+    gridLine:    '#2e3d70',
+    gridLabel:   '#99bbdd',
     waveStroke:  '#4466ff',
     waveMid:     '#1a2255',
     tsVoice:     '#44ff88',
@@ -2157,8 +2157,8 @@
 
     // 周波数ラベルは毎フレーム固定位置に描き直す（スクロールに巻き込まれないよう）
     wtfCtx.clearRect(0, dataH, w, labelH);
-    wtfCtx.font = `${10 * dpr}px Courier New`;
-    wtfCtx.fillStyle = 'rgba(200,220,255,0.8)';
+    wtfCtx.font = `${11 * dpr}px Courier New`;
+    wtfCtx.fillStyle = 'rgba(180,210,255,0.95)';
     const labelFreqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
     labelFreqs.forEach(f => {
       if (f > nyquist) return;
@@ -2283,9 +2283,9 @@
       joyCtx.lineTo(x1, y1);
       joyCtx.stroke();
       // ラベル（手前端）
-      joyCtx.fillStyle = 'rgba(70,110,190,0.55)';
-      joyCtx.font = `${7.5 * dpr}px Courier New`;
-      joyCtx.fillText(f >= 1000 ? (f/1000)+'k' : f, x0 + 3, y0 + 11 * dpr);
+      joyCtx.fillStyle = 'rgba(140,175,240,0.85)';
+      joyCtx.font = `${9.5 * dpr}px Courier New`;
+      joyCtx.fillText(f >= 1000 ? (f/1000)+'k' : f, x0 + 3, y0 + 13 * dpr);
     });
 
     // ---- リッジ描画（古い順＝背面から）----
@@ -2337,12 +2337,12 @@
     }
 
     // ---- ラベル ----
-    joyCtx.fillStyle = 'rgba(80,125,200,0.50)';
-    joyCtx.font = `${8 * dpr}px Courier New`;
-    joyCtx.fillText('▶ NEW', frontLeft - 30 * dpr, frontBaseY - 6 * dpr);
+    joyCtx.fillStyle = 'rgba(150,185,245,0.85)';
+    joyCtx.font = `${9.5 * dpr}px Courier New`;
+    joyCtx.fillText('▶ NEW', frontLeft - 34 * dpr, frontBaseY - 6 * dpr);
     const oldX = frontLeft - totalShiftX;
     const oldY = frontBaseY - totalShiftY;
-    joyCtx.fillText('OLD', oldX, oldY + 10 * dpr);
+    joyCtx.fillText('OLD', oldX, oldY + 12 * dpr);
   }
 
   function draw(timestamp = 0) {
@@ -2509,7 +2509,7 @@
     const gridFreqs = [50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000];
     specCtx.strokeStyle = ct.gridLine;
     specCtx.lineWidth = 1;
-    specCtx.font = `${11 * window.devicePixelRatio}px Courier New`;
+    specCtx.font = `${12 * window.devicePixelRatio}px Courier New`;
     specCtx.fillStyle = ct.gridLabel;
     gridFreqs.forEach(f => {
       if (f > nyquist) return;
