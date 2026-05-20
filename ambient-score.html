@@ -1305,10 +1305,10 @@
         <div id="live-clock-time">--:--:--</div>
         <div id="status">マイクへのアクセスを許可してください</div>
       </div>
-      <div id="mic-info" style="font-size:0.68rem; color:#556688; margin-top:2px; min-height:1.2em;"></div>
+      <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.1.1 &nbsp;|&nbsp; 更新日：2026-05-21</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.1.2 &nbsp;|&nbsp; 更新日：2026-05-21</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -2208,6 +2208,34 @@
     }
   }
 
+  // ---- JoyPlot 音圧カラーマップ ----
+  // norm 0.0→1.0 : 暗い紺→青→シアン→白→黄
+  function joyColor(norm, alpha) {
+    let r, g, b;
+    if (norm < 0.25) {
+      const k = norm / 0.25;
+      r = Math.round(10  + k * 10);
+      g = Math.round(30  + k * 100);
+      b = Math.round(80  + k * 140);
+    } else if (norm < 0.55) {
+      const k = (norm - 0.25) / 0.30;
+      r = Math.round(20  + k * 10);
+      g = Math.round(130 + k * 110);
+      b = 220;
+    } else if (norm < 0.80) {
+      const k = (norm - 0.55) / 0.25;
+      r = Math.round(30  + k * 210);
+      g = Math.round(240 + k * 15);
+      b = Math.round(220 - k * 120);
+    } else {
+      const k = (norm - 0.80) / 0.20;
+      r = 240;
+      g = 255;
+      b = Math.round(100 - k * 60);
+    }
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
   function drawJoyPlot(freqData, nyquist, bufLen, elapsed) {
     // スナップショット取得
     if (elapsed - joyLastCapture > JOY_INTERVAL_MS / 1000) {
@@ -2222,91 +2250,99 @@
     const dpr = window.devicePixelRatio || 1;
     const n   = joyRidges.length;
 
-    // ---- 3Dパースペクティブ設定 ----
-    const vanishX    = w * 0.50;   // 消失点X（中央）
-    const vanishY    = h * 0.05;   // 消失点Y（上端付近）
-    const frontY     = h * 0.93;   // 最前列（最新）のベースラインY
-    const maxSpikeH  = h * 0.60;   // 最前列でのスパイク最大高さ
-    const depthScale = 0.30;       // 最遠端でのスケール比（小さい=強い遠近感）
+    // ---- 斜投影パラメータ（cabinet projection 風）----
+    // 最新（手前・右下）→ 最古（奥・左上）へシフト
+    const frontBaseY  = h * 0.90;          // 最新リッジのベースラインY
+    const frontLeft   = w * 0.26;          // 最新リッジの左端X
+    const ridgeW      = w * 0.72;          // 最新リッジの描画幅
+    const totalShiftX = w * 0.22;          // 全体のX総シフト（奥＝左へ）
+    const totalShiftY = h * 0.72;          // 全体のY総シフト（奥＝上へ）
+    const maxSpikeH   = h * 0.28;          // 最新リッジのスパイク最大高さ
+    const perspScale  = 0.30;              // 奥でのスケール縮小率（幅・高さ）
 
-    // 奥行き比率 d: 0.0=最前(最新) → 1.0=最奥(最古)
-    // index ri=0が最古, ri=n-1が最新 → age = n-1-ri
-    const projX = (xFlat, d) => vanishX + (xFlat - vanishX) * (1 - d * (1 - depthScale));
-    const projBaseY = d => frontY + (vanishY - frontY) * d;
+    // 周波数 → 正規化位置（対数スケール 0〜1）
+    const logMin = Math.log10(20);
+    const logMax = Math.log10(nyquist);
+    const fNorm  = f => (Math.log10(Math.max(20, f)) - logMin) / (logMax - logMin);
 
     joyCtx.clearRect(0, 0, w, h);
 
-    // ---- 消失点に向かうグリッド線 ----
-    [100, 500, 1000, 5000].forEach(f => {
+    // ---- 斜めグリッド線（奥行き方向）----
+    [200, 1000, 4000].forEach(f => {
       if (f > nyquist) return;
-      const xF = freqToX(f, nyquist, w);
-      // 最奥端→最前端への線
-      joyCtx.strokeStyle = 'rgba(30,55,110,0.30)';
-      joyCtx.lineWidth = 0.8 * dpr;
+      const fn = fNorm(f);
+      // 最前端点と最奥端点
+      const x0 = frontLeft + fn * ridgeW;
+      const y0 = frontBaseY;
+      const x1 = (frontLeft - totalShiftX) + fn * ridgeW * (1 - perspScale);
+      const y1 = frontBaseY - totalShiftY;
+      joyCtx.strokeStyle = 'rgba(35,65,120,0.28)';
+      joyCtx.lineWidth = 0.7 * dpr;
       joyCtx.beginPath();
-      joyCtx.moveTo(projX(xF, 1.0), projBaseY(1.0));
-      joyCtx.lineTo(projX(xF, 0.0), projBaseY(0.0));
+      joyCtx.moveTo(x0, y0);
+      joyCtx.lineTo(x1, y1);
       joyCtx.stroke();
-      // 周波数ラベル（最前端下）
-      joyCtx.fillStyle = 'rgba(80,120,200,0.55)';
-      joyCtx.font = `${8 * dpr}px Courier New`;
-      joyCtx.fillText(f >= 1000 ? (f/1000)+'k' : f, projX(xF, 0) + 3, frontY + 12 * dpr);
+      // ラベル（手前端）
+      joyCtx.fillStyle = 'rgba(70,110,190,0.55)';
+      joyCtx.font = `${7.5 * dpr}px Courier New`;
+      joyCtx.fillText(f >= 1000 ? (f/1000)+'k' : f, x0 + 3, y0 + 11 * dpr);
     });
 
     // ---- リッジ描画（古い順＝背面から）----
-    const step = Math.max(1, Math.floor(bufLen / 300)); // 描画点数を最大300に制限
+    const step = Math.max(1, Math.floor(bufLen / 250));
     for (let ri = 0; ri < n; ri++) {
       const ridge = joyRidges[ri];
-      const age   = n - 1 - ri;           // 0=最新(前面), n-1=最古(背面)
-      const d     = n > 1 ? age / (n - 1) : 0; // 奥行き比率 0.0=前面 1.0=背面
-      const t     = 1 - d;                // 0.0=背面 → 1.0=前面（明るさ）
+      const age   = n - 1 - ri;                        // 0=最新(前面), n-1=最古(背面)
+      const d     = n > 1 ? age / (n - 1) : 0;         // 0.0=前面 → 1.0=背面
+      const t     = 1 - d;                              // 1.0=前面（明るさ用）
 
-      const baseLineY  = projBaseY(d);
-      const scale      = 1 - d * (1 - depthScale);
-      const spikeH     = maxSpikeH * scale;
+      // このリッジの投影パラメータ
+      const scale   = 1 - d * perspScale;
+      const lx      = frontLeft   - d * totalShiftX;   // 左端X
+      const baseY   = frontBaseY  - d * totalShiftY;   // ベースラインY
+      const rW      = ridgeW * scale;                   // リッジ幅
+      const spikeH  = maxSpikeH  * scale;               // スパイク高さ
+      const alpha   = 0.22 + t * 0.78;                  // 奥ほど透明
 
-      // 色: 最奥=暗い紺/透明、最前=明るいシアン/白
-      const alpha      = 0.20 + t * 0.80;
-      const rC = Math.round(30  + t * 225);
-      const gC = Math.round(90  + t * 165);
-      const strokeColor = `rgba(${rC},${gC},255,${alpha})`;
-      const fillColor   = `rgba(3,3,14,${0.70 + t * 0.25})`;
-
-      joyCtx.beginPath();
-      let started = false;
+      // 各周波数ビンの (x, y, norm) を事前計算
+      const pts = [];
       for (let i = 0; i < bufLen; i += step) {
         const f = (i / bufLen) * nyquist;
         if (f < 20) continue;
-        const xFlat = freqToX(f, nyquist, w);
-        const x = projX(xFlat, d);
-        const norm = Math.max(0, Math.min(1, (ridge.data[i] + 100) / 65)); // -100〜-35dB → 0〜1
-        const y = baseLineY - norm * spikeH;
-        if (!started) {
-          joyCtx.moveTo(projX(0, d), baseLineY);
-          joyCtx.lineTo(x, y);
-          started = true;
-        } else {
-          joyCtx.lineTo(x, y);
-        }
+        const x    = lx + fNorm(f) * rW;
+        const norm = Math.max(0, Math.min(1, (ridge.data[i] + 100) / 65));
+        pts.push({ x, y: baseY - norm * spikeH, norm });
       }
-      joyCtx.lineTo(projX(w, d), baseLineY);
-      joyCtx.lineTo(projX(0, d), baseLineY);
-      joyCtx.closePath();
+      if (pts.length === 0) continue;
 
-      // 塗りつぶし（奥のリッジを隠す）
-      joyCtx.fillStyle = fillColor;
+      // 1) 下塗り：暗色で塗りつぶし（奥のリッジを隠す）
+      joyCtx.beginPath();
+      joyCtx.moveTo(lx, baseY);
+      pts.forEach(p => joyCtx.lineTo(p.x, p.y));
+      joyCtx.lineTo(lx + rW, baseY);
+      joyCtx.closePath();
+      joyCtx.fillStyle = `rgba(3,4,16,${0.78 + t * 0.18})`;
       joyCtx.fill();
-      // 輪郭線（手前ほど太く明るく）
-      joyCtx.strokeStyle = strokeColor;
-      joyCtx.lineWidth = (0.6 + t * 1.0) * dpr;
-      joyCtx.stroke();
+
+      // 2) 輪郭線：セグメントごとに音圧カラー
+      joyCtx.lineWidth = (0.5 + t * 1.3) * dpr;
+      for (let pi = 0; pi < pts.length - 1; pi++) {
+        const normAvg = (pts[pi].norm + pts[pi + 1].norm) * 0.5;
+        joyCtx.strokeStyle = joyColor(normAvg, alpha);
+        joyCtx.beginPath();
+        joyCtx.moveTo(pts[pi].x,     pts[pi].y);
+        joyCtx.lineTo(pts[pi + 1].x, pts[pi + 1].y);
+        joyCtx.stroke();
+      }
     }
 
-    // ---- 「NEW」「OLD」ラベル ----
-    joyCtx.fillStyle = 'rgba(80,120,180,0.45)';
+    // ---- ラベル ----
+    joyCtx.fillStyle = 'rgba(80,125,200,0.50)';
     joyCtx.font = `${8 * dpr}px Courier New`;
-    joyCtx.fillText('NEW ▼', 4 * dpr, frontY - 4 * dpr);
-    joyCtx.fillText('OLD', 4 * dpr, projBaseY(0.92) + 10 * dpr);
+    joyCtx.fillText('▶ NEW', frontLeft - 30 * dpr, frontBaseY - 6 * dpr);
+    const oldX = frontLeft - totalShiftX;
+    const oldY = frontBaseY - totalShiftY;
+    joyCtx.fillText('OLD', oldX, oldY + 10 * dpr);
   }
 
   function draw(timestamp = 0) {
