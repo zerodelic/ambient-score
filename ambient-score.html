@@ -1313,7 +1313,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.2.1 &nbsp;|&nbsp; 更新日：2026-05-21</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.2.3 &nbsp;|&nbsp; 更新日：2026-05-21</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -1734,6 +1734,7 @@
   const bgmVoiceBuffer = [];   // BGMと同じ9秒ウィンドウの声判定履歴（0/1）
   let   smoothBgmSigma = 0;
   let   bgmDetected    = false;
+  let   bgmLogPending  = false;  // ログ書き込み間隔中に一瞬でも検出されたら記録
 
   // 背景レベル自動追跡（VAD用）
   let bgLevel = 30; // 起動直後の仮初期値（実オフィスの典型的な環境音レベルに近い値）
@@ -2033,6 +2034,7 @@
       specAvgBuffer = null;
       smoothBgmSigma = 0;
       bgmDetected    = false;
+      bgmLogPending  = false;
       document.getElementById('bgm-indicator').classList.remove('active');
       voiceFrameCount = 0;
       totalFrameCount = 0;
@@ -2435,6 +2437,7 @@
           const ind = document.getElementById('bgm-indicator');
           bgmDetected ? ind.classList.add('active') : ind.classList.remove('active');
         }
+        if (bgmDetected) bgmLogPending = true;  // ログ間隔中の検出を記録するフラグ
         if (bgmDetected) {
           document.getElementById('bgm-sigma-val').textContent =
             `σ ${smoothBgmSigma.toFixed(1)} dB`;
@@ -2466,10 +2469,12 @@
 
       if (elapsed - lastLogTime >= LOG_INTERVAL_MS) {
         lastLogTime = elapsed;
+        const noteVal = bgmLogPending ? (bgmDetected ? '🎵 BGM(抑制中)' : '🎵 BGM') : '';
+        bgmLogPending = false;
         addLogEntry({
           elapsed:     formatClock(),
           ...latestSnap,
-          note:        '',
+          note:        noteVal,
         });
       }
     }
@@ -2791,8 +2796,11 @@
       // メーター更新間隔に合わせてUI更新
       if (shouldUpdateMeter) {
         const pct = (smoothVoiceScore * 100).toFixed(0);
-        const isVoice = smoothVoiceScore >= 0.52;
-        const isMaybe = smoothVoiceScore >= 0.35;
+        // BGM検出中は閾値を引き上げ（楽器・BGMボーカルの誤検知を抑制）
+        const voiceTh = bgmDetected ? 0.65 : 0.52;
+        const maybeTh = bgmDetected ? 0.52 : 0.35;
+        const isVoice = smoothVoiceScore >= voiceTh;
+        const isMaybe = smoothVoiceScore >= maybeTh;
 
         const label  = isVoice ? '🎙 人の声'  : isMaybe ? '🔶 不明確' : '🔊 騒音・環境音';
         const color  = isVoice ? '#44ffaa'    : isMaybe ? '#ffcc44'   : '#ff6644';
