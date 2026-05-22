@@ -1225,6 +1225,78 @@
     .score-sub-unit { color: #8899bb; font-size: 0.85em; margin-left: 1px; }
 
     /* ============================================================
+       モバイルレイアウト（≤720px）
+    ============================================================ */
+    @media (max-width: 720px) {
+
+      /* --- グリッド: 1カラム縦積みにリセット --- */
+      #app-body {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      /* 1100px ブレークポイントで設定した grid 位置を明示的にリセット */
+      #col-right {
+        grid-column: 1;
+        grid-row: auto;
+      }
+      #log-col {
+        grid-column: 1;
+        grid-row: auto;
+        width: 100%;
+        position: static;   /* sticky を解除 */
+        top: auto;
+      }
+      #log-list { height: 240px; }
+
+      /* --- ヘッダー: コンパクト縦並び --- */
+      #header-row1 {
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        text-align: center;
+      }
+      #header-left {
+        align-items: center;
+      }
+      #header-right { display: none; }
+      #header-title h1 { font-size: 1.05rem; white-space: nowrap; }
+      #app-version    { font-size: 0.62rem; }
+      #app-tagline    { font-size: 0.68rem; }
+
+      /* --- コントロールボタン: タップしやすいサイズに --- */
+      #controls {
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      #controls button {
+        min-height: 44px;
+        font-size: 0.85rem;
+        padding: 0 10px;
+      }
+      #controls select {
+        min-height: 44px;
+        font-size: 0.85rem;
+      }
+
+      /* --- 手動ラベルボタン --- */
+      .manual-btn {
+        min-height: 40px;
+        font-size: 0.8rem;
+      }
+
+      /* --- 重いcanvasパネルはモバイルで非表示 --- */
+      .panel-section[data-panel="spectrum"],
+      .panel-section[data-panel="waterfall"],
+      .panel-section[data-panel="joyplot"],
+      .panel-section[data-panel="waveform"] {
+        display: none;
+      }
+
+      /* --- ドラッグハンドル非表示（タッチD&Dは未対応） --- */
+      .drag-handle { display: none; }
+    }
+
+    /* ============================================================
        （将来のテーマ用スペース）
     ============================================================ */
   </style>
@@ -1313,7 +1385,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.2.7 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.2.8 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
