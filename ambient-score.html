@@ -1313,7 +1313,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.2.3 &nbsp;|&nbsp; 更新日：2026-05-21</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.2.4 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -2403,6 +2403,14 @@
     }
     const domFreq = (maxIdx / bufLen) * nyquist;
 
+    // freqGate用：200Hz以上の帯域内での卓越周波数（HVAC低周波ノイズに引っ張られない）
+    const minGateBin = Math.ceil(200 / nyquist * bufLen);
+    let gateMaxVal = -Infinity, gateMaxIdx = minGateBin;
+    for (let i = minGateBin; i < bufLen; i++) {
+      if (freqData[i] > gateMaxVal) { gateMaxVal = freqData[i]; gateMaxIdx = i; }
+    }
+    const domFreqAbove200 = (gateMaxIdx / bufLen) * nyquist;
+
     // 経過時間の基準を初回フレームで確定
     if (startTime === null) startTime = timestamp;
     const elapsed = timestamp - startTime;
@@ -2775,12 +2783,9 @@
       const bandSc = Math.min(1.0, Math.max(0, (bandRatio - 0.05) / 0.10));
 
       // 卓越周波数ゲート：人の声は200Hz以上にエネルギーが分散する特性がある
-      // 空調・換気扇ノイズは低域(〜200Hz)に集中するため抑制する
-      // 実測データ：通常オフィス(無声)の96.1%が200Hz未満、会議中(有声)の75%が200Hz以上
-      // ※下限を0.40に設定：HVAC環境でも大音量の声は検出できるよう最低感度を確保
-      const freqGate = domFreq < 200 ? 0.40                              // 200Hz未満：抑制するが最低感度40%を維持
-                     : domFreq < 300 ? 0.40 + (domFreq - 200) / 100 * 0.60  // 200〜300Hz：線形に回復
-                     :                 1.0;                               // 300Hz以上：制限なし（人の声の典型域）
+      // ※200Hz以上の帯域内での卓越周波数を使用（HVAC低周波ノイズに引っ張られない）
+      const freqGate = domFreqAbove200 < 300 ? 0.55 + (domFreqAbove200 - 200) / 100 * 0.45  // 200〜300Hz：線形に回復
+                     :                         1.0;                                           // 300Hz以上：制限なし
 
       // 重み付き合計（4指標）× 周波数ゲート（bandSc を0.15の重みで追加）
       const voiceScore = (
