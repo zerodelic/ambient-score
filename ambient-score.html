@@ -1313,7 +1313,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.2.5 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.2.6 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -3141,7 +3141,7 @@
     try {
       const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
       const fileHandle = await window.showSaveFilePicker({
-        suggestedName: `ambient-log-${ts}.csv`,
+        suggestedName: `ambient-score-log-${ts}.csv`,
         types: [{ description: 'CSV ファイル', accept: { 'text/csv': ['.csv'] } }],
       });
       _fileWriter = await fileHandle.createWritable();
@@ -3337,7 +3337,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `noise-log-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
+    a.download = `ambient-score-log-${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -3832,7 +3832,7 @@
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href = url;
-    a.download = `noise-summary-${single ? 'session' : 'history'}-${new Date().toISOString().slice(0,10)}.csv`;
+    a.download = `ambient-score-${single ? 'summary' : 'history'}-${new Date().toISOString().slice(0,10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
