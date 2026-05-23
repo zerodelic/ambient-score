@@ -1416,7 +1416,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.3.0 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.3.1 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -4196,6 +4196,8 @@
       Object.entries(panels).forEach(([key, el]) => {
         el.classList.toggle('mob-active', key === target);
       });
+      // 表示後にcanvasサイズを再計算（初期化時にdisplay:noneでwidth=0になっているため）
+      requestAnimationFrame(() => resizeCanvases());
     }
 
     tabs.forEach(tab => {
