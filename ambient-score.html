@@ -1435,7 +1435,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.3.7 &nbsp;|&nbsp; 更新日：2026-05-23</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.3.8 &nbsp;|&nbsp; 更新日：2026-05-23</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -2959,9 +2959,10 @@
       // メーター更新間隔に合わせてUI更新
       if (shouldUpdateMeter) {
         const pct = (smoothVoiceScore * 100).toFixed(0);
-        // BGM検出中は閾値を引き上げ（楽器・BGMボーカルの誤検知を抑制）
-        const voiceTh = bgmDetected ? 0.65 : 0.52;
-        const maybeTh = bgmDetected ? 0.52 : 0.35;
+        // BGM検出の有無によらず同じ閾値を使用（声検出精度を優先）
+        // BGMインジケーターは参考表示として残すが、声判定には影響させない
+        const voiceTh = 0.52;
+        const maybeTh = 0.35;
         const isVoice = smoothVoiceScore >= voiceTh;
         const isMaybe = smoothVoiceScore >= maybeTh;
 
