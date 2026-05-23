@@ -1225,6 +1225,11 @@
     .score-sub-unit { color: #8899bb; font-size: 0.85em; margin-left: 1px; }
 
     /* ============================================================
+       モバイルグラフタブ（PCでは非表示）
+    ============================================================ */
+    #mobile-graph-tabs { display: none; }
+
+    /* ============================================================
        モバイルレイアウト（≤720px）
     ============================================================ */
     @media (max-width: 720px) {
@@ -1243,7 +1248,7 @@
         grid-column: 1;
         grid-row: auto;
         width: 100%;
-        position: static;   /* sticky を解除 */
+        position: static;
         top: auto;
       }
       #log-list { height: 240px; }
@@ -1255,19 +1260,14 @@
         gap: 2px;
         text-align: center;
       }
-      #header-left {
-        align-items: center;
-      }
+      #header-left { align-items: center; }
       #header-right { display: none; }
       #header-title h1 { font-size: 1.05rem; white-space: nowrap; }
-      #app-version    { font-size: 0.62rem; }
-      #app-tagline    { font-size: 0.68rem; }
+      #app-version      { font-size: 0.62rem; }
+      #app-tagline      { font-size: 0.68rem; }
 
       /* --- コントロールボタン: タップしやすいサイズに --- */
-      #controls {
-        gap: 6px;
-        flex-wrap: wrap;
-      }
+      #controls { gap: 6px; flex-wrap: wrap; }
       #controls button {
         min-height: 44px;
         font-size: 0.85rem;
@@ -1278,21 +1278,49 @@
         font-size: 0.85rem;
       }
 
-      /* --- 手動ラベルボタン --- */
-      .manual-btn {
-        min-height: 40px;
-        font-size: 0.8rem;
-      }
+      /* --- 手動ラベル・ファイル・アラートはモバイルで非表示 --- */
+      #label-buttons      { display: none; }
+      #btn-filelog        { display: none; }
+      #btn-alert-settings { display: none; }
+      #fft-size           { display: none; }
 
-      /* --- 重いcanvasパネルはモバイルで非表示 --- */
-      .panel-section[data-panel="spectrum"],
+      /* --- 完全非表示パネル --- */
       .panel-section[data-panel="waterfall"],
-      .panel-section[data-panel="joyplot"],
-      .panel-section[data-panel="waveform"] {
-        display: none;
+      .panel-section[data-panel="waveform"],
+      .panel-section[data-panel="heatmap"],
+      .panel-section[data-panel="octave"] { display: none; }
+
+      /* --- グラフパネル: タブ選択時のみ表示 --- */
+      .panel-section[data-panel="spectrum"],
+      .panel-section[data-panel="timeseries"],
+      .panel-section[data-panel="joyplot"]  { display: none; }
+      .panel-section.mob-active             { display: block !important; }
+
+      /* --- グラフタブバー --- */
+      #mobile-graph-tabs {
+        display: flex;
+        gap: 6px;
+        padding: 4px 0;
+      }
+      .mob-tab {
+        flex: 1;
+        padding: 10px 4px;
+        min-height: 44px;
+        background: #0d1520;
+        border: 1px solid #223355;
+        border-radius: 6px;
+        color: #556688;
+        font-size: 0.8rem;
+        cursor: pointer;
+      }
+      .mob-tab.active {
+        background: #112244;
+        border-color: #4466aa;
+        color: #88aaee;
+        font-weight: bold;
       }
 
-      /* --- ドラッグハンドル非表示（タッチD&Dは未対応） --- */
+      /* --- ドラッグハンドル非表示（タッチD&D未対応） --- */
       .drag-handle { display: none; }
 
       /* --- ツールチップ非表示（タッチで残留するため） --- */
@@ -1388,7 +1416,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.2.9 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.3.0 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -1484,6 +1512,13 @@
       <div id="db-bar-bg"><div id="db-bar-fill"></div></div>
     </div>
   </div>
+</div>
+
+<!-- モバイル用グラフタブ（PCでは非表示） -->
+<div id="mobile-graph-tabs">
+  <button class="mob-tab" data-target="spectrum">スペクトラム</button>
+  <button class="mob-tab" data-target="timeseries">時系列</button>
+  <button class="mob-tab" data-target="joyplot">JoyPlot</button>
 </div>
 
 <!-- ② 周波数スペクトラム -->
@@ -4144,6 +4179,32 @@
     if (!target) return;
     tooltipTimer = setTimeout(() => tooltipEl.classList.remove('visible'), 120);
   });
+
+  // ============================================================
+  // モバイル グラフタブ切り替え
+  // ============================================================
+  (function initMobileGraphTabs() {
+    const tabs    = document.querySelectorAll('.mob-tab');
+    const panels  = {
+      spectrum:   document.querySelector('.panel-section[data-panel="spectrum"]'),
+      timeseries: document.querySelector('.panel-section[data-panel="timeseries"]'),
+      joyplot:    document.querySelector('.panel-section[data-panel="joyplot"]'),
+    };
+
+    function activateTab(target) {
+      tabs.forEach(t => t.classList.toggle('active', t.dataset.target === target));
+      Object.entries(panels).forEach(([key, el]) => {
+        el.classList.toggle('mob-active', key === target);
+      });
+    }
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => activateTab(tab.dataset.target));
+    });
+
+    // 初期状態: スペクトラムを選択
+    activateTab('spectrum');
+  })();
 </script>
 </body>
 </html>
