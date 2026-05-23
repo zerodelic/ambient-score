@@ -1435,7 +1435,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.3.6 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.3.7 &nbsp;|&nbsp; 更新日：2026-05-23</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -2147,6 +2147,11 @@
       }
 
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      // iOS では getUserMedia の await 後はユーザージェスチャーコンテキストが失われ、
+      // AudioContext が suspended 状態になるため resume() を明示的に呼び出す
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = parseInt(fftSizeEl.value);
       analyser.smoothingTimeConstant = 0.8;
@@ -2226,7 +2231,11 @@
 
       draw();
     } catch (e) {
-      status.textContent = 'マイクアクセスエラー: ' + e.message;
+      // analyser が生きていれば測定は継続中 → エラー表示で上書きしない
+      // （iOS で AudioContext の resume 警告などが throw されても測定は動く場合がある）
+      if (!analyser) {
+        status.textContent = 'マイクアクセスエラー: ' + e.message;
+      }
     }
   }
 
