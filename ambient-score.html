@@ -1294,6 +1294,9 @@
 
       /* --- ドラッグハンドル非表示（タッチD&Dは未対応） --- */
       .drag-handle { display: none; }
+
+      /* --- ツールチップ非表示（タッチで残留するため） --- */
+      #tooltip { display: none !important; }
     }
 
     /* ============================================================
@@ -1385,7 +1388,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.2.8 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.2.9 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -2076,6 +2079,7 @@
         });
       } catch (e) {
         // 詳細制約が失敗した場合（iOSなど）はシンプルな制約で再試行
+        status.textContent = 'マイク接続中...';
         stream = await getUserMedia({ audio: true, video: false });
       }
 
