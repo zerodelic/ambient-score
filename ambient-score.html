@@ -1320,6 +1320,25 @@
         font-weight: bold;
       }
 
+      /* --- メーターパネル: モバイルは2列グリッドに変更 --- */
+      #meter-panel {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        flex-wrap: unset;
+      }
+      .meter-label {
+        font-size: 0.7rem;
+        white-space: normal;   /* 折り返しを許可 */
+      }
+      .meter-value { font-size: 1.2rem; }
+
+      /* --- グラフパネルの表示順をタブバーの直後に固定 --- */
+      .panel-section[data-panel="meters"]     { order: 1; }
+      #mobile-graph-tabs                       { order: 2; }
+      .panel-section[data-panel="spectrum"],
+      .panel-section[data-panel="timeseries"],
+      .panel-section[data-panel="joyplot"]    { order: 3; }
+
       /* --- ドラッグハンドル非表示（タッチD&D未対応） --- */
       .drag-handle { display: none; }
 
@@ -1416,7 +1435,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.3.1 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.3.2 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
