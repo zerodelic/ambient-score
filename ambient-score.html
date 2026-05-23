@@ -1435,7 +1435,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.3.4 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.3.5 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -2407,10 +2407,10 @@
     // ---- 斜投影パラメータ（cabinet projection 風）----
     // 最新（手前・右下）→ 最古（奥・左上）へシフト
     const frontBaseY  = h * 0.92;          // 最新リッジのベースラインY
-    const frontLeft   = w * 0.24;          // 最新リッジの左端X
-    const ridgeW      = w * 0.74;          // 最新リッジの描画幅
-    const totalShiftX = w * 0.18;          // 全体のX総シフト（奥＝左へ）
-    const totalShiftY = h * 0.78;          // 全体のY総シフト（奥＝上へ）
+    const totalShiftX = w * 0.30;          // 全体のX総シフト（奥＝左へ）
+    const totalShiftY = totalShiftX;       // Y=X（ピクセル等量）で45度ライン
+    const frontLeft   = totalShiftX + w * 0.04; // 最古リッジが左端4%から始まる位置
+    const ridgeW      = w - frontLeft;     // 残り幅を最新リッジに使用
     const maxSpikeH   = h * 0.22;          // 最新リッジのスパイク最大高さ
     const perspScale  = 0.28;              // 奥でのスケール縮小率（幅・高さ）
 
