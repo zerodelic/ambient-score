@@ -1435,7 +1435,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.3.3 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.3.4 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -1560,49 +1560,7 @@
   </div>
 </div>
 
-<!-- ③ ウォーターフォール -->
-<div class="panel-section" data-panel="waterfall">
-  <div class="panel-header">
-    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
-    <span class="panel-title">ウォーターフォール</span>
-    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
-  </div>
-  <div class="panel-content">
-    <div class="canvas-wrap">
-      <canvas id="waterfall" height="200"></canvas>
-    </div>
-  </div>
-</div>
-
-<!-- ④ JoyPlot（リッジラインプロット） -->
-<div class="panel-section" data-panel="joyplot">
-  <div class="panel-header">
-    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
-    <span class="panel-title">JoyPlot — スペクトル時系列</span>
-    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
-  </div>
-  <div class="panel-content">
-    <div class="canvas-wrap" data-tip="JoyPlot|直近のFFTスペクトルを時系列で積み重ねたグラフ。新しいほど前面・明るい色。縦軸=時間（下が新しい）、横軸=周波数（対数スケール）。声が入ると中高域が膨らみ、BGM時はリズミカルなパターンが現れます。">
-      <canvas id="joyplot" height="280"></canvas>
-    </div>
-  </div>
-</div>
-
-<!-- ⑤ 波形 -->
-<div class="panel-section" data-panel="waveform">
-  <div class="panel-header">
-    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
-    <span class="panel-title">波形 (時間領域)</span>
-    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
-  </div>
-  <div class="panel-content">
-    <div class="canvas-wrap">
-      <canvas id="waveform" height="120"></canvas>
-    </div>
-  </div>
-</div>
-
-<!-- ④ 時系列グラフ -->
+<!-- ④ 時系列グラフ（モバイルタブ対象のためスペクトラム直後に配置） -->
 <div class="panel-section" data-panel="timeseries">
   <div class="panel-header">
     <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
@@ -1617,6 +1575,48 @@
   <div class="panel-content">
     <div class="canvas-wrap" data-tip="時系列グラフ|測定中の音圧推移を時間軸でグラフ表示します。色は音源識別の結果に対応：緑=人の声、橙=不明確、赤=騒音・環境音。">
       <canvas id="timeseries" height="160"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ④ JoyPlot（モバイルタブ対象のためスペクトラム直後に配置） -->
+<div class="panel-section" data-panel="joyplot">
+  <div class="panel-header">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <span class="panel-title">JoyPlot — スペクトル時系列</span>
+    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
+  </div>
+  <div class="panel-content">
+    <div class="canvas-wrap" data-tip="JoyPlot|直近のFFTスペクトルを時系列で積み重ねたグラフ。新しいほど前面・明るい色。縦軸=時間（下が新しい）、横軸=周波数（対数スケール）。声が入ると中高域が膨らみ、BGM時はリズミカルなパターンが現れます。">
+      <canvas id="joyplot" height="280"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ③ ウォーターフォール -->
+<div class="panel-section" data-panel="waterfall">
+  <div class="panel-header">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <span class="panel-title">ウォーターフォール</span>
+    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
+  </div>
+  <div class="panel-content">
+    <div class="canvas-wrap">
+      <canvas id="waterfall" height="200"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ⑤ 波形 -->
+<div class="panel-section" data-panel="waveform">
+  <div class="panel-header">
+    <span class="drag-handle" title="ドラッグして並び替え">⠿</span>
+    <span class="panel-title">波形 (時間領域)</span>
+    <button class="panel-toggle" title="折りたたむ / 展開">▼</button>
+  </div>
+  <div class="panel-content">
+    <div class="canvas-wrap">
+      <canvas id="waveform" height="120"></canvas>
     </div>
   </div>
 </div>
@@ -4024,18 +4024,21 @@
       const order     = JSON.parse(localStorage.getItem(PANEL_ORDER_KEY)     || '{}');
       const collapsed = JSON.parse(localStorage.getItem(PANEL_COLLAPSED_KEY) || '{}');
 
-      // 列の割り当てと順序を復元（保存データがなければデフォルトを使用）
-      const colData = (order['col-left'] || order['col-right'])
-        ? order : DEFAULT_COLS;
+      // モバイルではパネル順序を復元しない（タブUIのDOM順序を維持するため）
+      if (window.innerWidth > 720) {
+        // 列の割り当てと順序を復元（保存データがなければデフォルトを使用）
+        const colData = (order['col-left'] || order['col-right'])
+          ? order : DEFAULT_COLS;
 
-      ['col-left', 'col-right'].forEach(colId => {
-        const col = document.getElementById(colId);
-        if (!col) return;
-        (colData[colId] || []).forEach(panelId => {
-          const el = document.querySelector(`.panel-section[data-panel="${panelId}"]`);
-          if (el) col.appendChild(el);
+        ['col-left', 'col-right'].forEach(colId => {
+          const col = document.getElementById(colId);
+          if (!col) return;
+          (colData[colId] || []).forEach(panelId => {
+            const el = document.querySelector(`.panel-section[data-panel="${panelId}"]`);
+            if (el) col.appendChild(el);
+          });
         });
-      });
+      }
 
       // 折りたたみ状態を復元
       document.querySelectorAll('.panel-section').forEach(p => {
