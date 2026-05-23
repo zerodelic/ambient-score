@@ -1435,7 +1435,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.3.5 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.3.6 &nbsp;|&nbsp; 更新日：2026-05-22</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right"></div>
@@ -2058,7 +2058,9 @@
     tsCanvas.height   = 160 * window.devicePixelRatio;
     hmCanvas.height   =  80 * window.devicePixelRatio;
     wtfCanvas.height  = 200 * window.devicePixelRatio;
-    joyCanvas.height  = 280 * window.devicePixelRatio;
+    // JoyPlot: 45度投影に最適な高さを幅から動的計算（h = w * 0.42）
+    // 根拠: 最古リッジ上端 = h*0.762 - w*0.30 ≈ 0 → h = w*0.30/0.712 ≈ w*0.42
+    joyCanvas.height  = Math.round(joyCanvas.width * 0.42);
   }
   window.addEventListener('resize', resizeCanvases);
   resizeCanvases();
