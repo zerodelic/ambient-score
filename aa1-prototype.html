@@ -87,6 +87,36 @@
       font-size: 0.78rem; color: #556688;
       margin-top: 6px; line-height: 1.5;
     }
+
+    /* サマリーレポート */
+    #report {
+      display: none; margin-top: 20px; padding: 16px;
+      background: #0d1520; border: 1px solid #334466; border-radius: 8px;
+    }
+    #report.visible { display: block; }
+    #report h2 {
+      color: #4488ff; font-size: 1rem; margin-bottom: 14px;
+      border-bottom: 1px solid #223355; padding-bottom: 8px;
+    }
+    .report-meta { font-size: 0.82rem; color: #667788; margin-bottom: 14px; line-height: 2; }
+    .report-meta strong { color: #aabbcc; }
+    .report-section-title {
+      font-size: 0.72rem; color: #445566; margin: 14px 0 6px; letter-spacing: 0.05em;
+    }
+    .report-bar-item { margin: 6px 0; }
+    .report-bar-label {
+      display: flex; justify-content: space-between;
+      font-size: 0.83rem; color: #aabbcc; margin-bottom: 3px;
+    }
+    .report-bar-label .pct { color: #667788; font-size: 0.78rem; }
+    .report-bar-wrap { background: #0a0f1a; border-radius: 3px; height: 10px; overflow: hidden; }
+    .report-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+    .fill-voice { background: linear-gradient(90deg, #224488, #44aaff); }
+    .fill-music { background: linear-gradient(90deg, #442288, #aa44ff); }
+    .fill-env   { background: linear-gradient(90deg, #224422, #44cc88); }
+    .fill-other { background: linear-gradient(90deg, #334455, #667788); }
+    .report-perf { font-size: 0.8rem; color: #667788; line-height: 2; }
+    .report-perf strong { color: #aabbcc; }
   </style>
 </head>
 <body>
@@ -126,6 +156,18 @@
 
 <div id="results-label">トップ 5</div>
 <div id="results"></div>
+
+<!-- 停止後サマリーレポート -->
+<div id="report">
+  <h2>📊 測定サマリー</h2>
+  <div class="report-meta" id="report-meta"></div>
+  <div class="report-section-title">識別結果の内訳（推論回数ベース）</div>
+  <div id="report-dist"></div>
+  <div class="report-section-title">検出クラス ランキング（上位10）</div>
+  <div id="report-ranking"></div>
+  <div class="report-section-title">推論パフォーマンス</div>
+  <div class="report-perf" id="report-perf"></div>
+</div>
 
 <script>
 'use strict';
@@ -169,6 +211,81 @@ const resultsEl      = document.getElementById('results');
 const perfEl         = document.getElementById('perf');
 
 // ============================================================
+// 日本語クラス名マッピング（主要クラス）
+// ============================================================
+const JP_NAMES = {
+  // 人の声・発話
+  0:   '人の声',        1:   '子供の声',     2:   '会話',
+  3:   'ナレーション',  4:   '喃語',          5:   '音声合成',
+  6:   '叫び声',        7:   '怒鳴り声',      8:   '歓声',
+  9:   '叫び',          10:  '子供の叫び',    11:  '悲鳴',
+  12:  'ひそひそ声',
+  // 笑い・泣き
+  13:  '笑い声',        14:  '赤ちゃんの笑い', 15: 'クスクス笑い',
+  19:  '泣き声',        20:  '赤ちゃんの泣き', 23: 'ため息',
+  // 歌・鼻歌
+  24:  '歌声',          25:  '合唱',           26: 'ヨーデル',
+  32:  '鼻歌',
+  // 呼吸・咳
+  36:  '咳',            37:  '咳払い',         38: 'くしゃみ',
+  // 音楽
+  132: '音楽',          133: '楽器',
+  211: 'ポップミュージック',  212: 'ヒップホップ',
+  213: 'Rソウル',      214: 'ファンク',        215: 'Rリズム＆ブルース',
+  216: 'カントリー',   217: 'ブルーグラス',    218: 'ジャズ',
+  219: 'クラシック',   220: 'オペラ',          221: 'エレクトロニック',
+  222: 'ハウス',        223: 'テクノ',          224: 'ダブ',
+  225: 'レゲエ',        226: 'パンク',          227: 'ロック',
+  228: 'インディーロック', 229: 'ヘビーメタル', 230: 'プログレ',
+  261: 'BGM',           262: '環境音楽',        263: 'テーマ音楽',
+  264: 'ジングル',
+  // 生活音・機械
+  348: 'ドア',          349: '引き戸',          350: 'きしみ音',
+  351: '鍵',            360: '電子レンジ',       361: 'ブレンダー',
+  362: '掃除機',        363: 'タイプライター',   364: 'キーボード打鍵',
+  // 警告・通知
+  382: 'アラーム',      383: '警告音',           384: 'ベル',
+  385: '目覚まし時計',  388: 'サイレン',         389: 'ブザー',
+  390: '煙感知器',      391: '火災報知器',
+  // 電話・通信
+  392: '電話の着信音',  393: '携帯の着信音',     395: '電話の音',
+  // 空調・機械
+  397: 'ホワイトノイズ機', 406: '送風機',        407: '空調音',
+  408: '換気扇',
+  // 乗り物
+  300: '自動車',        308: 'バス',             314: 'トラック',
+  319: 'バイク',        324: '電車',             325: '地下鉄',
+  // 自然音
+  283: '雨音',          284: '水の音',           286: '川のせせらぎ',
+  287: '滝',            288: '海',               289: '波',
+  292: '炎',            293: '焚き火のパチパチ音',
+  // 場所コンテキスト
+  494: '静寂',
+  500: '室内（小部屋）',     501: '室内（大部屋・ホール）',
+  502: '室内（公共空間）',   503: '屋外（都市）',
+  504: '屋外（自然）',       505: '残響',
+  // ノイズ
+  507: 'ノイズ',        508: '環境ノイズ',       509: 'ホワイトノイズ',
+  514: 'ホワイトノイズ信号',  515: 'ピンクノイズ',
+};
+
+// クラスをグループに分類（レポート用）
+const CLASS_GROUP = (i) => {
+  if (i <= 31)              return 'voice';  // 声・発話・歌
+  if (i >= 132 && i <= 264) return 'music';  // 音楽
+  if ([406,407,408,362,363,364,494,507,508,509].includes(i)) return 'env'; // 環境
+  if (i >= 500 && i <= 515) return 'env';
+  return 'other';
+};
+
+const GROUP_LABELS = {
+  voice: { label: '声・会話',    fill: 'fill-voice' },
+  music: { label: '音楽・BGM',   fill: 'fill-music' },
+  env:   { label: '環境・機械音', fill: 'fill-env'   },
+  other: { label: 'その他',       fill: 'fill-other' },
+};
+
+// ============================================================
 // クラス名の読み込み（GitHub raw CSV）
 // ============================================================
 const CLASS_NAMES = {};
@@ -183,14 +300,14 @@ async function loadClassNames() {
       const m = line.match(/^(\d+),\S+,"?([^"]+)"?/);
       if (m) CLASS_NAMES[parseInt(m[1])] = m[2].trim();
     });
-    console.log(`クラス名読み込み完了: ${Object.keys(CLASS_NAMES).length}クラス`);
   } catch (e) {
-    console.warn('クラス名の読み込みに失敗（番号で表示します）:', e.message);
+    console.warn('クラス名CSV読み込み失敗:', e.message);
   }
 }
 
+// 日本語名を優先、なければ英語、なければクラス番号
 function getClassName(idx) {
-  return CLASS_NAMES[idx] || `Class ${idx}`;
+  return JP_NAMES[idx] || CLASS_NAMES[idx] || `Class ${idx}`;
 }
 
 // ============================================================
@@ -218,6 +335,12 @@ async function loadModel() {
     console.error('モデル読み込みエラー:', e);
   }
 }
+
+// ============================================================
+// 測定履歴（レポート用）
+// ============================================================
+let sessionHistory  = [];  // { classId, score, ms } を推論ごとに記録
+let sessionStartTs  = null;
 
 // ============================================================
 // 音声パイプライン
@@ -291,6 +414,11 @@ async function start() {
     source.connect(processor);
     processor.connect(audioCtx.destination);
 
+    // 履歴リセット
+    sessionHistory = [];
+    sessionStartTs = Date.now();
+    document.getElementById('report').classList.remove('visible');
+
     statusEl.textContent  = '測定中...';
     btnStart.disabled     = true;
     btnStart.classList.add('active');
@@ -308,6 +436,7 @@ function stop() {
   if (audioCtx)  { audioCtx.close();       audioCtx  = null; }
   sampleBuf = [];
   statusEl.textContent  = '停止中';
+  if (sessionHistory.length > 0) showReport();
   btnStart.disabled     = false;
   btnStart.classList.remove('active');
   btnStop.disabled      = true;
@@ -482,6 +611,84 @@ function updateUI(top5, elapsedMs, nFrames) {
 
   // パフォーマンスグラフ更新
   updatePerfDisplay(elapsedMs, nFrames);
+
+  // 履歴に記録（1位クラスのみ）
+  sessionHistory.push({ classId: first.i, score: first.v, ms: elapsedMs });
+}
+
+// ============================================================
+// サマリーレポート生成
+// ============================================================
+function showReport() {
+  const total    = sessionHistory.length;
+  const duration = Math.round((Date.now() - sessionStartTs) / 1000);
+  const mm = String(Math.floor(duration / 60)).padStart(2, '0');
+  const ss = String(duration % 60).padStart(2, '0');
+
+  // --- メタ情報 ---
+  document.getElementById('report-meta').innerHTML =
+    `<strong>測定時間</strong>　${mm}:${ss}<br>` +
+    `<strong>推論回数</strong>　${total} 回<br>` +
+    `<strong>測定日時</strong>　${new Date(sessionStartTs).toLocaleString('ja-JP')}`;
+
+  // --- グループ別集計 ---
+  const groupCount = { voice: 0, music: 0, env: 0, other: 0 };
+  const classCount = {};
+  sessionHistory.forEach(({ classId }) => {
+    const g = CLASS_GROUP(classId);
+    groupCount[g]++;
+    classCount[classId] = (classCount[classId] || 0) + 1;
+  });
+
+  const distEl = document.getElementById('report-dist');
+  distEl.innerHTML = Object.entries(groupCount).map(([key, cnt]) => {
+    const pct  = total > 0 ? (cnt / total * 100).toFixed(1) : '0.0';
+    const info = GROUP_LABELS[key];
+    return `<div class="report-bar-item">
+      <div class="report-bar-label">
+        <span>${info.label}</span>
+        <span class="pct">${pct}%　(${cnt}回)</span>
+      </div>
+      <div class="report-bar-wrap">
+        <div class="report-bar-fill ${info.fill}" style="width:${pct}%"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // --- クラス別ランキング（上位10） ---
+  const ranked = Object.entries(classCount)
+    .map(([id, cnt]) => ({ id: parseInt(id), cnt }))
+    .sort((a, b) => b.cnt - a.cnt)
+    .slice(0, 10);
+
+  const maxCnt = ranked[0]?.cnt || 1;
+  const rankEl = document.getElementById('report-ranking');
+  rankEl.innerHTML = ranked.map(({ id, cnt }, idx) => {
+    const pct  = (cnt / total * 100).toFixed(1);
+    const barW = (cnt / maxCnt * 100).toFixed(1);
+    const fill = GROUP_LABELS[CLASS_GROUP(id)].fill;
+    return `<div class="report-bar-item">
+      <div class="report-bar-label">
+        <span>${idx + 1}. ${getClassName(id)}</span>
+        <span class="pct">${pct}%　(${cnt}回)</span>
+      </div>
+      <div class="report-bar-wrap">
+        <div class="report-bar-fill ${fill}" style="width:${barW}%"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // --- パフォーマンス統計 ---
+  const msList = sessionHistory.map(h => h.ms);
+  const avgMs  = Math.round(msList.reduce((a, b) => a + b, 0) / msList.length);
+  const minMs  = Math.min(...msList);
+  const maxMs  = Math.max(...msList);
+  document.getElementById('report-perf').innerHTML =
+    `<strong>平均推論時間</strong>　${avgMs} ms<br>` +
+    `<strong>最小 / 最大</strong>　${minMs} ms / ${maxMs} ms`;
+
+  document.getElementById('report').classList.add('visible');
+  document.getElementById('report').scrollIntoView({ behavior: 'smooth' });
 }
 
 // ============================================================
