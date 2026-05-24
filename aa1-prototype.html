@@ -126,6 +126,21 @@
     .fill-other { background: linear-gradient(90deg, #334455, #7799aa); }
     .report-perf { font-size: 0.9rem; color: #8899aa; line-height: 2; }
     .report-perf strong { color: #ccd8e8; }
+
+    /* 2カラムグリッド（PC） */
+    #grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 14px;
+      align-items: start;
+    }
+    #col-left, #col-right { display: flex; flex-direction: column; }
+    #grid-full { /* 全幅エリア（レポート） */ }
+
+    /* モバイルは1カラム */
+    @media (max-width: 680px) {
+      #grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -141,47 +156,59 @@
   <button id="btn-stop"  disabled>⏹ 停止</button>
 </div>
 
-<div id="db-wrap">
-  <div id="db-label">音圧 (RMS)</div>
-  <div id="db-value">--- dB</div>
-</div>
+<div id="grid">
+  <!-- 左列：識別結果 -->
+  <div id="col-left">
 
-<div id="primary-box">
-  <div id="primary-label">識別結果（1位）</div>
-  <div id="primary-class">---</div>
-  <div id="primary-score"></div>
-</div>
+    <div id="db-wrap">
+      <div id="db-label">音圧 (RMS)</div>
+      <div id="db-value">--- dB</div>
+    </div>
 
-<!-- メルスペクトログラム -->
-<div class="panel-box">
-  <div class="panel-label">🎛 メルスペクトログラム（YAMNetの入力）
-    <span class="panel-hint">64バンド・低周波=下 / 高周波=上</span>
-  </div>
-  <canvas id="mel-canvas" height="96"></canvas>
-</div>
+    <div id="primary-box">
+      <div id="primary-label">識別結果（1位）</div>
+      <div id="primary-class">---</div>
+      <div id="primary-score"></div>
+    </div>
 
-<!-- 主要クラス時系列 -->
-<div class="panel-box">
-  <div class="panel-label">📈 主要クラス 確信度の推移</div>
-  <div id="ts-legend"></div>
-  <canvas id="ts-canvas" height="140"></canvas>
-</div>
+    <div id="results-label">トップ 5</div>
+    <div id="results"></div>
 
-<!-- パフォーマンスパネル -->
-<div id="perf-box">
-  <div id="perf-label">⚡ 推論パフォーマンス</div>
-  <div id="perf-row">
-    <span id="perf-ms">---</span><span id="perf-ms-unit">ms</span>
-    <span id="perf-frames"></span>
-    <span id="perf-avg"></span>
-  </div>
-  <canvas id="perf-canvas" height="60"></canvas>
-</div>
+  </div><!-- /col-left -->
 
-<div id="results-label">トップ 5</div>
-<div id="results"></div>
+  <!-- 右列：可視化 -->
+  <div id="col-right">
 
-<!-- 停止後サマリーレポート -->
+    <!-- メルスペクトログラム -->
+    <div class="panel-box">
+      <div class="panel-label">🎛 メルスペクトログラム（YAMNetの入力）
+        <span class="panel-hint">64バンド・低周波=下 / 高周波=上</span>
+      </div>
+      <canvas id="mel-canvas" height="96"></canvas>
+    </div>
+
+    <!-- 主要クラス時系列 -->
+    <div class="panel-box">
+      <div class="panel-label">📈 主要クラス 確信度の推移</div>
+      <div id="ts-legend"></div>
+      <canvas id="ts-canvas" height="150"></canvas>
+    </div>
+
+    <!-- パフォーマンスパネル -->
+    <div id="perf-box">
+      <div id="perf-label">⚡ 推論パフォーマンス</div>
+      <div id="perf-row">
+        <span id="perf-ms">---</span><span id="perf-ms-unit">ms</span>
+        <span id="perf-frames"></span>
+        <span id="perf-avg"></span>
+      </div>
+      <canvas id="perf-canvas" height="60"></canvas>
+    </div>
+
+  </div><!-- /col-right -->
+</div><!-- /grid -->
+
+<!-- 全幅：サマリーレポート -->
 <div id="report">
   <h2>📊 測定サマリー</h2>
   <div class="report-meta" id="report-meta"></div>
