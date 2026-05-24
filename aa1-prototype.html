@@ -7,140 +7,125 @@
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ベース */
     body {
       background: #0a0f1a;
-      color: #aabbcc;
+      color: #ccd8e8;           /* 本文：明るめ */
       font-family: 'Courier New', monospace;
+      font-size: 15px;          /* ベースフォントを大きく */
+      line-height: 1.5;
       padding: 20px;
-      max-width: 640px;
+      max-width: 660px;
       margin: 0 auto;
     }
-    h1 { color: #4488ff; font-size: 1.1rem; margin-bottom: 12px; }
-    .status-row { margin: 6px 0; font-size: 0.82rem; }
-    #model-status { color: #44ffaa; }
-    #status       { color: #ffaa44; }
+    h1 { color: #5599ff; font-size: 1.15rem; margin-bottom: 14px; }
 
+    /* ステータス */
+    .status-row { margin: 5px 0; font-size: 0.9rem; }
+    #model-status { color: #55ffbb; }
+    #status       { color: #ffbb44; }
+    #loading-note { font-size: 0.85rem; color: #8899aa; margin-top: 5px; line-height: 1.5; }
+
+    /* ボタン */
     .btn-row { display: flex; gap: 8px; margin: 14px 0; }
     button {
       background: #1a2a4a; border: 1px solid #4466aa;
-      color: #88aaee; padding: 10px 18px; border-radius: 6px;
-      cursor: pointer; font-size: 0.88rem; font-family: inherit;
+      color: #99bbee; padding: 10px 18px; border-radius: 6px;
+      cursor: pointer; font-size: 0.92rem; font-family: inherit;
     }
-    button:hover:not(:disabled) { background: #223366; }
+    button:hover:not(:disabled) { background: #223366; color: #ddeeff; }
     button:disabled { opacity: 0.35; cursor: not-allowed; }
     button.active   { background: #223366; border-color: #88aaee; color: #ddeeff; }
 
-    /* dB メーター */
-    #db-wrap { margin: 10px 0; }
-    #db-label { font-size: 0.72rem; color: #556688; margin-bottom: 2px; }
+    /* dBメーター */
+    #db-wrap  { margin: 10px 0; }
+    #db-label { font-size: 0.82rem; color: #7799aa; margin-bottom: 2px; }
     #db-value { font-size: 2.2rem; font-weight: bold; color: #44aaff; }
 
     /* プライマリ識別結果 */
     #primary-box {
-      margin: 14px 0;
-      padding: 14px;
-      background: #0d1520;
-      border: 1px solid #223355;
-      border-radius: 8px;
+      margin: 14px 0; padding: 14px;
+      background: #0d1520; border: 1px solid #2a3f5f; border-radius: 8px;
       text-align: center;
     }
-    #primary-label { font-size: 0.72rem; color: #445566; margin-bottom: 6px; }
-    #primary-class { font-size: 1.5rem; font-weight: bold; color: #aabbcc; }
-    #primary-score { font-size: 0.85rem; color: #556688; margin-top: 4px; }
+    #primary-label { font-size: 0.82rem; color: #7799aa; margin-bottom: 6px; }
+    #primary-class { font-size: 1.6rem; font-weight: bold; color: #ccd8e8; }
+    #primary-score { font-size: 0.9rem; color: #8899bb; margin-top: 5px; }
+
+    /* パネル共通 */
+    .panel-box, #perf-box {
+      margin: 14px 0; padding: 14px;
+      background: #0d1520; border: 1px solid #2a3f5f; border-radius: 8px;
+    }
+    .panel-label, #perf-label {
+      font-size: 0.88rem; color: #8899bb; margin-bottom: 10px; font-weight: bold;
+    }
+    .panel-hint { margin-left: 8px; color: #667788; font-size: 0.78rem; font-weight: normal; }
 
     /* トップ5リスト */
-    #results-label { font-size: 0.72rem; color: #445566; margin: 12px 0 6px; }
+    #results-label { font-size: 0.88rem; color: #8899bb; font-weight: bold; margin: 14px 0 8px; }
     .result-item {
-      margin: 5px 0; padding: 8px 10px;
-      background: #0d1520;
-      border-left: 3px solid #223355;
-      border-radius: 0 4px 4px 0;
+      margin: 6px 0; padding: 9px 12px;
+      background: #0d1520; border-left: 3px solid #2a3f5f; border-radius: 0 5px 5px 0;
     }
-    .result-item.hl { border-left-color: #44ffaa; background: #0a1a14; }
-    .result-name  { font-size: 0.83rem; color: #aabbcc; margin-bottom: 4px; }
-    .result-item.hl .result-name { color: #88eebb; }
-    .bar-wrap { background: #0a0f1a; border-radius: 3px; height: 6px; overflow: hidden; }
+    .result-item.hl { border-left-color: #44ffaa; background: #0a1d14; }
+    .result-name    { font-size: 0.9rem; color: #ccd8e8; margin-bottom: 5px; }
+    .result-item.hl .result-name { color: #88ffcc; }
+    .bar-wrap { background: #080d15; border-radius: 3px; height: 7px; overflow: hidden; }
     .bar      { height: 100%; border-radius: 3px; transition: width 0.4s ease;
                 background: linear-gradient(90deg, #224488, #4488ff); }
     .result-item.hl .bar { background: linear-gradient(90deg, #226644, #44ffaa); }
-    .result-pct { font-size: 0.72rem; color: #445566; margin-top: 3px; }
+    .result-pct { font-size: 0.8rem; color: #7799aa; margin-top: 3px; }
 
     /* パフォーマンスパネル */
-    #perf-box {
-      margin: 14px 0;
-      padding: 12px;
-      background: #0d1520;
-      border: 1px solid #223355;
-      border-radius: 8px;
-    }
-    #perf-label { font-size: 0.72rem; color: #445566; margin-bottom: 8px; }
-    #perf-row   { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
-    #perf-ms    { font-size: 2rem; font-weight: bold; color: #ffcc44; }
-    #perf-ms-unit { font-size: 0.85rem; color: #aa8833; }
-    #perf-frames  { font-size: 0.82rem; color: #667788; }
-    #perf-avg     { font-size: 0.82rem; color: #667788; }
-    /* 推論時間グラフ */
-    #perf-canvas  { width: 100%; height: 60px; display: block; border-radius: 4px; }
+    #perf-row    { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; }
+    #perf-ms     { font-size: 2.2rem; font-weight: bold; color: #ffcc44; }
+    #perf-ms-unit{ font-size: 0.9rem; color: #bb9933; }
+    #perf-frames { font-size: 0.88rem; color: #8899aa; }
+    #perf-avg    { font-size: 0.88rem; color: #8899aa; }
+    #perf-canvas { width: 100%; height: 60px; display: block; border-radius: 4px; }
 
-    /* 汎用パネル */
-    .panel-box {
-      margin: 14px 0; padding: 12px;
-      background: #0d1520; border: 1px solid #223355; border-radius: 8px;
-    }
-    .panel-label {
-      font-size: 0.72rem; color: #445566; margin-bottom: 8px;
-    }
-    .panel-hint { margin-left: 8px; color: #334455; font-size: 0.68rem; }
-    #mel-canvas { width: 100%; height: 96px; display: block; border-radius: 4px; }
-    /* 時系列グラフ */
-    #ts-legend {
-      display: flex; flex-wrap: wrap; gap: 8px;
-      margin-bottom: 8px;
-    }
+    /* メルスペクトログラム・時系列 */
+    #mel-canvas { width: 100%; height: 100px; display: block; border-radius: 4px; }
+    #ts-legend  { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
     .ts-legend-item {
-      display: flex; align-items: center; gap: 4px;
-      font-size: 0.72rem; color: #aabbcc;
+      display: flex; align-items: center; gap: 5px;
+      font-size: 0.85rem; color: #ccd8e8;
     }
-    .ts-legend-dot {
-      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
-    }
-    #ts-canvas { width: 100%; height: 140px; display: block; border-radius: 4px; }
-
-    /* モデル読み込み中のスピナー */
-    #loading-note {
-      font-size: 0.78rem; color: #556688;
-      margin-top: 6px; line-height: 1.5;
-    }
+    .ts-legend-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+    #ts-canvas { width: 100%; height: 150px; display: block; border-radius: 4px; }
 
     /* サマリーレポート */
     #report {
       display: none; margin-top: 20px; padding: 16px;
-      background: #0d1520; border: 1px solid #334466; border-radius: 8px;
+      background: #0d1520; border: 1px solid #2a4466; border-radius: 8px;
     }
     #report.visible { display: block; }
     #report h2 {
-      color: #4488ff; font-size: 1rem; margin-bottom: 14px;
-      border-bottom: 1px solid #223355; padding-bottom: 8px;
+      color: #5599ff; font-size: 1.05rem; margin-bottom: 14px;
+      border-bottom: 1px solid #2a3f5f; padding-bottom: 8px;
     }
-    .report-meta { font-size: 0.82rem; color: #667788; margin-bottom: 14px; line-height: 2; }
-    .report-meta strong { color: #aabbcc; }
+    .report-meta { font-size: 0.9rem; color: #8899aa; margin-bottom: 14px; line-height: 2; }
+    .report-meta strong { color: #ccd8e8; }
     .report-section-title {
-      font-size: 0.72rem; color: #445566; margin: 14px 0 6px; letter-spacing: 0.05em;
+      font-size: 0.85rem; color: #7799aa; font-weight: bold;
+      margin: 16px 0 8px; letter-spacing: 0.04em;
     }
-    .report-bar-item { margin: 6px 0; }
+    .report-bar-item { margin: 7px 0; }
     .report-bar-label {
       display: flex; justify-content: space-between;
-      font-size: 0.83rem; color: #aabbcc; margin-bottom: 3px;
+      font-size: 0.88rem; color: #ccd8e8; margin-bottom: 4px;
     }
-    .report-bar-label .pct { color: #667788; font-size: 0.78rem; }
-    .report-bar-wrap { background: #0a0f1a; border-radius: 3px; height: 10px; overflow: hidden; }
+    .report-bar-label .pct { color: #8899aa; font-size: 0.83rem; }
+    .report-bar-wrap { background: #080d15; border-radius: 3px; height: 11px; overflow: hidden; }
     .report-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
     .fill-voice { background: linear-gradient(90deg, #224488, #44aaff); }
     .fill-music { background: linear-gradient(90deg, #442288, #aa44ff); }
     .fill-env   { background: linear-gradient(90deg, #224422, #44cc88); }
-    .fill-other { background: linear-gradient(90deg, #334455, #667788); }
-    .report-perf { font-size: 0.8rem; color: #667788; line-height: 2; }
-    .report-perf strong { color: #aabbcc; }
+    .fill-other { background: linear-gradient(90deg, #334455, #7799aa); }
+    .report-perf { font-size: 0.9rem; color: #8899aa; line-height: 2; }
+    .report-perf strong { color: #ccd8e8; }
   </style>
 </head>
 <body>
