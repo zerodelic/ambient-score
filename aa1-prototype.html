@@ -65,7 +65,22 @@
     .result-item.hl .bar { background: linear-gradient(90deg, #226644, #44ffaa); }
     .result-pct { font-size: 0.72rem; color: #445566; margin-top: 3px; }
 
-    #perf { font-size: 0.72rem; color: #334455; margin-top: 10px; }
+    /* パフォーマンスパネル */
+    #perf-box {
+      margin: 14px 0;
+      padding: 12px;
+      background: #0d1520;
+      border: 1px solid #223355;
+      border-radius: 8px;
+    }
+    #perf-label { font-size: 0.72rem; color: #445566; margin-bottom: 8px; }
+    #perf-row   { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+    #perf-ms    { font-size: 2rem; font-weight: bold; color: #ffcc44; }
+    #perf-ms-unit { font-size: 0.85rem; color: #aa8833; }
+    #perf-frames  { font-size: 0.82rem; color: #667788; }
+    #perf-avg     { font-size: 0.82rem; color: #667788; }
+    /* 推論時間グラフ */
+    #perf-canvas  { width: 100%; height: 60px; display: block; border-radius: 4px; }
 
     /* モデル読み込み中のスピナー */
     #loading-note {
@@ -98,9 +113,19 @@
   <div id="primary-score"></div>
 </div>
 
+<!-- パフォーマンスパネル -->
+<div id="perf-box">
+  <div id="perf-label">⚡ 推論パフォーマンス</div>
+  <div id="perf-row">
+    <span id="perf-ms">---</span><span id="perf-ms-unit">ms</span>
+    <span id="perf-frames"></span>
+    <span id="perf-avg"></span>
+  </div>
+  <canvas id="perf-canvas" height="60"></canvas>
+</div>
+
 <div id="results-label">トップ 5</div>
 <div id="results"></div>
-<div id="perf"></div>
 
 <script>
 'use strict';
@@ -286,11 +311,17 @@ function stop() {
   btnStart.disabled     = false;
   btnStart.classList.remove('active');
   btnStop.disabled      = true;
-  dbValueEl.textContent = '--- dB';
+  dbValueEl.textContent      = '--- dB';
   primaryClassEl.textContent = '---';
   primaryScoreEl.textContent = '';
-  resultsEl.innerHTML   = '';
-  perfEl.textContent    = '';
+  resultsEl.innerHTML        = '';
+  perfMsEl.textContent       = '---';
+  perfMsEl.style.color       = '#ffcc44';
+  perfFramesEl.textContent   = '';
+  perfAvgEl.textContent      = '';
+  perfHistory.length         = 0;
+  resizePerfCanvas();
+  perfCtx.clearRect(0, 0, perfCanvas.width, perfCanvas.height);
 }
 
 // ============================================================
@@ -345,6 +376,85 @@ async function runInference(samples) {
 }
 
 // ============================================================
+// パフォーマンス グラフ
+// ============================================================
+const PERF_HISTORY = 30;          // 表示する推論回数
+const perfHistory  = [];          // { ms } の履歴
+const perfCanvas   = document.getElementById('perf-canvas');
+const perfCtx      = perfCanvas.getContext('2d');
+const perfMsEl     = document.getElementById('perf-ms');
+const perfFramesEl = document.getElementById('perf-frames');
+const perfAvgEl    = document.getElementById('perf-avg');
+
+function resizePerfCanvas() {
+  perfCanvas.width  = perfCanvas.offsetWidth  * (window.devicePixelRatio || 1);
+  perfCanvas.height = perfCanvas.offsetHeight * (window.devicePixelRatio || 1);
+}
+window.addEventListener('resize', resizePerfCanvas);
+
+function drawPerfGraph() {
+  resizePerfCanvas();
+  const w   = perfCanvas.width;
+  const h   = perfCanvas.height;
+  const dpr = window.devicePixelRatio || 1;
+  perfCtx.clearRect(0, 0, w, h);
+
+  if (perfHistory.length < 2) return;
+
+  // スケール: 最大値を上限（最低200ms表示）
+  const maxMs   = Math.max(200, ...perfHistory.map(d => d.ms));
+  const barW    = w / PERF_HISTORY;
+  const padTop  = 4 * dpr;
+
+  perfHistory.forEach((d, idx) => {
+    const barH = ((d.ms / maxMs) * (h - padTop));
+    const x    = idx * barW;
+    const y    = h - barH;
+
+    // 色: 速い=緑 / 普通=黄 / 遅い=赤
+    const color = d.ms < 150 ? '#44cc88'
+                : d.ms < 300 ? '#ffcc44'
+                :               '#ff5544';
+    perfCtx.fillStyle = color;
+    perfCtx.fillRect(x + 1, y, barW - 2, barH);
+  });
+
+  // 300ms ラインを点線で表示
+  const refY = h - (300 / maxMs) * (h - padTop);
+  if (refY > 0 && refY < h) {
+    perfCtx.setLineDash([3 * dpr, 3 * dpr]);
+    perfCtx.strokeStyle = '#ff554466';
+    perfCtx.lineWidth   = 1 * dpr;
+    perfCtx.beginPath();
+    perfCtx.moveTo(0, refY);
+    perfCtx.lineTo(w, refY);
+    perfCtx.stroke();
+    perfCtx.setLineDash([]);
+    // ラベル
+    perfCtx.fillStyle = '#ff554488';
+    perfCtx.font      = `${9 * dpr}px Courier New`;
+    perfCtx.fillText('300ms', 2 * dpr, refY - 2 * dpr);
+  }
+}
+
+function updatePerfDisplay(elapsedMs, nFrames) {
+  // 履歴を更新
+  perfHistory.push({ ms: elapsedMs });
+  if (perfHistory.length > PERF_HISTORY) perfHistory.shift();
+
+  // 数値表示
+  perfMsEl.textContent     = elapsedMs;
+  perfMsEl.style.color     = elapsedMs < 150 ? '#44ffaa'
+                           : elapsedMs < 300 ? '#ffcc44' : '#ff5544';
+  perfFramesEl.textContent = `フレーム: ${nFrames}`;
+
+  const avg = Math.round(perfHistory.reduce((s, d) => s + d.ms, 0) / perfHistory.length);
+  perfAvgEl.textContent    = `平均: ${avg}ms`;
+
+  drawPerfGraph();
+}
+
+// ============================================================
 // UI 更新
 // ============================================================
 function updateUI(top5, elapsedMs, nFrames) {
@@ -361,7 +471,6 @@ function updateUI(top5, elapsedMs, nFrames) {
   resultsEl.innerHTML = top5.map(({ i, v }) => {
     const name  = getClassName(i);
     const pct   = (v * 100).toFixed(1);
-    // バーは確信度を視覚的に見やすいよう非線形スケール
     const barW  = Math.min(100, v * 300).toFixed(1);
     const isHL  = HL_CLASSES.has(i);
     return `<div class="result-item ${isHL ? 'hl' : ''}">
@@ -371,7 +480,8 @@ function updateUI(top5, elapsedMs, nFrames) {
     </div>`;
   }).join('');
 
-  perfEl.textContent = `推論時間: ${elapsedMs}ms  |  フレーム数: ${nFrames}`;
+  // パフォーマンスグラフ更新
+  updatePerfDisplay(elapsedMs, nFrames);
 }
 
 // ============================================================
