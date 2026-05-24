@@ -661,8 +661,8 @@ function drawTimeSeries() {
   canvas.width  = canvas.offsetWidth * dpr;
   canvas.height = canvas.offsetHeight * dpr;
   const w = canvas.width, h = canvas.height;
-  const padL = 28 * dpr, padR = 8 * dpr;
-  const padT = 8 * dpr,  padB = 20 * dpr;
+  const padL = 38 * dpr, padR = 8 * dpr;
+  const padT = 8 * dpr,  padB = 22 * dpr;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
 
@@ -672,18 +672,26 @@ function drawTimeSeries() {
   ctx.fillStyle = '#080d15';
   ctx.fillRect(padL, padT, chartW, chartH);
 
+  // Y軸ラベル用の左パディングを確保（文字を描いてからグリッド）
+  const fontSize = Math.round(11 * dpr);
+  ctx.font      = `${fontSize}px Courier New`;
+
   // グリッド（0.25, 0.5, 0.75, 1.0）
-  ctx.strokeStyle = '#1a2535';
+  ctx.strokeStyle = '#253545';
   ctx.lineWidth   = 1;
   ctx.setLineDash([3 * dpr, 3 * dpr]);
   [0.25, 0.5, 0.75, 1.0].forEach(v => {
-    const y = padT + chartH * (1 - v);
+    const y     = padT + chartH * (1 - v);
+    const label = (v * 100).toFixed(0) + '%';
     ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
-    ctx.fillStyle = '#334455';
-    ctx.font = `${9 * dpr}px Courier New`;
-    ctx.fillText((v * 100).toFixed(0), 2, y + 3 * dpr);
+    ctx.fillStyle   = '#99aabb';
+    ctx.textAlign   = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, padL - 4 * dpr, y);
   });
   ctx.setLineDash([]);
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'alphabetic';
 
   // 各クラスの折れ線
   const len = Math.max(...tsHistory.map(h => h.length));
@@ -714,10 +722,14 @@ function drawTimeSeries() {
   });
 
   // X軸ラベル（時間）
-  ctx.fillStyle = '#334455';
-  ctx.font = `${9 * dpr}px Courier New`;
-  ctx.fillText(`← ${TS_HISTORY_LEN}推論前`, padL, h - 4 * dpr);
-  ctx.fillText('今', padL + chartW - 14 * dpr, h - 4 * dpr);
+  ctx.fillStyle    = '#99aabb';
+  ctx.font         = `${fontSize}px Courier New`;
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(`← ${TS_HISTORY_LEN}回前`, padL, h - 3 * dpr);
+  ctx.textAlign = 'right';
+  ctx.fillText('今 →', padL + chartW, h - 3 * dpr);
+  ctx.textAlign = 'left';
 }
 
 // ============================================================
@@ -776,9 +788,9 @@ function drawPerfGraph() {
     perfCtx.stroke();
     perfCtx.setLineDash([]);
     // ラベル
-    perfCtx.fillStyle = '#ff554488';
-    perfCtx.font      = `${9 * dpr}px Courier New`;
-    perfCtx.fillText('300ms', 2 * dpr, refY - 2 * dpr);
+    perfCtx.fillStyle = '#ff8866cc';
+    perfCtx.font      = `${11 * dpr}px Courier New`;
+    perfCtx.fillText('300ms', 4 * dpr, refY - 3 * dpr);
   }
 }
 
