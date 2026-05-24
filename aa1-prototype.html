@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AA1 Prototype — YAMNet Sound Classifier</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0f1a;
+      color: #aabbcc;
+      font-family: 'Courier New', monospace;
+      padding: 20px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    h1 { color: #4488ff; font-size: 1.1rem; margin-bottom: 12px; }
+    .status-row { margin: 6px 0; font-size: 0.82rem; }
+    #model-status { color: #44ffaa; }
+    #status       { color: #ffaa44; }
+
+    .btn-row { display: flex; gap: 8px; margin: 14px 0; }
+    button {
+      background: #1a2a4a; border: 1px solid #4466aa;
+      color: #88aaee; padding: 10px 18px; border-radius: 6px;
+      cursor: pointer; font-size: 0.88rem; font-family: inherit;
+    }
+    button:hover:not(:disabled) { background: #223366; }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
+    button.active   { background: #223366; border-color: #88aaee; color: #ddeeff; }
+
+    /* dB メーター */
+    #db-wrap { margin: 10px 0; }
+    #db-label { font-size: 0.72rem; color: #556688; margin-bottom: 2px; }
+    #db-value { font-size: 2.2rem; font-weight: bold; color: #44aaff; }
+
+    /* プライマリ識別結果 */
+    #primary-box {
+      margin: 14px 0;
+      padding: 14px;
+      background: #0d1520;
+      border: 1px solid #223355;
+      border-radius: 8px;
+      text-align: center;
+    }
+    #primary-label { font-size: 0.72rem; color: #445566; margin-bottom: 6px; }
+    #primary-class { font-size: 1.5rem; font-weight: bold; color: #aabbcc; }
+    #primary-score { font-size: 0.85rem; color: #556688; margin-top: 4px; }
+
+    /* トップ5リスト */
+    #results-label { font-size: 0.72rem; color: #445566; margin: 12px 0 6px; }
+    .result-item {
+      margin: 5px 0; padding: 8px 10px;
+      background: #0d1520;
+      border-left: 3px solid #223355;
+      border-radius: 0 4px 4px 0;
+    }
+    .result-item.hl { border-left-color: #44ffaa; background: #0a1a14; }
+    .result-name  { font-size: 0.83rem; color: #aabbcc; margin-bottom: 4px; }
+    .result-item.hl .result-name { color: #88eebb; }
+    .bar-wrap { background: #0a0f1a; border-radius: 3px; height: 6px; overflow: hidden; }
+    .bar      { height: 100%; border-radius: 3px; transition: width 0.4s ease;
+                background: linear-gradient(90deg, #224488, #4488ff); }
+    .result-item.hl .bar { background: linear-gradient(90deg, #226644, #44ffaa); }
+    .result-pct { font-size: 0.72rem; color: #445566; margin-top: 3px; }
+
+    #perf { font-size: 0.72rem; color: #334455; margin-top: 10px; }
+
+    /* モデル読み込み中のスピナー */
+    #loading-note {
+      font-size: 0.78rem; color: #556688;
+      margin-top: 6px; line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+<h1>AA1 Prototype — YAMNet</h1>
+
+<div class="status-row" id="model-status">⏳ 初期化中...</div>
+<div class="status-row" id="status">停止中</div>
+<div id="loading-note"></div>
+
+<div class="btn-row">
+  <button id="btn-start" disabled>🎙 マイク開始</button>
+  <button id="btn-stop"  disabled>⏹ 停止</button>
+</div>
+
+<div id="db-wrap">
+  <div id="db-label">音圧 (RMS)</div>
+  <div id="db-value">--- dB</div>
+</div>
+
+<div id="primary-box">
+  <div id="primary-label">識別結果（1位）</div>
+  <div id="primary-class">---</div>
+  <div id="primary-score"></div>
+</div>
+
+<div id="results-label">トップ 5</div>
+<div id="results"></div>
+<div id="perf"></div>
+
+<script>
+'use strict';
+
+// ============================================================
+// 定数
+// ============================================================
+const YAMNET_SR      = 16000;  // YAMNet要求サンプルレート (Hz)
+const FRAME_SAMPLES  = 16000;  // 推論1回あたりのサンプル数（1秒）
+const NOISE_FLOOR_DB = -80;    // dBFS ノイズフロア
+
+// AA1で重要視するクラスID（ハイライト表示）
+const HL_CLASSES = new Set([
+  0,   // Speech
+  2,   // Conversation
+  3,   // Narration, monologue
+  12,  // Whispering
+  13,  // Laughter
+  24,  // Singing
+  406, // Mechanical fan
+  407, // Air conditioning
+  494, // Silence
+  500, // Inside, small room
+  501, // Inside, large room or hall
+  507, // Noise
+  508, // Environmental noise
+]);
+
+// ============================================================
+// UI
+// ============================================================
+const modelStatusEl  = document.getElementById('model-status');
+const statusEl       = document.getElementById('status');
+const loadingNoteEl  = document.getElementById('loading-note');
+const btnStart       = document.getElementById('btn-start');
+const btnStop        = document.getElementById('btn-stop');
+const dbValueEl      = document.getElementById('db-value');
+const primaryClassEl = document.getElementById('primary-class');
+const primaryScoreEl = document.getElementById('primary-score');
+const resultsEl      = document.getElementById('results');
+const perfEl         = document.getElementById('perf');
+
+// ============================================================
+// クラス名の読み込み（GitHub raw CSV）
+// ============================================================
+const CLASS_NAMES = {};
+
+async function loadClassNames() {
+  try {
+    const res = await fetch(
+      'https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv'
+    );
+    const text = await res.text();
+    text.split('\n').slice(1).forEach(line => {
+      const m = line.match(/^(\d+),\S+,"?([^"]+)"?/);
+      if (m) CLASS_NAMES[parseInt(m[1])] = m[2].trim();
+    });
+    console.log(`クラス名読み込み完了: ${Object.keys(CLASS_NAMES).length}クラス`);
+  } catch (e) {
+    console.warn('クラス名の読み込みに失敗（番号で表示します）:', e.message);
+  }
+}
+
+function getClassName(idx) {
+  return CLASS_NAMES[idx] || `Class ${idx}`;
+}
+
+// ============================================================
+// YAMNet モデルの読み込み
+// ============================================================
+let model = null;
+
+async function loadModel() {
+  modelStatusEl.textContent  = '🔄 YAMNet モデル読み込み中...';
+  loadingNoteEl.textContent  = '初回は15〜30秒かかります（約13MB）。2回目以降はキャッシュされます。';
+  const t0 = performance.now();
+  try {
+    // TF Hub 経由で YAMNet TF.js モデルを取得
+    model = await tf.loadGraphModel(
+      'https://tfhub.dev/google/tfjs-model/yamnet/tfjs/1',
+      { fromTFHub: true }
+    );
+    const sec = ((performance.now() - t0) / 1000).toFixed(1);
+    modelStatusEl.textContent = `✅ モデル読み込み完了 (${sec}秒)`;
+    loadingNoteEl.textContent = '';
+    btnStart.disabled = false;
+  } catch (e) {
+    modelStatusEl.textContent = '❌ モデル読み込み失敗: ' + e.message;
+    loadingNoteEl.textContent = 'ネットワーク接続を確認してください。';
+    console.error('モデル読み込みエラー:', e);
+  }
+}
+
+// ============================================================
+// 音声パイプライン
+// ============================================================
+let audioCtx  = null;
+let source    = null;
+let processor = null;
+let sampleBuf = [];   // ダウンサンプル後の16kHz PCMを蓄積
+
+async function start() {
+  try {
+    statusEl.textContent = 'マイク接続中...';
+
+    // getUserMedia（3段階フォールバック）
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { autoGainControl: false, echoCancellation: false, noiseSuppression: false },
+        video: false,
+      });
+    } catch {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false },
+          video: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      }
+    }
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    const nativeSR = audioCtx.sampleRate;  // 通常 48000 Hz
+    source = audioCtx.createMediaStreamSource(stream);
+
+    // ScriptProcessorNode でサンプルを取得
+    // （AudioWorkletの方が推奨だが互換性優先）
+    const bufSize = 4096;
+    processor = audioCtx.createScriptProcessor(bufSize, 1, 1);
+
+    processor.onaudioprocess = (e) => {
+      const input = e.inputBuffer.getChannelData(0);
+
+      // --- RMS dB 計算・表示 ---
+      let rms = 0;
+      for (let i = 0; i < input.length; i++) rms += input[i] * input[i];
+      rms = Math.sqrt(rms / input.length);
+      const db = rms > 0 ? Math.max(0, 20 * Math.log10(rms) - NOISE_FLOOR_DB) : 0;
+      dbValueEl.textContent = db.toFixed(1) + ' dB';
+
+      // --- ダウンサンプリング（線形補間）: nativeSR → 16kHz ---
+      const ratio = nativeSR / YAMNET_SR;
+      const outLen = Math.floor(input.length / ratio);
+      for (let i = 0; i < outLen; i++) {
+        const pos = i * ratio;
+        const lo  = Math.floor(pos);
+        const hi  = Math.min(lo + 1, input.length - 1);
+        const frac = pos - lo;
+        sampleBuf.push(input[lo] * (1 - frac) + input[hi] * frac);
+      }
+
+      // FRAME_SAMPLES 分溜まったら推論
+      if (sampleBuf.length >= FRAME_SAMPLES) {
+        const chunk = sampleBuf.splice(0, FRAME_SAMPLES);
+        runInference(chunk);  // 非同期・非ブロッキング
+      }
+    };
+
+    source.connect(processor);
+    processor.connect(audioCtx.destination);
+
+    statusEl.textContent  = '測定中...';
+    btnStart.disabled     = true;
+    btnStart.classList.add('active');
+    btnStop.disabled      = false;
+
+  } catch (e) {
+    statusEl.textContent = 'エラー: ' + e.message;
+    console.error(e);
+  }
+}
+
+function stop() {
+  if (processor) { processor.disconnect(); processor = null; }
+  if (source)    { source.disconnect();    source    = null; }
+  if (audioCtx)  { audioCtx.close();       audioCtx  = null; }
+  sampleBuf = [];
+  statusEl.textContent  = '停止中';
+  btnStart.disabled     = false;
+  btnStart.classList.remove('active');
+  btnStop.disabled      = true;
+  dbValueEl.textContent = '--- dB';
+  primaryClassEl.textContent = '---';
+  primaryScoreEl.textContent = '';
+  resultsEl.innerHTML   = '';
+  perfEl.textContent    = '';
+}
+
+// ============================================================
+// YAMNet 推論
+// ============================================================
+let inferring = false;
+
+async function runInference(samples) {
+  if (inferring || !model) return;
+  inferring = true;
+  const t0 = performance.now();
+
+  try {
+    const inputTensor = tf.tensor1d(new Float32Array(samples));
+
+    // YAMNet の出力: [scores, embeddings, log_mel_spectrogram]
+    // scores shape: [frames, 521]
+    const outputs = model.predict(inputTensor);
+    const scoresTensor = Array.isArray(outputs) ? outputs[0] : outputs;
+    const scoresData   = await scoresTensor.array();  // [[...521 values...], ...]
+
+    // 全フレームを平均してクラスごとの代表スコアを算出
+    const nFrames  = scoresData.length;
+    const nClasses = scoresData[0].length;
+    const avg      = new Float32Array(nClasses);
+    for (let f = 0; f < nFrames; f++) {
+      for (let c = 0; c < nClasses; c++) {
+        avg[c] += scoresData[f][c];
+      }
+    }
+    for (let c = 0; c < nClasses; c++) avg[c] /= nFrames;
+
+    // トップ5を抽出
+    const indexed = Array.from(avg).map((v, i) => ({ i, v }));
+    indexed.sort((a, b) => b.v - a.v);
+    const top5 = indexed.slice(0, 5);
+
+    const elapsed = Math.round(performance.now() - t0);
+    updateUI(top5, elapsed, nFrames);
+
+    // テンソルのメモリ解放
+    inputTensor.dispose();
+    if (Array.isArray(outputs)) outputs.forEach(t => t.dispose());
+    else outputs.dispose();
+
+  } catch (e) {
+    console.error('推論エラー:', e);
+    perfEl.textContent = '推論エラー: ' + e.message;
+  }
+
+  inferring = false;
+}
+
+// ============================================================
+// UI 更新
+// ============================================================
+function updateUI(top5, elapsedMs, nFrames) {
+  const first     = top5[0];
+  const firstName = getClassName(first.i);
+  const firstPct  = (first.v * 100).toFixed(1);
+
+  // プライマリ表示
+  primaryClassEl.textContent = firstName;
+  primaryClassEl.style.color = HL_CLASSES.has(first.i) ? '#44ffaa' : '#aabbcc';
+  primaryScoreEl.textContent = `確信度 ${firstPct}%  (class ${first.i})`;
+
+  // トップ5リスト
+  resultsEl.innerHTML = top5.map(({ i, v }) => {
+    const name  = getClassName(i);
+    const pct   = (v * 100).toFixed(1);
+    // バーは確信度を視覚的に見やすいよう非線形スケール
+    const barW  = Math.min(100, v * 300).toFixed(1);
+    const isHL  = HL_CLASSES.has(i);
+    return `<div class="result-item ${isHL ? 'hl' : ''}">
+      <div class="result-name">${name}</div>
+      <div class="bar-wrap"><div class="bar" style="width:${barW}%"></div></div>
+      <div class="result-pct">${pct}%  (class ${i})</div>
+    </div>`;
+  }).join('');
+
+  perfEl.textContent = `推論時間: ${elapsedMs}ms  |  フレーム数: ${nFrames}`;
+}
+
+// ============================================================
+// 初期化
+// ============================================================
+btnStart.addEventListener('click', start);
+btnStop.addEventListener('click',  stop);
+
+(async () => {
+  await loadClassNames();
+  await loadModel();
+})();
+</script>
+</body>
+</html>
