@@ -152,7 +152,7 @@
 </head>
 <body>
 
-<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.6</span></h1>
+<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.6d</span></h1>
 
 <div class="status-row" id="model-status">⏳ 初期化中...</div>
 <div class="status-row" id="status">停止中</div>
@@ -190,6 +190,7 @@
     <div class="panel-box" id="mel-panel">
       <div class="panel-label">🎛 メルスペクトログラム（YAMNetの入力）
         <span class="panel-hint">64バンド・低周波=下 / 高周波=上</span>
+        <span id="mel-debug" style="color:#ff8844;font-size:0.78rem;margin-left:8px;"></span>
       </div>
       <canvas id="mel-canvas" height="96"></canvas>
     </div>
@@ -657,6 +658,10 @@ function resizeMelCanvas() {
   // clientWidth: canvas の CSS レンダリング幅（style.width は変更しない）
   const newW = Math.floor((melCanvas.clientWidth  || melCanvas.offsetWidth)  * dpr);
   const newH = Math.floor((melCanvas.clientHeight || 180) * dpr);
+  // デバッグ表示（一時的）
+  const dbg = document.getElementById('mel-debug');
+  if (dbg) dbg.textContent = `css:${melCanvas.clientWidth}px buf:${newW}px dpr:${dpr}`;
+
   if (newW <= 0 || newH <= 0) return;
   if (melCanvas.width === newW && melCanvas.height === newH) return;
   melCanvas.width  = newW;
