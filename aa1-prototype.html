@@ -152,7 +152,7 @@
 </head>
 <body>
 
-<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.8</span></h1>
+<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.9</span></h1>
 
 <div class="status-row" id="model-status">⏳ 初期化中...</div>
 <div class="status-row" id="status">停止中</div>
@@ -412,9 +412,9 @@ const MEL_BANDS       = 64;
 const MEL_COL_W       = 3;    // 1フレームあたりの列幅(cssピクセル相当)
 let   melCanvas       = null;
 let   melCtx          = null;
-// 正規化用の直近フレームのmin/maxをローリング管理
-const MEL_NORM_WINDOW = 100;
-let   melNormBuf      = [];   // 直近N列分のmin/maxを保持 [{min, max}]
+// バンドごとの独立正規化 — 各バンドを自身の過去の値範囲でスケーリング
+const MEL_NORM_WINDOW = 200;  // 直近200フレーム（約2秒）
+let   melNormBuf      = null; // Array[64] of Float32Array(MEL_NORM_WINDOW)
 
 // ============================================================
 // 測定履歴（レポート用）
@@ -498,7 +498,7 @@ async function start() {
     sessionHistory = [];
     sessionStartTs = Date.now();
     tsHistory.forEach(h => h.length = 0);
-    melNormBuf    = [];
+    melNormBuf    = null;
     document.getElementById('report').classList.remove('visible');
 
     // 時系列グラフの凡例を描画
@@ -542,7 +542,7 @@ function stop() {
   resizePerfCanvas();
   perfCtx.clearRect(0, 0, perfCanvas.width, perfCanvas.height);
   if (melCtx) melCtx.clearRect(0, 0, melCanvas.width, melCanvas.height);
-  melNormBuf = [];
+  melNormBuf = null;
   const tc = document.getElementById('ts-canvas');
   tc.getContext('2d').clearRect(0, 0, tc.width, tc.height);
 }
@@ -679,26 +679,33 @@ function drawMelSpectrogram(melData) {
     melCtx.fillRect(0, 0, newW, newH);
   }
 
+  // バンドごと正規化バッファの初期化
+  if (!melNormBuf) {
+    melNormBuf = Array.from({length: MEL_BANDS}, () => new Array());
+  }
+
   const cw   = melCanvas.width;
   const ch   = melCanvas.height;
   const colW = Math.max(1, Math.round(MEL_COL_W * dpr));
   const rowH = ch / MEL_BANDS;
 
   for (const frame of melData) {
-    // --- ローリングmin/maxで正規化 ---
-    let minV = Infinity, maxV = -Infinity;
-    for (const v of frame) {
-      if (v < minV) minV = v;
-      if (v > maxV) maxV = v;
+    // --- バンドごと独立したローリングmin/maxで正規化 ---
+    // 各バンドが自分自身の過去の変動幅でスケーリングされるため
+    // エネルギーが低い帯域も視覚的に浮かび上がる
+    const bandNorm = new Float32Array(MEL_BANDS);
+    for (let b = 0; b < MEL_BANDS; b++) {
+      const buf = melNormBuf[b];
+      buf.push(frame[b]);
+      if (buf.length > MEL_NORM_WINDOW) buf.shift();
+      let bMin = buf[0], bMax = buf[0];
+      for (let i = 1; i < buf.length; i++) {
+        if (buf[i] < bMin) bMin = buf[i];
+        if (buf[i] > bMax) bMax = buf[i];
+      }
+      const range = bMax - bMin || 1;
+      bandNorm[b] = (frame[b] - bMin) / range;
     }
-    melNormBuf.push({ min: minV, max: maxV });
-    if (melNormBuf.length > MEL_NORM_WINDOW) melNormBuf.shift();
-    let wMin = Infinity, wMax = -Infinity;
-    for (const e of melNormBuf) {
-      if (e.min < wMin) wMin = e.min;
-      if (e.max > wMax) wMax = e.max;
-    }
-    const range = wMax - wMin || 1;
 
     // --- 常にスクロール：左に colW ずつシフトして右端に新列を描く ---
     if (cw > colW) {
@@ -709,8 +716,7 @@ function drawMelSpectrogram(melData) {
     const imgData = melCtx.createImageData(colW, ch);
     const data    = imgData.data;
     for (let band = 0; band < MEL_BANDS; band++) {
-      const norm = (frame[band] - wMin) / range;
-      const [r, g, b] = melToRgb(norm);
+      const [r, g, b] = melToRgb(bandNorm[band]);
       // Y軸反転：低周波=下
       const y0 = Math.floor((MEL_BANDS - 1 - band) * rowH);
       const y1 = Math.floor((MEL_BANDS     - band) * rowH);
