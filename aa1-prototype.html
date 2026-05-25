@@ -400,11 +400,15 @@ const TS_CLASSES = [
 const TS_HISTORY_LEN = 60;  // 直近60回分を表示
 const tsHistory = TS_CLASSES.map(() => []);  // クラスごとの履歴
 
-// メルスペクトログラム ウォーターフォール用バッファ
-// 各推論でN列分のメルデータが来る → 左スクロールで蓄積
-const MEL_BANDS    = 64;
-const MEL_COL_MAX  = 200;   // 表示する列数（時間方向）
-let   melColumns   = [];    // [{band0..63}] の配列
+// メルスペクトログラム スクロールウォーターフォール
+const MEL_BANDS   = 64;
+const MEL_COL_W   = 3;      // 1フレームあたりの列幅(cssピクセル相当)
+let   melCanvas   = null;
+let   melCtx      = null;
+let   melInitialized = false;
+// 正規化用の直近フレームのmin/maxをローリング管理
+const MEL_NORM_WINDOW = 100;
+let   melNormBuf  = [];     // 直近N列分のmin/maxを保持 [{min, max}]
 
 // ============================================================
 // 測定履歴（レポート用）
@@ -488,7 +492,8 @@ async function start() {
     sessionHistory = [];
     sessionStartTs = Date.now();
     tsHistory.forEach(h => h.length = 0);
-    melColumns = [];
+    melNormBuf = [];
+    melInitialized = false;
     document.getElementById('report').classList.remove('visible');
 
     // 時系列グラフの凡例を描画
@@ -531,8 +536,9 @@ function stop() {
   perfHistory.length = 0;
   resizePerfCanvas();
   perfCtx.clearRect(0, 0, perfCanvas.width, perfCanvas.height);
-  const mc = document.getElementById('mel-canvas');
-  mc.getContext('2d').clearRect(0, 0, mc.width, mc.height);
+  if (melCtx) melCtx.clearRect(0, 0, melCanvas.width, melCanvas.height);
+  melInitialized = false;
+  melNormBuf = [];
   const tc = document.getElementById('ts-canvas');
   tc.getContext('2d').clearRect(0, 0, tc.width, tc.height);
 }
@@ -623,50 +629,78 @@ function melToRgb(norm) {
   }
 }
 
+// メルキャンバスの初期化・リサイズ
+function initMelCanvas() {
+  melCanvas = document.getElementById('mel-canvas');
+  melCtx    = melCanvas.getContext('2d');
+  resizeMelCanvas();
+}
+
+function resizeMelCanvas() {
+  if (!melCanvas) return;
+  const dpr  = window.devicePixelRatio || 1;
+  const newW = Math.floor(melCanvas.offsetWidth  * dpr);
+  const newH = Math.floor(melCanvas.offsetHeight * dpr);
+  if (melCanvas.width === newW && melCanvas.height === newH) return;
+  // サイズが変わったときだけリセット（clearも兼ねる）
+  melCanvas.width  = newW;
+  melCanvas.height = newH;
+  melInitialized   = false;
+}
+
+window.addEventListener('resize', resizeMelCanvas);
+
 function drawMelSpectrogram(melData) {
   // melData: [frames, 64]  値はlog mel energy（負の値が多い）
-  const canvas = document.getElementById('mel-canvas');
-  const ctx    = canvas.getContext('2d');
-  const dpr    = window.devicePixelRatio || 1;
-  canvas.width  = canvas.offsetWidth * dpr;
-  canvas.height = canvas.offsetHeight * dpr;
-  const cw = canvas.width, ch = canvas.height;
+  if (!melCanvas) initMelCanvas();
+  else resizeMelCanvas();   // サイズ変更があれば更新（変化なければ無操作）
 
-  // 新しいフレームをmelColumnsに追加
+  const dpr  = window.devicePixelRatio || 1;
+  const cw   = melCanvas.width;
+  const ch   = melCanvas.height;
+  const colW = Math.max(1, Math.round(MEL_COL_W * dpr));
+  const rowH = ch / MEL_BANDS;
+
   for (const frame of melData) {
-    melColumns.push(Float32Array.from(frame));
-    if (melColumns.length > MEL_COL_MAX) melColumns.shift();
-  }
-  if (melColumns.length === 0) return;
-
-  // 正規化用に全体の最小・最大を計算
-  let minV = Infinity, maxV = -Infinity;
-  for (const col of melColumns) {
-    for (const v of col) {
+    // --- ローリングmin/maxで正規化 ---
+    let minV = Infinity, maxV = -Infinity;
+    for (const v of frame) {
       if (v < minV) minV = v;
       if (v > maxV) maxV = v;
     }
-  }
-  const range = maxV - minV || 1;
+    melNormBuf.push({ min: minV, max: maxV });
+    if (melNormBuf.length > MEL_NORM_WINDOW) melNormBuf.shift();
+    // ウィンドウ全体のmin/max
+    let wMin = Infinity, wMax = -Infinity;
+    for (const e of melNormBuf) {
+      if (e.min < wMin) wMin = e.min;
+      if (e.max > wMax) wMax = e.max;
+    }
+    const range = wMax - wMin || 1;
 
-  // 描画
-  const colW = cw / MEL_COL_MAX;
-  const rowH = ch / MEL_BANDS;
-  const imgData = ctx.createImageData(cw, ch);
-  const data = imgData.data;
+    // --- スクロール：キャンバス全体を左に colW だけシフト ---
+    if (melInitialized) {
+      melCtx.drawImage(melCanvas, -colW, 0);
+    } else {
+      // 初回：黒で塗りつぶしてから開始
+      melCtx.fillStyle = '#000';
+      melCtx.fillRect(0, 0, cw, ch);
+      melInitialized = true;
+    }
 
-  melColumns.forEach((col, ci) => {
+    // --- 右端に新しい列を描画 ---
+    const imgData = melCtx.createImageData(colW, ch);
+    const data    = imgData.data;
+
     for (let band = 0; band < MEL_BANDS; band++) {
-      const norm = (col[band] - minV) / range;
+      const norm = (frame[band] - wMin) / range;
       const [r, g, b] = melToRgb(norm);
       // Y軸反転：低周波=下
       const y0 = Math.floor((MEL_BANDS - 1 - band) * rowH);
-      const y1 = Math.floor((MEL_BANDS - band) * rowH);
-      const x0 = Math.floor(ci * colW);
-      const x1 = Math.floor((ci + 1) * colW);
+      const y1 = Math.floor((MEL_BANDS     - band) * rowH);
       for (let y = y0; y < y1; y++) {
-        for (let x = x0; x < x1; x++) {
-          const off = (y * cw + x) * 4;
+        for (let x = 0; x < colW; x++) {
+          const off = (y * colW + x) * 4;
           data[off]     = r;
           data[off + 1] = g;
           data[off + 2] = b;
@@ -674,8 +708,8 @@ function drawMelSpectrogram(melData) {
         }
       }
     }
-  });
-  ctx.putImageData(imgData, 0, 0);
+    melCtx.putImageData(imgData, cw - colW, 0);
+  }
 }
 
 // ============================================================
