@@ -91,10 +91,10 @@
     #perf-avg    { font-size: 0.88rem; color: #8899aa; }
     #perf-canvas { width: 100%; height: 80px; display: block; border-radius: 4px; }
 
-    /* メルスペクトログラム：幅はJSで直接設定 */
+    /* メルスペクトログラム */
     #mel-panel { padding: 14px 0 0; overflow: hidden; }
     #mel-panel .panel-label { padding: 0 14px 10px; }
-    #mel-canvas { display: block; height: 180px; }
+    #mel-canvas { display: block; width: 100%; height: 180px; }
     #ts-legend  { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
     .ts-legend-item {
       display: flex; align-items: center; gap: 5px;
@@ -152,7 +152,7 @@
 </head>
 <body>
 
-<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.5</span></h1>
+<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.6</span></h1>
 
 <div class="status-row" id="model-status">⏳ 初期化中...</div>
 <div class="status-row" id="status">停止中</div>
@@ -644,26 +644,21 @@ function melToRgb(norm) {
 function initMelCanvas() {
   melCanvas = document.getElementById('mel-canvas');
   melCtx    = melCanvas.getContext('2d');
-  // ResizeObserver でパネルのサイズ変化を確実に検知
+  // canvas 自身を監視（style.width を触らないのでループしない）
   if (window.ResizeObserver) {
-    new ResizeObserver(() => resizeMelCanvas()).observe(melCanvas.parentElement);
+    new ResizeObserver(() => resizeMelCanvas()).observe(melCanvas);
   }
   resizeMelCanvas();
 }
 
 function resizeMelCanvas() {
   if (!melCanvas) return;
-  const dpr    = window.devicePixelRatio || 1;
-  // CSS width:100% が効かないケースがあるため、親パネルの実幅を直接取得
-  const panel  = melCanvas.parentElement;
-  const panelW = panel ? Math.floor(panel.getBoundingClientRect().width) : 0;
-  const newW   = Math.floor(panelW * dpr);
-  const newH   = Math.floor(180 * dpr);
+  const dpr  = window.devicePixelRatio || 1;
+  // clientWidth: canvas の CSS レンダリング幅（style.width は変更しない）
+  const newW = Math.floor((melCanvas.clientWidth  || melCanvas.offsetWidth)  * dpr);
+  const newH = Math.floor((melCanvas.clientHeight || 180) * dpr);
   if (newW <= 0 || newH <= 0) return;
   if (melCanvas.width === newW && melCanvas.height === newH) return;
-  // 幅・高さをインラインスタイルで明示設定（CSS上書き保険）
-  melCanvas.style.width  = panelW + 'px';
-  melCanvas.style.height = '180px';
   melCanvas.width  = newW;
   melCanvas.height = newH;
   melInitialized   = false;
