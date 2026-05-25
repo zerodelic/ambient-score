@@ -152,7 +152,7 @@
 </head>
 <body>
 
-<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.7</span></h1>
+<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.8</span></h1>
 
 <div class="status-row" id="model-status">⏳ 初期化中...</div>
 <div class="status-row" id="status">停止中</div>
@@ -190,7 +190,6 @@
     <div class="panel-box" id="mel-panel">
       <div class="panel-label">🎛 メルスペクトログラム（YAMNetの入力）
         <span class="panel-hint">64バンド・低周波=下 / 高周波=上</span>
-        <span id="mel-debug" style="color:#ff8844;font-size:0.78rem;margin-left:8px;"></span>
       </div>
       <canvas id="mel-canvas" height="96"></canvas>
     </div>
@@ -413,9 +412,6 @@ const MEL_BANDS       = 64;
 const MEL_COL_W       = 3;    // 1フレームあたりの列幅(cssピクセル相当)
 let   melCanvas       = null;
 let   melCtx          = null;
-let   melInitialized  = false;
-let   melCursor       = 0;    // フィルアップ中の次の描画x座標(canvas px)
-let   melFull         = false; // キャンバスが一度埋まったらtrue
 // 正規化用の直近フレームのmin/maxをローリング管理
 const MEL_NORM_WINDOW = 100;
 let   melNormBuf      = [];   // 直近N列分のmin/maxを保持 [{min, max}]
@@ -503,9 +499,6 @@ async function start() {
     sessionStartTs = Date.now();
     tsHistory.forEach(h => h.length = 0);
     melNormBuf    = [];
-    melInitialized = false;
-    melCursor     = 0;
-    melFull       = false;
     document.getElementById('report').classList.remove('visible');
 
     // 時系列グラフの凡例を描画
@@ -549,7 +542,6 @@ function stop() {
   resizePerfCanvas();
   perfCtx.clearRect(0, 0, perfCanvas.width, perfCanvas.height);
   if (melCtx) melCtx.clearRect(0, 0, melCanvas.width, melCanvas.height);
-  melInitialized = false;
   melNormBuf = [];
   const tc = document.getElementById('ts-canvas');
   tc.getContext('2d').clearRect(0, 0, tc.width, tc.height);
@@ -641,51 +633,56 @@ function melToRgb(norm) {
   }
 }
 
-// メルキャンバスの初期化・リサイズ
+// メルキャンバスの初期化
 function initMelCanvas() {
   melCanvas = document.getElementById('mel-canvas');
   melCtx    = melCanvas.getContext('2d');
-  // canvas 自身を監視（style.width を触らないのでループしない）
+  // リサイズ時にバッファを更新（CSS style.width は触らない → ループなし）
   if (window.ResizeObserver) {
-    new ResizeObserver(() => resizeMelCanvas()).observe(melCanvas);
+    new ResizeObserver(() => {
+      if (!melCanvas) return;
+      const dpr  = window.devicePixelRatio || 1;
+      const newW = Math.round(melCanvas.offsetWidth  * dpr);
+      const newH = Math.round(melCanvas.offsetHeight * dpr);
+      if (newW > 0 && newH > 0 &&
+          (melCanvas.width !== newW || melCanvas.height !== newH)) {
+        melCanvas.width  = newW;
+        melCanvas.height = newH;
+        melCtx.fillStyle = '#000';
+        melCtx.fillRect(0, 0, newW, newH);
+      }
+    }).observe(melCanvas);
   }
-  resizeMelCanvas();
-}
-
-function resizeMelCanvas() {
-  if (!melCanvas) return;
+  // 初期バッファサイズを設定
   const dpr  = window.devicePixelRatio || 1;
-  // clientWidth: canvas の CSS レンダリング幅（style.width は変更しない）
-  const newW = Math.floor((melCanvas.clientWidth  || melCanvas.offsetWidth)  * dpr);
-  const newH = Math.floor((melCanvas.clientHeight || 180) * dpr);
-  if (newW <= 0 || newH <= 0) return;
-  if (melCanvas.width === newW && melCanvas.height === newH) return;
-  melCanvas.width  = newW;
-  melCanvas.height = newH;
-  melInitialized   = false;
-  melCursor        = 0;
-  melFull          = false;
+  const initW = Math.round(melCanvas.offsetWidth  * dpr) || Math.round(600 * dpr);
+  const initH = Math.round(melCanvas.offsetHeight * dpr) || Math.round(180 * dpr);
+  melCanvas.width  = initW;
+  melCanvas.height = initH;
+  melCtx.fillStyle = '#000';
+  melCtx.fillRect(0, 0, initW, initH);
 }
 
 function drawMelSpectrogram(melData) {
   // melData: [frames, 64]  値はlog mel energy（負の値が多い）
   if (!melCanvas) initMelCanvas();
-  else resizeMelCanvas();   // サイズ変更があれば更新（変化なければ無操作）
 
+  // キャンバスサイズが変わっていれば更新（変化なければ無操作）
   const dpr  = window.devicePixelRatio || 1;
+  const newW = Math.round(melCanvas.offsetWidth  * dpr);
+  const newH = Math.round(melCanvas.offsetHeight * dpr);
+  if (newW > 0 && newH > 0 &&
+      (melCanvas.width !== newW || melCanvas.height !== newH)) {
+    melCanvas.width  = newW;
+    melCanvas.height = newH;
+    melCtx.fillStyle = '#000';
+    melCtx.fillRect(0, 0, newW, newH);
+  }
+
   const cw   = melCanvas.width;
   const ch   = melCanvas.height;
   const colW = Math.max(1, Math.round(MEL_COL_W * dpr));
   const rowH = ch / MEL_BANDS;
-
-  // 初回：黒で塗りつぶし
-  if (!melInitialized) {
-    melCtx.fillStyle = '#000';
-    melCtx.fillRect(0, 0, cw, ch);
-    melInitialized = true;
-    melCursor = 0;
-    melFull   = false;
-  }
 
   for (const frame of melData) {
     // --- ローリングmin/maxで正規化 ---
@@ -703,31 +700,14 @@ function drawMelSpectrogram(melData) {
     }
     const range = wMax - wMin || 1;
 
-    // デバッグ表示（描画座標）
-    const dbgEl = document.getElementById('mel-debug');
-    if (dbgEl) dbgEl.textContent =
-      `css:${melCanvas.clientWidth} buf:${cw} cur:${melCursor} full:${melFull}`;
-
-    // --- 描画するx座標を決定 ---
-    let drawX;
-    if (!melFull) {
-      // フィルアップ期：左端から右へ順番に描く
-      drawX = melCursor;
-      melCursor += colW;
-      if (melCursor >= cw) {
-        melFull = true;
-      }
-    } else {
-      // スクロール期：getImageData/putImageData で確実に左シフト
+    // --- 常にスクロール：左に colW ずつシフトして右端に新列を描く ---
+    if (cw > colW) {
       const existing = melCtx.getImageData(colW, 0, cw - colW, ch);
       melCtx.putImageData(existing, 0, 0);
-      drawX = cw - colW;
     }
 
-    // --- 列を描画 ---
     const imgData = melCtx.createImageData(colW, ch);
     const data    = imgData.data;
-
     for (let band = 0; band < MEL_BANDS; band++) {
       const norm = (frame[band] - wMin) / range;
       const [r, g, b] = melToRgb(norm);
@@ -744,7 +724,7 @@ function drawMelSpectrogram(melData) {
         }
       }
     }
-    melCtx.putImageData(imgData, drawX, 0);
+    melCtx.putImageData(imgData, cw - colW, 0);
   }
 }
 
