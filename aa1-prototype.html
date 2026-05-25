@@ -152,7 +152,7 @@
 </head>
 <body>
 
-<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.11</span></h1>
+<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.12</span></h1>
 
 <div class="status-row" id="model-status">⏳ 初期化中...</div>
 <div class="status-row" id="status">停止中</div>
@@ -749,10 +749,15 @@ function drawMelSpectrogram(melData) {
   // alpha を先に 255 で埋める
   for (let i = 3; i < pix.length; i += 4) pix[i] = 255;
 
-  // col=0 が最古フレーム、col=melRingLen-1 が最新フレーム
-  // col >= melRingLen の領域は RGB=0（黒）のまま
-  for (let col = 0; col < melRingLen; col++) {
-    const ringIdx = (melRingHead + col) % cap;
+  // データが少ない間は全 cap 列に引き伸ばして表示（黒い領域を出さない）。
+  // フレームが cap に達したら 1:1 の通常表示に移行する。
+  // col=0 が最古フレーム、col=cap-1 が最新フレーム（常に全列を描画）
+  for (let col = 0; col < cap; col++) {
+    // 利用可能フレーム内のどのフレームを col に対応させるか
+    const frameIdx = melRingLen >= cap
+      ? col                                              // 満杯: 1:1 マッピング
+      : Math.floor(col * melRingLen / cap);              // 不足: 全幅に引き伸ばし
+    const ringIdx = (melRingHead + frameIdx) % cap;
     const frame   = melRing[ringIdx];
     const x0 = col * colW;
     const x1 = Math.min(x0 + colW, cw);
