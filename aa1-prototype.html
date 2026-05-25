@@ -401,14 +401,16 @@ const TS_HISTORY_LEN = 60;  // 直近60回分を表示
 const tsHistory = TS_CLASSES.map(() => []);  // クラスごとの履歴
 
 // メルスペクトログラム スクロールウォーターフォール
-const MEL_BANDS   = 64;
-const MEL_COL_W   = 3;      // 1フレームあたりの列幅(cssピクセル相当)
-let   melCanvas   = null;
-let   melCtx      = null;
-let   melInitialized = false;
+const MEL_BANDS       = 64;
+const MEL_COL_W       = 3;    // 1フレームあたりの列幅(cssピクセル相当)
+let   melCanvas       = null;
+let   melCtx          = null;
+let   melInitialized  = false;
+let   melCursor       = 0;    // フィルアップ中の次の描画x座標(canvas px)
+let   melFull         = false; // キャンバスが一度埋まったらtrue
 // 正規化用の直近フレームのmin/maxをローリング管理
 const MEL_NORM_WINDOW = 100;
-let   melNormBuf  = [];     // 直近N列分のmin/maxを保持 [{min, max}]
+let   melNormBuf      = [];   // 直近N列分のmin/maxを保持 [{min, max}]
 
 // ============================================================
 // 測定履歴（レポート用）
@@ -492,8 +494,10 @@ async function start() {
     sessionHistory = [];
     sessionStartTs = Date.now();
     tsHistory.forEach(h => h.length = 0);
-    melNormBuf = [];
+    melNormBuf    = [];
     melInitialized = false;
+    melCursor     = 0;
+    melFull       = false;
     document.getElementById('report').classList.remove('visible');
 
     // 時系列グラフの凡例を描画
@@ -646,6 +650,8 @@ function resizeMelCanvas() {
   melCanvas.width  = newW;
   melCanvas.height = newH;
   melInitialized   = false;
+  melCursor        = 0;
+  melFull          = false;
 }
 
 window.addEventListener('resize', resizeMelCanvas);
@@ -661,6 +667,15 @@ function drawMelSpectrogram(melData) {
   const colW = Math.max(1, Math.round(MEL_COL_W * dpr));
   const rowH = ch / MEL_BANDS;
 
+  // 初回：黒で塗りつぶし
+  if (!melInitialized) {
+    melCtx.fillStyle = '#000';
+    melCtx.fillRect(0, 0, cw, ch);
+    melInitialized = true;
+    melCursor = 0;
+    melFull   = false;
+  }
+
   for (const frame of melData) {
     // --- ローリングmin/maxで正規化 ---
     let minV = Infinity, maxV = -Infinity;
@@ -670,7 +685,6 @@ function drawMelSpectrogram(melData) {
     }
     melNormBuf.push({ min: minV, max: maxV });
     if (melNormBuf.length > MEL_NORM_WINDOW) melNormBuf.shift();
-    // ウィンドウ全体のmin/max
     let wMin = Infinity, wMax = -Infinity;
     for (const e of melNormBuf) {
       if (e.min < wMin) wMin = e.min;
@@ -678,17 +692,23 @@ function drawMelSpectrogram(melData) {
     }
     const range = wMax - wMin || 1;
 
-    // --- スクロール：キャンバス全体を左に colW だけシフト ---
-    if (melInitialized) {
-      melCtx.drawImage(melCanvas, -colW, 0);
+    // --- 描画するx座標を決定 ---
+    let drawX;
+    if (!melFull) {
+      // フィルアップ期：左端から右へ順番に描く
+      drawX = melCursor;
+      melCursor += colW;
+      if (melCursor >= cw) {
+        melFull = true;
+      }
     } else {
-      // 初回：黒で塗りつぶしてから開始
-      melCtx.fillStyle = '#000';
-      melCtx.fillRect(0, 0, cw, ch);
-      melInitialized = true;
+      // スクロール期：getImageData/putImageData で確実に左シフト
+      const existing = melCtx.getImageData(colW, 0, cw - colW, ch);
+      melCtx.putImageData(existing, 0, 0);
+      drawX = cw - colW;
     }
 
-    // --- 右端に新しい列を描画 ---
+    // --- 列を描画 ---
     const imgData = melCtx.createImageData(colW, ch);
     const data    = imgData.data;
 
@@ -708,7 +728,7 @@ function drawMelSpectrogram(melData) {
         }
       }
     }
-    melCtx.putImageData(imgData, cw - colW, 0);
+    melCtx.putImageData(imgData, drawX, 0);
   }
 }
 
