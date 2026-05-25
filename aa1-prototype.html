@@ -91,8 +91,11 @@
     #perf-avg    { font-size: 0.88rem; color: #8899aa; }
     #perf-canvas { width: 100%; height: 80px; display: block; border-radius: 4px; }
 
-    /* メルスペクトログラム・時系列 */
-    #mel-canvas { width: 100%; height: 180px; display: block; border-radius: 4px; }
+    /* メルスペクトログラム */
+    #mel-panel { padding-left: 0; padding-right: 0; padding-bottom: 0; }
+    #mel-panel .panel-label { padding: 0 14px 10px; }
+    #mel-canvas { width: 100%; height: 180px; display: block;
+                  border-radius: 0 0 8px 8px; }
     #ts-legend  { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
     .ts-legend-item {
       display: flex; align-items: center; gap: 5px;
@@ -185,7 +188,7 @@
   <div id="col-right">
 
     <!-- メルスペクトログラム -->
-    <div class="panel-box">
+    <div class="panel-box" id="mel-panel">
       <div class="panel-label">🎛 メルスペクトログラム（YAMNetの入力）
         <span class="panel-hint">64バンド・低周波=下 / 高周波=上</span>
       </div>
