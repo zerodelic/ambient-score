@@ -152,7 +152,7 @@
 </head>
 <body>
 
-<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.9</span></h1>
+<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.10</span></h1>
 
 <div class="status-row" id="model-status">⏳ 初期化中...</div>
 <div class="status-row" id="status">停止中</div>
@@ -677,11 +677,7 @@ function drawMelSpectrogram(melData) {
     melCanvas.height = newH;
     melCtx.fillStyle = '#000';
     melCtx.fillRect(0, 0, newW, newH);
-  }
-
-  // バンドごと正規化バッファの初期化
-  if (!melNormBuf) {
-    melNormBuf = Array.from({length: MEL_BANDS}, () => new Array());
+    melNormBuf = null; // リサイズ時は正規化バッファもリセット
   }
 
   const cw   = melCanvas.width;
@@ -689,44 +685,74 @@ function drawMelSpectrogram(melData) {
   const colW = Math.max(1, Math.round(MEL_COL_W * dpr));
   const rowH = ch / MEL_BANDS;
 
-  for (const frame of melData) {
-    // --- バンドごと独立したローリングmin/maxで正規化 ---
-    // 各バンドが自分自身の過去の変動幅でスケーリングされるため
-    // エネルギーが低い帯域も視覚的に浮かび上がる
-    const bandNorm = new Float32Array(MEL_BANDS);
-    for (let b = 0; b < MEL_BANDS; b++) {
-      const buf = melNormBuf[b];
-      buf.push(frame[b]);
-      if (buf.length > MEL_NORM_WINDOW) buf.shift();
-      let bMin = buf[0], bMax = buf[0];
-      for (let i = 1; i < buf.length; i++) {
-        if (buf[i] < bMin) bMin = buf[i];
-        if (buf[i] > bMax) bMax = buf[i];
-      }
-      const range = bMax - bMin || 1;
-      bandNorm[b] = (frame[b] - bMin) / range;
-    }
+  // 初回呼び出し判定（melNormBuf が未初期化）
+  const isFirstCall = !melNormBuf;
+  if (isFirstCall) melNormBuf = Array.from({length: MEL_BANDS}, () => []);
 
-    // --- 常にスクロール：左に colW ずつシフトして右端に新列を描く ---
+  // --- バンドごと正規化バッファを一括更新 ---
+  for (const frame of melData) {
+    for (let b = 0; b < MEL_BANDS; b++) {
+      melNormBuf[b].push(frame[b]);
+      if (melNormBuf[b].length > MEL_NORM_WINDOW) melNormBuf[b].shift();
+    }
+  }
+
+  // --- バンドごとの min/max をバッチ先頭で一度だけ算出 ---
+  const bandRange = Array.from({length: MEL_BANDS}, (_, b) => {
+    const buf = melNormBuf[b];
+    let mn = buf[0], mx = buf[0];
+    for (let i = 1; i < buf.length; i++) {
+      if (buf[i] < mn) mn = buf[i];
+      if (buf[i] > mx) mx = buf[i];
+    }
+    return { mn, range: mx - mn || 1 };
+  });
+
+  // --- 初回のみ：キャンバス全体を即座に塗りつぶして「左側が黒」問題を解消 ---
+  // 全フレームを均等にタイリングして自然な見た目にする
+  if (isFirstCall) {
+    const totalCols = Math.ceil(cw / colW);
+    const fullImg   = melCtx.createImageData(cw, ch);
+    const pix       = fullImg.data;
+    for (let col = 0; col < totalCols; col++) {
+      const frame = melData[col % melData.length];
+      const x0 = col * colW;
+      const x1 = Math.min(x0 + colW, cw);
+      for (let band = 0; band < MEL_BANDS; band++) {
+        const { mn, range } = bandRange[band];
+        const norm = Math.max(0, Math.min(1, (frame[band] - mn) / range));
+        const [r, g, b] = melToRgb(norm);
+        const y0 = Math.floor((MEL_BANDS - 1 - band) * rowH);
+        const y1 = Math.floor((MEL_BANDS     - band) * rowH);
+        for (let y = y0; y < y1; y++) {
+          for (let x = x0; x < x1; x++) {
+            const off = (y * cw + x) * 4;
+            pix[off] = r; pix[off + 1] = g; pix[off + 2] = b; pix[off + 3] = 255;
+          }
+        }
+      }
+    }
+    melCtx.putImageData(fullImg, 0, 0);
+  }
+
+  // --- 通常スクロール：左に colW シフト → 右端に新列を描く ---
+  for (const frame of melData) {
     if (cw > colW) {
       const existing = melCtx.getImageData(colW, 0, cw - colW, ch);
       melCtx.putImageData(existing, 0, 0);
     }
-
     const imgData = melCtx.createImageData(colW, ch);
     const data    = imgData.data;
     for (let band = 0; band < MEL_BANDS; band++) {
-      const [r, g, b] = melToRgb(bandNorm[band]);
-      // Y軸反転：低周波=下
+      const { mn, range } = bandRange[band];
+      const norm = Math.max(0, Math.min(1, (frame[band] - mn) / range));
+      const [r, g, b] = melToRgb(norm);
       const y0 = Math.floor((MEL_BANDS - 1 - band) * rowH);
       const y1 = Math.floor((MEL_BANDS     - band) * rowH);
       for (let y = y0; y < y1; y++) {
         for (let x = 0; x < colW; x++) {
           const off = (y * colW + x) * 4;
-          data[off]     = r;
-          data[off + 1] = g;
-          data[off + 2] = b;
-          data[off + 3] = 255;
+          data[off] = r; data[off + 1] = g; data[off + 2] = b; data[off + 3] = 255;
         }
       }
     }
