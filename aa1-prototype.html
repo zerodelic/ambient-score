@@ -658,10 +658,6 @@ function resizeMelCanvas() {
   // clientWidth: canvas の CSS レンダリング幅（style.width は変更しない）
   const newW = Math.floor((melCanvas.clientWidth  || melCanvas.offsetWidth)  * dpr);
   const newH = Math.floor((melCanvas.clientHeight || 180) * dpr);
-  // デバッグ表示（一時的）
-  const dbg = document.getElementById('mel-debug');
-  if (dbg) dbg.textContent = `css:${melCanvas.clientWidth}px buf:${newW}px dpr:${dpr}`;
-
   if (newW <= 0 || newH <= 0) return;
   if (melCanvas.width === newW && melCanvas.height === newH) return;
   melCanvas.width  = newW;
@@ -706,6 +702,11 @@ function drawMelSpectrogram(melData) {
       if (e.max > wMax) wMax = e.max;
     }
     const range = wMax - wMin || 1;
+
+    // デバッグ表示（描画座標）
+    const dbgEl = document.getElementById('mel-debug');
+    if (dbgEl) dbgEl.textContent =
+      `css:${melCanvas.clientWidth} buf:${cw} cur:${melCursor} full:${melFull}`;
 
     // --- 描画するx座標を決定 ---
     let drawX;
