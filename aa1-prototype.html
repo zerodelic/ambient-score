@@ -91,11 +91,10 @@
     #perf-avg    { font-size: 0.88rem; color: #8899aa; }
     #perf-canvas { width: 100%; height: 80px; display: block; border-radius: 4px; }
 
-    /* メルスペクトログラム */
-    #mel-panel { padding-left: 0; padding-right: 0; padding-bottom: 0; }
+    /* メルスペクトログラム：幅はJSで直接設定 */
+    #mel-panel { padding: 14px 0 0; overflow: hidden; }
     #mel-panel .panel-label { padding: 0 14px 10px; }
-    #mel-canvas { width: 100%; height: 180px; display: block;
-                  border-radius: 0 0 8px 8px; }
+    #mel-canvas { display: block; height: 180px; }
     #ts-legend  { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
     .ts-legend-item {
       display: flex; align-items: center; gap: 5px;
@@ -153,7 +152,7 @@
 </head>
 <body>
 
-<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.4</span></h1>
+<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.5</span></h1>
 
 <div class="status-row" id="model-status">⏳ 初期化中...</div>
 <div class="status-row" id="status">停止中</div>
@@ -645,24 +644,32 @@ function melToRgb(norm) {
 function initMelCanvas() {
   melCanvas = document.getElementById('mel-canvas');
   melCtx    = melCanvas.getContext('2d');
+  // ResizeObserver でパネルのサイズ変化を確実に検知
+  if (window.ResizeObserver) {
+    new ResizeObserver(() => resizeMelCanvas()).observe(melCanvas.parentElement);
+  }
   resizeMelCanvas();
 }
 
 function resizeMelCanvas() {
   if (!melCanvas) return;
-  const dpr  = window.devicePixelRatio || 1;
-  const newW = Math.floor(melCanvas.offsetWidth  * dpr);
-  const newH = Math.floor(melCanvas.offsetHeight * dpr);
+  const dpr    = window.devicePixelRatio || 1;
+  // CSS width:100% が効かないケースがあるため、親パネルの実幅を直接取得
+  const panel  = melCanvas.parentElement;
+  const panelW = panel ? Math.floor(panel.getBoundingClientRect().width) : 0;
+  const newW   = Math.floor(panelW * dpr);
+  const newH   = Math.floor(180 * dpr);
+  if (newW <= 0 || newH <= 0) return;
   if (melCanvas.width === newW && melCanvas.height === newH) return;
-  // サイズが変わったときだけリセット（clearも兼ねる）
+  // 幅・高さをインラインスタイルで明示設定（CSS上書き保険）
+  melCanvas.style.width  = panelW + 'px';
+  melCanvas.style.height = '180px';
   melCanvas.width  = newW;
   melCanvas.height = newH;
   melInitialized   = false;
   melCursor        = 0;
   melFull          = false;
 }
-
-window.addEventListener('resize', resizeMelCanvas);
 
 function drawMelSpectrogram(melData) {
   // melData: [frames, 64]  値はlog mel energy（負の値が多い）
@@ -1013,6 +1020,9 @@ function showReport() {
 // ============================================================
 btnStart.addEventListener('click', start);
 btnStop.addEventListener('click',  stop);
+
+// メルキャンバスをページ読み込み時に初期化（推論前に正しいサイズを確保）
+document.addEventListener('DOMContentLoaded', initMelCanvas);
 
 (async () => {
   await loadClassNames();
