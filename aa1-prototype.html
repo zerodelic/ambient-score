@@ -152,7 +152,7 @@
 </head>
 <body>
 
-<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.10</span></h1>
+<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.11</span></h1>
 
 <div class="status-row" id="model-status">⏳ 初期化中...</div>
 <div class="status-row" id="status">停止中</div>
@@ -407,14 +407,18 @@ const TS_CLASSES = [
 const TS_HISTORY_LEN = 60;  // 直近60回分を表示
 const tsHistory = TS_CLASSES.map(() => []);  // クラスごとの履歴
 
-// メルスペクトログラム スクロールウォーターフォール
+// メルスペクトログラム — リングバッファ方式（スクロール廃止）
 const MEL_BANDS       = 64;
 const MEL_COL_W       = 3;    // 1フレームあたりの列幅(cssピクセル相当)
 let   melCanvas       = null;
 let   melCtx          = null;
-// バンドごとの独立正規化 — 各バンドを自身の過去の値範囲でスケーリング
+// バンドごとの独立正規化
 const MEL_NORM_WINDOW = 200;  // 直近200フレーム（約2秒）
-let   melNormBuf      = null; // Array[64] of Float32Array(MEL_NORM_WINDOW)
+let   melNormBuf      = null; // Array[64] of 値配列
+// フレームリングバッファ（スクロール不要・毎回全描画）
+let   melRing         = null; // Array[maxCols] of Float32Array(64)
+let   melRingHead     = 0;    // 最古フレームのインデックス
+let   melRingLen      = 0;    // 有効フレーム数
 
 // ============================================================
 // 測定履歴（レポート用）
@@ -499,6 +503,9 @@ async function start() {
     sessionStartTs = Date.now();
     tsHistory.forEach(h => h.length = 0);
     melNormBuf    = null;
+    melRing       = null;
+    melRingHead   = 0;
+    melRingLen    = 0;
     document.getElementById('report').classList.remove('visible');
 
     // 時系列グラフの凡例を描画
@@ -542,7 +549,10 @@ function stop() {
   resizePerfCanvas();
   perfCtx.clearRect(0, 0, perfCanvas.width, perfCanvas.height);
   if (melCtx) melCtx.clearRect(0, 0, melCanvas.width, melCanvas.height);
-  melNormBuf = null;
+  melNormBuf  = null;
+  melRing     = null;
+  melRingHead = 0;
+  melRingLen  = 0;
   const tc = document.getElementById('ts-canvas');
   tc.getContext('2d').clearRect(0, 0, tc.width, tc.height);
 }
@@ -650,6 +660,10 @@ function initMelCanvas() {
         melCanvas.height = newH;
         melCtx.fillStyle = '#000';
         melCtx.fillRect(0, 0, newW, newH);
+        melNormBuf  = null;
+        melRing     = null;
+        melRingHead = 0;
+        melRingLen  = 0;
       }
     }).observe(melCanvas);
   }
@@ -665,9 +679,11 @@ function initMelCanvas() {
 
 function drawMelSpectrogram(melData) {
   // melData: [frames, 64]  値はlog mel energy（負の値が多い）
+  // 方式: リングバッファ＋毎回全描画。スクロール（getImageData/putImageData）は使わない。
+  // 表示順: 左=古い、右=新しい。データは左から埋まるので起動直後も左側に色が出る。
   if (!melCanvas) initMelCanvas();
 
-  // キャンバスサイズが変わっていれば更新（変化なければ無操作）
+  // キャンバスサイズが変わっていれば更新
   const dpr  = window.devicePixelRatio || 1;
   const newW = Math.round(melCanvas.offsetWidth  * dpr);
   const newH = Math.round(melCanvas.offsetHeight * dpr);
@@ -675,89 +691,89 @@ function drawMelSpectrogram(melData) {
       (melCanvas.width !== newW || melCanvas.height !== newH)) {
     melCanvas.width  = newW;
     melCanvas.height = newH;
-    melCtx.fillStyle = '#000';
-    melCtx.fillRect(0, 0, newW, newH);
-    melNormBuf = null; // リサイズ時は正規化バッファもリセット
+    melRing     = null;
+    melNormBuf  = null;
+    melRingHead = 0;
+    melRingLen  = 0;
   }
 
   const cw   = melCanvas.width;
   const ch   = melCanvas.height;
   const colW = Math.max(1, Math.round(MEL_COL_W * dpr));
+  const cap  = Math.floor(cw / colW);   // リング容量 = 表示可能な最大フレーム数
   const rowH = ch / MEL_BANDS;
 
-  // 初回呼び出し判定（melNormBuf が未初期化）
-  const isFirstCall = !melNormBuf;
-  if (isFirstCall) melNormBuf = Array.from({length: MEL_BANDS}, () => []);
+  // バッファ初期化
+  if (!melRing) {
+    melRing    = Array.from({length: cap}, () => new Float32Array(MEL_BANDS));
+    melRingHead = 0;
+    melRingLen  = 0;
+    melNormBuf  = Array.from({length: MEL_BANDS}, () => []);
+  }
 
-  // --- バンドごと正規化バッファを一括更新 ---
+  // 各フレームをリングに追加しながら正規化バッファも更新
   for (const frame of melData) {
+    // 正規化バッファ更新
     for (let b = 0; b < MEL_BANDS; b++) {
       melNormBuf[b].push(frame[b]);
       if (melNormBuf[b].length > MEL_NORM_WINDOW) melNormBuf[b].shift();
     }
+    // リングバッファに追加
+    if (melRingLen < cap) {
+      // まだ空きがある: 末尾に書き込む
+      melRing[melRingLen].set(frame);
+      melRingLen++;
+    } else {
+      // バッファが満杯: 最古スロット（melRingHead）を上書き
+      melRing[melRingHead].set(frame);
+      melRingHead = (melRingHead + 1) % cap;
+    }
   }
 
-  // --- バンドごとの min/max をバッチ先頭で一度だけ算出 ---
+  // バンドごとの min/max を一度だけ算出（最小レンジを設けて潰れ防止）
   const bandRange = Array.from({length: MEL_BANDS}, (_, b) => {
     const buf = melNormBuf[b];
+    if (buf.length === 0) return {mn: 0, range: 1};
     let mn = buf[0], mx = buf[0];
     for (let i = 1; i < buf.length; i++) {
       if (buf[i] < mn) mn = buf[i];
       if (buf[i] > mx) mx = buf[i];
     }
-    return { mn, range: mx - mn || 1 };
+    return {mn, range: Math.max(mx - mn, 0.5)};
   });
 
-  // --- 初回のみ：キャンバス全体を即座に塗りつぶして「左側が黒」問題を解消 ---
-  // 全フレームを均等にタイリングして自然な見た目にする
-  if (isFirstCall) {
-    const totalCols = Math.ceil(cw / colW);
-    const fullImg   = melCtx.createImageData(cw, ch);
-    const pix       = fullImg.data;
-    for (let col = 0; col < totalCols; col++) {
-      const frame = melData[col % melData.length];
-      const x0 = col * colW;
-      const x1 = Math.min(x0 + colW, cw);
-      for (let band = 0; band < MEL_BANDS; band++) {
-        const { mn, range } = bandRange[band];
-        const norm = Math.max(0, Math.min(1, (frame[band] - mn) / range));
-        const [r, g, b] = melToRgb(norm);
-        const y0 = Math.floor((MEL_BANDS - 1 - band) * rowH);
-        const y1 = Math.floor((MEL_BANDS     - band) * rowH);
-        for (let y = y0; y < y1; y++) {
-          for (let x = x0; x < x1; x++) {
-            const off = (y * cw + x) * 4;
-            pix[off] = r; pix[off + 1] = g; pix[off + 2] = b; pix[off + 3] = 255;
-          }
-        }
-      }
-    }
-    melCtx.putImageData(fullImg, 0, 0);
-  }
+  // キャンバス全体を1枚のImageDataで一括描画（スクロールなし）
+  const imgData = melCtx.createImageData(cw, ch);
+  const pix     = imgData.data;
 
-  // --- 通常スクロール：左に colW シフト → 右端に新列を描く ---
-  for (const frame of melData) {
-    if (cw > colW) {
-      const existing = melCtx.getImageData(colW, 0, cw - colW, ch);
-      melCtx.putImageData(existing, 0, 0);
-    }
-    const imgData = melCtx.createImageData(colW, ch);
-    const data    = imgData.data;
+  // alpha を先に 255 で埋める
+  for (let i = 3; i < pix.length; i += 4) pix[i] = 255;
+
+  // col=0 が最古フレーム、col=melRingLen-1 が最新フレーム
+  // col >= melRingLen の領域は RGB=0（黒）のまま
+  for (let col = 0; col < melRingLen; col++) {
+    const ringIdx = (melRingHead + col) % cap;
+    const frame   = melRing[ringIdx];
+    const x0 = col * colW;
+    const x1 = Math.min(x0 + colW, cw);
+
     for (let band = 0; band < MEL_BANDS; band++) {
-      const { mn, range } = bandRange[band];
+      const {mn, range} = bandRange[band];
       const norm = Math.max(0, Math.min(1, (frame[band] - mn) / range));
       const [r, g, b] = melToRgb(norm);
+      // band=0 が最低周波数 → 画面下に描画（y座標が大きい方）
       const y0 = Math.floor((MEL_BANDS - 1 - band) * rowH);
       const y1 = Math.floor((MEL_BANDS     - band) * rowH);
       for (let y = y0; y < y1; y++) {
-        for (let x = 0; x < colW; x++) {
-          const off = (y * colW + x) * 4;
-          data[off] = r; data[off + 1] = g; data[off + 2] = b; data[off + 3] = 255;
+        for (let x = x0; x < x1; x++) {
+          const off = (y * cw + x) * 4;
+          pix[off] = r; pix[off+1] = g; pix[off+2] = b;
         }
       }
     }
-    melCtx.putImageData(imgData, cw - colW, 0);
   }
+
+  melCtx.putImageData(imgData, 0, 0);
 }
 
 // ============================================================
