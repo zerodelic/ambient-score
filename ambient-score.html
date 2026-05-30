@@ -1464,7 +1464,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.4.1 &nbsp;|&nbsp; 更新日：2026-05-30</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.4.2 &nbsp;|&nbsp; 更新日：2026-05-30</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right">
@@ -2221,7 +2221,7 @@
       source.connect(analyser);
 
       const sr = audioCtx.sampleRate;
-      document.getElementById('val-sr').textContent = sr.toLocaleString() + ' Hz';
+      document.getElementById('val-sr').textContent = 'SR: ' + sr.toLocaleString() + ' Hz';
       document.getElementById('spectrum-range-label').textContent =
         '20Hz – ' + (sr / 2).toLocaleString() + 'Hz (Nyquist)';
       // 開始時にセッション集計・ログをリセット
