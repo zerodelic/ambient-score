@@ -68,6 +68,21 @@
     #header-right {
       flex: 0 0 auto;
       min-width: 130px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-start;
+    }
+    #btn-tips {
+      font-size: 0.72rem;
+      padding: 4px 10px;
+      opacity: 0.5;
+      border-color: #334466;
+      color: #6688aa;
+    }
+    #btn-tips.active {
+      opacity: 1;
+      border-color: #4466ff;
+      color: #88aaff;
     }
 
     h1 {
@@ -171,6 +186,12 @@
       color: #ffaa44;
       letter-spacing: 0.08em;
       text-align: left;
+      white-space: nowrap;
+    }
+    #val-sr {
+      font-size: 0.72rem;
+      color: #5577aa;
+      letter-spacing: 0.05em;
       white-space: nowrap;
     }
 
@@ -1431,14 +1452,17 @@
       <div id="live-clock-row">
         <div id="live-clock-time">--:--:--</div>
         <div id="status">マイクへのアクセスを許可してください</div>
+        <div id="val-sr" data-tip="サンプリングレート|マイクが1秒間に音を記録する回数。48000Hzの場合、ナイキスト周波数（表現できる最高音）は24000Hzになります。"></div>
       </div>
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.3.9 &nbsp;|&nbsp; 更新日：2026-05-23</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.4.0 &nbsp;|&nbsp; 更新日：2026-05-30</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
-    <div id="header-right"></div>
+    <div id="header-right">
+      <button id="btn-tips" title="Tipsの表示 / 非表示">Tips 💡</button>
+    </div>
   </div>
 
   <!-- Row 2: コントロール | 手動ラベル -->
@@ -1520,10 +1544,6 @@
       <div class="meter-box" data-tip="卓越周波数|現在のスペクトラムで最もエネルギーが強い周波数。人の声なら100〜300Hz、機械音なら低域に出やすいです。">
         <div class="meter-label">卓越周波数</div>
         <div class="meter-value" id="val-dom">---<span class="meter-unit">Hz</span></div>
-      </div>
-      <div class="meter-box" data-tip="サンプリングレート|マイクが1秒間に音を記録する回数。48000Hzの場合、ナイキスト周波数（表現できる最高音）は24000Hzになります。">
-        <div class="meter-label">サンプリングレート</div>
-        <div class="meter-value" id="val-sr" style="font-size:1.1rem;">---<span class="meter-unit">Hz</span></div>
       </div>
     </div>
     <div id="db-bar-wrap">
@@ -2180,8 +2200,7 @@
       source.connect(analyser);
 
       const sr = audioCtx.sampleRate;
-      document.getElementById('val-sr').innerHTML =
-        sr.toLocaleString() + '<span class="meter-unit">Hz</span>';
+      document.getElementById('val-sr').textContent = sr.toLocaleString() + ' Hz';
       document.getElementById('spectrum-range-label').textContent =
         '20Hz – ' + (sr / 2).toLocaleString() + 'Hz (Nyquist)';
       // 開始時にセッション集計・ログをリセット
@@ -2266,6 +2285,7 @@
     closeFileLog(); // ファイルログを閉じる（非同期だが待たない）
     document.getElementById('btn-filelog').disabled = true; // 対応/非対応問わず停止中は無効
     document.getElementById('mic-info').textContent = '';
+    document.getElementById('val-sr').textContent = '';
     status.textContent = '停止中';
     btnStart.disabled = false;
     btnPause.disabled = true;
@@ -4203,11 +4223,30 @@
   // 初期状態を復元
   restorePanelState();
 
+  // ---- Tips トグル ----
+  const btnTips = document.getElementById('btn-tips');
+  let tipsEnabled = localStorage.getItem('tipsEnabled') !== 'false'; // デフォルトON
+
+  function applyTipsState() {
+    btnTips.classList.toggle('active', tipsEnabled);
+    btnTips.textContent = tipsEnabled ? 'Tips 💡' : 'Tips 💡';
+    btnTips.title = tipsEnabled ? 'Tips を非表示にする' : 'Tips を表示する';
+  }
+  applyTipsState();
+
+  btnTips.addEventListener('click', () => {
+    tipsEnabled = !tipsEnabled;
+    localStorage.setItem('tipsEnabled', tipsEnabled);
+    applyTipsState();
+    if (!tipsEnabled) tooltipEl.classList.remove('visible');
+  });
+
   // ---- カスタムツールチップ ----
   const tooltipEl = document.getElementById('tooltip');
   let tooltipTimer;
 
   document.addEventListener('mouseover', e => {
+    if (!tipsEnabled) return;
     const target = e.target.closest('[data-tip]');
     if (!target) return;
     clearTimeout(tooltipTimer);
