@@ -194,7 +194,7 @@
       letter-spacing: 0.05em;
       white-space: nowrap;
     }
-    #elapsed-time {
+    #elapsed-wrap {
       font-size: 0.72rem;
       color: #aabbcc;
       letter-spacing: 0.06em;
@@ -1458,13 +1458,13 @@
       <div id="live-clock-row">
         <div id="live-clock-time">--:--:--</div>
         <div id="status">マイクへのアクセスを許可してください</div>
-        <div id="elapsed-time"></div>
+        <div id="elapsed-wrap" style="display:none;">経過: <span id="elapsed-time"></span></div>
         <div id="val-sr" data-tip="サンプリングレート|マイクが1秒間に音を記録する回数。48000Hzの場合、ナイキスト周波数（表現できる最高音）は24000Hzになります。"></div>
       </div>
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.4.2 &nbsp;|&nbsp; 更新日：2026-05-30</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.4.3 &nbsp;|&nbsp; 更新日：2026-05-30</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right">
@@ -1846,9 +1846,10 @@
   const status = document.getElementById('status');
 
   // 経過時間タイマー
-  let elapsedSec  = 0;
+  let elapsedSec   = 0;
   let elapsedTimer = null;
-  const elapsedEl = document.getElementById('elapsed-time');
+  const elapsedEl   = document.getElementById('elapsed-time');
+  const elapsedWrap = document.getElementById('elapsed-wrap');
 
   function formatElapsed(s) {
     const h = Math.floor(s / 3600);
@@ -2221,7 +2222,7 @@
       source.connect(analyser);
 
       const sr = audioCtx.sampleRate;
-      document.getElementById('val-sr').textContent = 'SR: ' + sr.toLocaleString() + ' Hz';
+      document.getElementById('val-sr').textContent = 'サンプリングレート: ' + sr.toLocaleString() + ' Hz';
       document.getElementById('spectrum-range-label').textContent =
         '20Hz – ' + (sr / 2).toLocaleString() + 'Hz (Nyquist)';
       // 開始時にセッション集計・ログをリセット
@@ -2278,6 +2279,7 @@
       // 経過時間タイマー起動
       elapsedSec = 0;
       elapsedEl.textContent = '00:00';
+      elapsedWrap.style.display = '';
       clearInterval(elapsedTimer);
       elapsedTimer = setInterval(() => {
         if (!isPaused) { elapsedSec++; elapsedEl.textContent = formatElapsed(elapsedSec); }
@@ -2316,6 +2318,7 @@
     document.getElementById('val-sr').textContent = '';
     clearInterval(elapsedTimer);
     elapsedEl.textContent = '';
+    elapsedWrap.style.display = 'none';
     status.textContent = '停止中';
     btnStart.disabled = false;
     btnPause.disabled = true;
