@@ -190,8 +190,14 @@
     }
     #val-sr {
       font-size: 0.72rem;
-      color: #5577aa;
+      color: #88aadd;
       letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+    #elapsed-time {
+      font-size: 0.72rem;
+      color: #aabbcc;
+      letter-spacing: 0.06em;
       white-space: nowrap;
     }
 
@@ -1452,12 +1458,13 @@
       <div id="live-clock-row">
         <div id="live-clock-time">--:--:--</div>
         <div id="status">マイクへのアクセスを許可してください</div>
+        <div id="elapsed-time"></div>
         <div id="val-sr" data-tip="サンプリングレート|マイクが1秒間に音を記録する回数。48000Hzの場合、ナイキスト周波数（表現できる最高音）は24000Hzになります。"></div>
       </div>
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.4.0 &nbsp;|&nbsp; 更新日：2026-05-30</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.4.1 &nbsp;|&nbsp; 更新日：2026-05-30</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right">
@@ -1837,6 +1844,20 @@
   const fftSizeEl = document.getElementById('fft-size');
   const windowModeEl = document.getElementById('window-mode');
   const status = document.getElementById('status');
+
+  // 経過時間タイマー
+  let elapsedSec  = 0;
+  let elapsedTimer = null;
+  const elapsedEl = document.getElementById('elapsed-time');
+
+  function formatElapsed(s) {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const mm = String(m).padStart(2, '0');
+    const ss = String(sec).padStart(2, '0');
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  }
 
   // 直近3秒の最大値（ローリングウィンドウ）
   const PEAK_WINDOW_SEC = 3;
@@ -2254,6 +2275,13 @@
       document.getElementById('val-max').innerHTML = '---<span class="meter-unit">dB</span>';
       document.getElementById('val-avg').innerHTML = '---<span class="meter-unit">dB</span>';
       status.textContent = '測定中...';
+      // 経過時間タイマー起動
+      elapsedSec = 0;
+      elapsedEl.textContent = '00:00';
+      clearInterval(elapsedTimer);
+      elapsedTimer = setInterval(() => {
+        if (!isPaused) { elapsedSec++; elapsedEl.textContent = formatElapsed(elapsedSec); }
+      }, 1000);
       btnStart.disabled = true;
       btnStart.classList.remove('active');
       btnPause.disabled = false;
@@ -2286,6 +2314,8 @@
     document.getElementById('btn-filelog').disabled = true; // 対応/非対応問わず停止中は無効
     document.getElementById('mic-info').textContent = '';
     document.getElementById('val-sr').textContent = '';
+    clearInterval(elapsedTimer);
+    elapsedEl.textContent = '';
     status.textContent = '停止中';
     btnStart.disabled = false;
     btnPause.disabled = true;
