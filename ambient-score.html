@@ -923,6 +923,91 @@
       flex-shrink: 0;
     }
 
+    /* ⚙ 設定ボタン */
+    #btn-settings {
+      font-size: 0.85rem;
+      padding: 3px 8px;
+      border-color: #334466;
+      color: #6688aa;
+      margin-right: 6px;
+    }
+    #btn-settings.active { border-color: #4466ff; color: #88aaff; background: #4466ff22; }
+
+    /* 設定パネル */
+    #settings-panel {
+      display: none;
+      background: #0a0d18;
+      border: 1px solid #223355;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 8px;
+    }
+    #settings-panel.open { display: block; }
+
+    .settings-section { max-width: 680px; }
+    .settings-title {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #88aadd;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+    }
+    .settings-desc {
+      font-size: 0.76rem;
+      color: #556677;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .settings-label {
+      font-size: 0.78rem;
+      color: #7799aa;
+      white-space: nowrap;
+    }
+    #calib-current {
+      font-size: 1rem;
+      font-weight: bold;
+      color: #88ffcc;
+      min-width: 60px;
+    }
+    #calib-ref-input {
+      width: 80px;
+      padding: 4px 8px;
+      background: #0a0a1a;
+      border: 1px solid #334466;
+      border-radius: 4px;
+      color: #88aaff;
+      font-family: inherit;
+      font-size: 0.85rem;
+      text-align: right;
+    }
+    #btn-calib-set {
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      border-color: #336644;
+      color: #44cc88;
+    }
+    #btn-calib-set:hover { background: #33664422; }
+    #btn-calib-reset {
+      padding: 4px 12px;
+      font-size: 0.78rem;
+      border-color: #443322;
+      color: #aa7755;
+    }
+    #btn-calib-reset:hover { background: #44332222; }
+    #calib-status {
+      font-size: 0.78rem;
+      color: #556677;
+      margin-top: 4px;
+    }
+    #calib-status.active { color: #44cc88; }
+
     /* dBバーのアラート点滅 */
     #db-bar-bg.alert-active {
       border-color: #ff4400;
@@ -1479,10 +1564,11 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.4.4 &nbsp;|&nbsp; 更新日：2026-05-30</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.5.0 &nbsp;|&nbsp; 更新日：2026-05-31</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right">
+      <button id="btn-settings" title="設定パネルを開く / 閉じる">⚙</button>
       <button id="btn-tips" title="Tipsの表示 / 非表示">
         <span class="tips-label-on">TIPS ON</span>
         <span class="tips-knob"></span>
@@ -1535,6 +1621,30 @@
     <span style="font-size:1.4rem;">⚠</span>
     <span id="alert-banner-text">騒音アラート</span>
     <button id="btn-alert-dismiss">閉じる</button>
+  </div>
+
+  <!-- 設定パネル（⚙ボタンで開閉） -->
+  <div id="settings-panel">
+    <div class="settings-section">
+      <div class="settings-title">🎚 マイクキャリブレーション</div>
+      <div class="settings-desc">
+        iPhoneの騒音計アプリなど信頼できる基準で測定した値を入力すると、
+        このデバイスの測定値が自動補正されます。
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">現在のAS1測定値</span>
+        <span id="calib-current">--- dB</span>
+        <span class="settings-label" style="color:#445566;">（補正前）</span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">基準となる正しい値</span>
+        <input type="number" id="calib-ref-input" min="0" max="120" step="0.1" placeholder="例: 42.0">
+        <span class="settings-label">dB</span>
+        <button id="btn-calib-set">設定</button>
+        <button id="btn-calib-reset">リセット</button>
+      </div>
+      <div id="calib-status">オフセット: 未設定</div>
+    </div>
   </div>
 
 </div><!-- /#app-header -->
@@ -1878,6 +1988,10 @@
     const ss = String(sec).padStart(2, '0');
     return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
   }
+
+  // キャリブレーション
+  let calibOffset = parseFloat(localStorage.getItem('calibOffset') || '0');
+  let currentRawDb = 0;  // キャリブレーション前の生dB値（設定パネル表示用）
 
   // 直近3秒の最大値（ローリングウィンドウ）
   const PEAK_WINDOW_SEC = 3;
@@ -2633,7 +2747,8 @@
     rms = Math.sqrt(rms / timeData.length);
     const dbRMS = rms > 0 ? 20 * Math.log10(rms) : -Infinity;
     // 表示用: ノイズフロアを 0 dB にオフセット、下限を 0 にクランプ
-    const dbShifted = isFinite(dbRMS) ? Math.max(0, dbRMS - NOISE_FLOOR_DB) : 0;
+    currentRawDb = isFinite(dbRMS) ? Math.max(0, dbRMS - NOISE_FLOOR_DB) : 0;
+    const dbShifted = Math.max(0, currentRawDb + calibOffset);
     const dbDisplay = dbShifted.toFixed(1);
 
     // --- 直近3秒のローリング最大値 ---
@@ -4274,6 +4389,57 @@
 
   // 初期状態を復元
   restorePanelState();
+
+  // ---- ⚙ 設定パネル & キャリブレーション ----
+  const btnSettings   = document.getElementById('btn-settings');
+  const settingsPanel = document.getElementById('settings-panel');
+  const calibCurrentEl = document.getElementById('calib-current');
+  const calibStatusEl  = document.getElementById('calib-status');
+  const calibRefInput  = document.getElementById('calib-ref-input');
+
+  function updateCalibStatus() {
+    if (calibOffset === 0) {
+      calibStatusEl.textContent = 'オフセット: 未設定';
+      calibStatusEl.classList.remove('active');
+    } else {
+      const sign = calibOffset > 0 ? '+' : '';
+      calibStatusEl.textContent = `オフセット適用中: ${sign}${calibOffset.toFixed(1)} dB`;
+      calibStatusEl.classList.add('active');
+    }
+  }
+  updateCalibStatus();
+
+  btnSettings.addEventListener('click', () => {
+    const isOpen = settingsPanel.classList.toggle('open');
+    btnSettings.classList.toggle('active', isOpen);
+    if (isOpen) calibCurrentEl.textContent = currentRawDb.toFixed(1) + ' dB';
+  });
+
+  // パネルが開いている間、現在値をリアルタイム更新
+  setInterval(() => {
+    if (settingsPanel.classList.contains('open')) {
+      calibCurrentEl.textContent = currentRawDb.toFixed(1) + ' dB';
+    }
+  }, 500);
+
+  document.getElementById('btn-calib-set').addEventListener('click', () => {
+    const refVal = parseFloat(calibRefInput.value);
+    if (isNaN(refVal) || refVal < 0 || refVal > 120) {
+      calibRefInput.focus();
+      return;
+    }
+    calibOffset = refVal - currentRawDb;
+    localStorage.setItem('calibOffset', calibOffset.toString());
+    updateCalibStatus();
+    calibRefInput.value = '';
+  });
+
+  document.getElementById('btn-calib-reset').addEventListener('click', () => {
+    calibOffset = 0;
+    localStorage.removeItem('calibOffset');
+    updateCalibStatus();
+    calibRefInput.value = '';
+  });
 
   // ---- Tips トグル ----
   const btnTips = document.getElementById('btn-tips');
