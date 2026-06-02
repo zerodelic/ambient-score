@@ -458,35 +458,6 @@
       color: #aabbdd;
     }
 
-    #bgm-indicator {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 8px;
-      padding: 5px 10px;
-      background: rgba(180, 100, 255, 0.04);
-      border: 1px solid rgba(180, 100, 255, 0.12);
-      border-radius: 6px;
-      font-size: 0.78rem;
-      color: #7a55aa;
-      cursor: default;
-      opacity: 0.35;
-      transition: opacity 0.6s ease, background 0.6s ease, border-color 0.6s ease, color 0.6s ease;
-    }
-    #bgm-indicator.active {
-      opacity: 1;
-      background: rgba(180, 100, 255, 0.10);
-      border-color: rgba(180, 100, 255, 0.35);
-      color: #cc88ff;
-    }
-    #bgm-badge {
-      letter-spacing: 0.05em;
-    }
-    #bgm-sigma-val {
-      font-size: 0.7rem;
-      color: #9966cc;
-      margin-left: auto;
-    }
 
     #voice-stats {
       display: flex;
@@ -1564,7 +1535,7 @@
       <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.5.0 &nbsp;|&nbsp; 更新日：2026-05-31</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.6.0 &nbsp;|&nbsp; 更新日：2026-06-02</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right">
@@ -1797,10 +1768,6 @@
         </div>
         <div id="voice-scores"></div>
       </div>
-      <div id="bgm-indicator" data-tip="BGM自動検出|直近約10秒間の音圧変動（標準偏差σ）がリズム性の高さを示す場合、BGM（音楽）が流れていると推定します。ボーカルを人の声と誤検知するリスクを軽減する目的で使用します。">
-        <span id="bgm-badge">🎵 BGM 推定中</span>
-        <span id="bgm-sigma-val"></span>
-      </div>
       <div id="voice-stats">
         <div class="vstat-box" data-tip="声の占有率|測定開始からの時間のうち、人の声が検出されていた割合。30%なら「3割の時間は声が聞こえていた」ことを意味します。環境の騒音度合いを示す最も直接的な指標です。">
           <div class="vstat-label">声の占有率</div>
@@ -1897,7 +1864,6 @@
     <button class="label-btn" data-label="🌿 環境音のみ"     data-color="#44aaff" disabled>🌿 環境音</button>
     <button class="label-btn" data-label="🔊 とてもうるさい" data-color="#ff8844" disabled>🔊 うるさい</button>
     <button class="label-btn" data-label="🤫 静寂"           data-color="#aaaacc" disabled>🤫 静寂</button>
-    <button class="label-btn" data-label="🎵 BGM"            data-color="#cc88ff" disabled>🎵 BGM</button>
     <div id="memo-wrap" data-tip="メモ|測定中に自由なメモを残せます。Enterまたは→で送信し、ログとCSVに記録されます。">
       <input type="text" id="memo-input" placeholder="📝 メモ…" disabled maxlength="100">
       <button id="btn-memo-send" disabled>→</button>
@@ -2028,17 +1994,7 @@
   const SPEC_AVG_ALPHA = 0.995; // 60fps × 200frame ≈ 3秒の記憶
   let specAvgBuffer = null;     // bufLen確定後に初期化（Float32Array）
 
-  // --- BGM自動検出用 ---
-  // 直近 ~10秒分のdBサンプルを保持し、σ（標準偏差）でリズム性を検出
-  const BGM_BUF_SIZE   = 30;   // 30サンプル × 300ms ≈ 9秒
-  const BGM_SIGMA_TH   = 10;   // σ閾値（dB）: 音楽のビートによる変動（実測: 誤検知σ≈8〜8.6, 本物BGMσ≈12.5）
-  const BGM_MEAN_TH    = 35;   // 平均dB閾値: ある程度の音量がある場合のみ判定
-  const BGM_OCC_TH     = 40;   // 声占有率閾値(%): これ以上なら会議と判断してBGM判定を抑制
-  const bgmDbBuffer    = [];
-  const bgmVoiceBuffer = [];   // BGMと同じ9秒ウィンドウの声判定履歴（0/1）
-  let   smoothBgmSigma = 0;
-  let   bgmDetected    = false;
-  let   bgmLogPending  = false;  // ログ書き込み間隔中に一瞬でも検出されたら記録
+  // BGM検知は廃止（BGM＝環境音として扱う）
 
   // 背景レベル自動追跡（VAD用）
   let bgLevel = 30; // 起動直後の仮初期値（実オフィスの典型的な環境音レベルに近い値）
@@ -2378,13 +2334,7 @@
       joyRidges = [];
       joyLastCapture = 0;
       bgLevel = 30;
-      bgmDbBuffer.length = 0;
-      bgmVoiceBuffer.length = 0;
       specAvgBuffer = null;
-      smoothBgmSigma = 0;
-      bgmDetected    = false;
-      bgmLogPending  = false;
-      document.getElementById('bgm-indicator').classList.remove('active');
       voiceFrameCount = 0;
       totalFrameCount = 0;
       voiceEventCount = 0;
@@ -2786,37 +2736,6 @@
     if (shouldUpdateMeter) {
       lastMeterTime = timestamp;
 
-      // --- BGM自動検出（300msごとにサンプリング） ---
-      // 声スコアによる直近9秒の声判定をdBバッファと同じウィンドウで記録
-      bgmVoiceBuffer.push(smoothVoiceScore >= 0.52 ? 1 : 0);
-      if (bgmVoiceBuffer.length > BGM_BUF_SIZE) bgmVoiceBuffer.shift();
-
-      bgmDbBuffer.push(dbShifted);
-      if (bgmDbBuffer.length > BGM_BUF_SIZE) bgmDbBuffer.shift();
-      if (bgmDbBuffer.length >= 10) { // 最低3秒分たまったら判定
-        const n    = bgmDbBuffer.length;
-        const mean = bgmDbBuffer.reduce((a, b) => a + b, 0) / n;
-        const sigma = Math.sqrt(bgmDbBuffer.reduce((s, x) => s + (x - mean) ** 2, 0) / n);
-        smoothBgmSigma = smoothBgmSigma * 0.7 + sigma * 0.3;
-
-        // 直近9秒の声の占有率：高ければ会議/会話でありBGMではない
-        const recentVoiceOcc = bgmVoiceBuffer.length > 0
-          ? bgmVoiceBuffer.reduce((a, b) => a + b, 0) / bgmVoiceBuffer.length * 100 : 0;
-
-        const wasBgm = bgmDetected;
-        bgmDetected = smoothBgmSigma > BGM_SIGMA_TH
-                   && mean > BGM_MEAN_TH
-                   && recentVoiceOcc < BGM_OCC_TH; // 声が多い＝会議と判断
-        if (bgmDetected !== wasBgm) {
-          const ind = document.getElementById('bgm-indicator');
-          bgmDetected ? ind.classList.add('active') : ind.classList.remove('active');
-        }
-        if (bgmDetected) bgmLogPending = true;  // ログ間隔中の検出を記録するフラグ
-        if (bgmDetected) {
-          document.getElementById('bgm-sigma-val').textContent =
-            `σ ${smoothBgmSigma.toFixed(1)} dB`;
-        }
-      }
       document.getElementById('val-db').innerHTML = dbDisplay + '<span class="meter-unit">dB</span>';
       document.getElementById('val-peak').innerHTML = peakHold.toFixed(1) + '<span class="meter-unit">dB</span>';
       document.getElementById('val-max').innerHTML = (sessionMax > 0 ? sessionMax.toFixed(1) : '0.0') + '<span class="meter-unit">dB</span>';
@@ -2843,12 +2762,9 @@
 
       if (elapsed - lastLogTime >= LOG_INTERVAL_MS) {
         lastLogTime = elapsed;
-        const noteVal = bgmLogPending ? (bgmDetected ? '🎵 BGM(抑制中)' : '🎵 BGM') : '';
-        bgmLogPending = false;
         addLogEntry({
           elapsed:     formatClock(),
           ...latestSnap,
-          note:        noteVal,
         });
       }
     }
@@ -3106,18 +3022,26 @@
     // --- 音源識別 ---
     // =============================================
 
-    // --- 背景レベル自動追跡 ---
-    // 現在の音量が背景レベルに近い時だけゆっくり更新（突発音では更新しない）
-    // 起動時など bgLevel が実際の環境音から大きく乖離している場合は速めに追従
-    if (dbShifted < bgLevel + 4) {
-      bgLevel = bgLevel * 0.992 + dbShifted * 0.008; // 通常：低速追従
-    } else if (bgLevel < dbShifted - 12) {
-      bgLevel = bgLevel * 0.97  + dbShifted * 0.03;  // 大きく乖離時：速めに追従（起動時対策）
-    }
-    const activityDb = dbShifted - bgLevel; // 背景より何dB高いか
+    // --- 声らしいスペクトル形状を先行チェック（bgLevel更新の判断に使う）---
+    // フォルマント隆起スコアを bgLevel 更新前に計算
+    const preFormantSc = formantElevationScore(freqData, nyquist, bufLen);
 
-    // 活動ゲート: 背景より 6dB 以上でなければ声ではない
-    if (dbShifted < 2 || activityDb < 6) {
+    // --- 背景レベル自動追跡 ---
+    // 声らしいスペクトル形状（会議の話し声など）のときは bgLevel を更新しない。
+    // これにより「会議ノイズ」が背景レベルに吸収されず、発話が常に背景より上に残る。
+    if (preFormantSc < 0.4) {
+      // 声らしくない（HVAC・機械音など）：通常追従
+      if (dbShifted < bgLevel + 4) {
+        bgLevel = bgLevel * 0.992 + dbShifted * 0.008;
+      } else if (bgLevel < dbShifted - 12) {
+        bgLevel = bgLevel * 0.97  + dbShifted * 0.03;  // 起動時の大きな乖離は速めに追従
+      }
+    }
+    // 声らしいスペクトルのときは bgLevel を固定（会議ノイズに引っ張られない）
+    const activityDb = dbShifted - bgLevel;
+
+    // 活動ゲート: 背景より 4dB 以上（複数人発話でも検出できるよう緩和）
+    if (dbShifted < 2 || activityDb < 4) {
       smoothVoiceScore = smoothVoiceScore * 0.85;
       if (shouldUpdateMeter) {
         const gateLabel = dbShifted < 2 ? '静寂 / 無音' : '🔊 騒音・環境音';
@@ -3153,24 +3077,23 @@
       const freqGate = domFreqAbove200 < 300 ? 0.55 + (domFreqAbove200 - 200) / 100 * 0.45  // 200〜300Hz：線形に回復
                      :                         1.0;                                           // 300Hz以上：制限なし
 
-      // 重み付き合計（4指標）× 周波数ゲート（bandSc を0.15の重みで追加）
+      // 重み付き合計（4指標）× 周波数ゲート
+      // 複数人発話に対応：スペクトル形状（formant・band）の重みを増やし
+      // ピッチ・倍音（単独話者で有利）の重みを下げる
       const voiceScore = (
-        formantSc  * 0.42 +
-        pitchSc    * 0.25 +
-        harmonicSc * 0.18 +
-        bandSc     * 0.15
+        formantSc  * 0.50 +   // 中域フォルマント隆起（単独・複数とも安定）
+        bandSc     * 0.25 +   // 声帯域エネルギー比（単独・複数とも安定）
+        pitchSc    * 0.15 +   // ピッチ（単独話者で有効、複数では低下）
+        harmonicSc * 0.10     // 倍音構造（単独話者で有効、複数では低下）
       ) * freqGate;
 
       // EMA平滑化（ちらつき防止）
       smoothVoiceScore = smoothVoiceScore * 0.7 + voiceScore * 0.3;
 
-      // メーター更新間隔に合わせてUI更新
       if (shouldUpdateMeter) {
         const pct = (smoothVoiceScore * 100).toFixed(0);
-        // BGM検出の有無によらず同じ閾値を使用（声検出精度を優先）
-        // BGMインジケーターは参考表示として残すが、声判定には影響させない
-        const voiceTh = 0.52;
-        const maybeTh = 0.35;
+        const voiceTh = 0.46;  // 緩和：複数人発話でも判定できるよう（旧0.52）
+        const maybeTh = 0.32;  // 緩和に合わせて調整（旧0.35）
         const isVoice = smoothVoiceScore >= voiceTh;
         const isMaybe = smoothVoiceScore >= maybeTh;
 
