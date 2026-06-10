@@ -135,11 +135,15 @@
     #btn-stop:disabled { opacity: 0.35; cursor: not-allowed; }
 
     /* ピッチ */
-    .pitch-note {
+    #pitch-display {
+      min-height: 82px;  /* 高さを固定してレイアウトシフト防止 */
+    }
+    #pitch-note-row {
       font-size: 2.2rem;
       font-weight: bold;
       line-height: 1;
       margin-bottom: 4px;
+      min-height: 2.2rem;
     }
     .note-jp { color: #ffee88; }
     .note-en {
@@ -148,8 +152,8 @@
       margin-left: 5px;
       font-weight: normal;
     }
-    #pitch-freq   { font-size: 0.85rem; color: #aa8833; margin-top: 2px; }
-    .pitch-cents  { font-size: 0.80rem; margin-top: 1px; }
+    #pitch-freq   { font-size: 0.85rem; color: #aa8833; margin-top: 2px; min-height: 1.2em; }
+    .pitch-cents  { font-size: 0.80rem; margin-top: 1px; min-height: 1.1em; }
     .pitch-cents.sharp { color: #ff8844; }
     .pitch-cents.flat  { color: #44aaff; }
     .pitch-cents.tune  { color: #44ffaa; }
@@ -174,9 +178,8 @@
       background: #ffdd44;
       border-radius: 1px;
       transform: translateX(-50%);
-      transition: left 0.12s;
+      transition: left 0.15s;
     }
-    #pitch-none { font-size: 0.85rem; color: #445566; }
 
     /* dB */
     .db-val  { font-size: 1.9rem; font-weight: bold; color: #44aaff; }
@@ -406,7 +409,16 @@
     <div class="panel" id="pitch-panel">
       <div class="panel-title">🎵 ピッチ</div>
       <div id="pitch-display">
-        <div id="pitch-none">---</div>
+        <div id="pitch-note-row">
+          <span id="pitch-note-jp" class="note-jp">---</span>
+          <span id="pitch-note-en" class="note-en"></span>
+        </div>
+        <div id="pitch-freq"></div>
+        <div id="pitch-cents-el" class="pitch-cents"></div>
+        <div id="pitch-bar-wrap">
+          <div id="pitch-bar-center"></div>
+          <div id="pitch-bar-needle" style="left:50%"></div>
+        </div>
       </div>
     </div>
 
@@ -748,7 +760,13 @@ function stopAll() {
   document.getElementById('primary-conf-pct').textContent = '0%';
   document.getElementById('primary-conf-bar').style.width = '0%';
   document.getElementById('candidates').innerHTML = '';
-  document.getElementById('pitch-display').innerHTML = '<div id="pitch-none">---</div>';
+  pitchBuf.length = 0;
+  document.getElementById('pitch-note-jp').textContent = '---';
+  document.getElementById('pitch-note-en').textContent = '';
+  document.getElementById('pitch-freq').textContent    = '';
+  document.getElementById('pitch-cents-el').textContent = '';
+  document.getElementById('pitch-cents-el').className   = 'pitch-cents';
+  document.getElementById('pitch-bar-needle').style.left = '50%';
   const tc = document.getElementById('ts-canvas');
   tc.getContext('2d').clearRect(0, 0, tc.width, tc.height);
 }
@@ -842,32 +860,57 @@ function freqToNote(freq) {
   return { en: NOTE_EN[noteIdx] + octave, jp: NOTE_JP[noteIdx], octave, cents, freq };
 }
 
+// ピッチ安定化：メディアンフィルター（直近6フレーム）
+const pitchBuf = [];
+const PITCH_BUF_SIZE = 6;
+
+function getSmoothedPitch(raw) {
+  pitchBuf.push(raw);
+  if (pitchBuf.length > PITCH_BUF_SIZE) pitchBuf.shift();
+  const valid = pitchBuf.filter(f => f > 0);
+  // 半数以上のフレームでピッチが検出されていなければ「無音」扱い
+  if (valid.length < Math.ceil(PITCH_BUF_SIZE * 0.5)) return -1;
+  // 外れ値に強いメディアンを返す
+  const sorted = [...valid].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
 let lastPitchStr = null;  // スナップショット用
 
-function updatePitchDisplay(freq) {
-  const el = document.getElementById('pitch-display');
+function updatePitchDisplay(rawFreq) {
+  const freq = getSmoothedPitch(rawFreq);
+
+  // DOM要素はページ読み込み時から固定（innerHTML再構築なし＝レイアウトシフトなし）
+  const jpEl     = document.getElementById('pitch-note-jp');
+  const enEl     = document.getElementById('pitch-note-en');
+  const freqEl   = document.getElementById('pitch-freq');
+  const centsEl  = document.getElementById('pitch-cents-el');
+  const needleEl = document.getElementById('pitch-bar-needle');
+
   if (freq < 0) {
+    if (jpEl.textContent === '---') return;  // 既に無音表示ならスキップ
     lastPitchStr = null;
-    el.innerHTML = '<div id="pitch-none">---</div>';
+    jpEl.textContent    = '---';
+    enEl.textContent    = '';
+    freqEl.textContent  = '';
+    centsEl.textContent = '';
+    centsEl.className   = 'pitch-cents';
+    needleEl.style.left = '50%';
     return;
   }
-  const note = freqToNote(freq);
+
+  const note       = freqToNote(freq);
   const centsClass = Math.abs(note.cents) <= 10 ? 'tune' : (note.cents > 0 ? 'sharp' : 'flat');
   const centsText  = note.cents === 0 ? '±0¢' : (note.cents > 0 ? `+${note.cents}¢` : `${note.cents}¢`);
-  const needlePct  = Math.min(100, Math.max(0, (note.cents + 50)));
-  lastPitchStr = `${note.jp}(${note.en}) ${parseFloat(note.freq).toFixed(1)}Hz`;
+  const needlePct  = Math.min(100, Math.max(0, note.cents + 50));
+  lastPitchStr     = `${note.jp}(${note.en}) ${note.freq.toFixed(1)}Hz`;
 
-  el.innerHTML = `
-    <div class="pitch-note">
-      <span class="note-jp">${note.jp}</span>
-      <span class="note-en">${note.en}</span>
-    </div>
-    <div id="pitch-freq">${parseFloat(note.freq).toFixed(1)} Hz</div>
-    <div class="pitch-cents ${centsClass}">${centsText}</div>
-    <div id="pitch-bar-wrap">
-      <div id="pitch-bar-center"></div>
-      <div id="pitch-bar-needle" style="left:${needlePct}%"></div>
-    </div>`;
+  jpEl.textContent    = note.jp;
+  enEl.textContent    = note.en;
+  freqEl.textContent  = note.freq.toFixed(1) + ' Hz';
+  centsEl.textContent = centsText;
+  centsEl.className   = `pitch-cents ${centsClass}`;
+  needleEl.style.left = needlePct + '%';
 }
 
 // ============================================================
