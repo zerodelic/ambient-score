@@ -136,7 +136,8 @@
 
     /* ピッチ */
     #pitch-display {
-      min-height: 82px;  /* 高さを固定してレイアウトシフト防止 */
+      height: 90px;      /* 完全固定でレイアウトシフト防止 */
+      overflow: hidden;
     }
     #pitch-note-row {
       font-size: 2.2rem;
@@ -152,8 +153,8 @@
       margin-left: 5px;
       font-weight: normal;
     }
-    #pitch-freq   { font-size: 0.85rem; color: #aa8833; margin-top: 2px; min-height: 1.2em; }
-    .pitch-cents  { font-size: 0.80rem; margin-top: 1px; min-height: 1.1em; }
+    #pitch-freq   { font-size: 0.85rem; color: #aa8833; margin-top: 2px; }
+    .pitch-cents  { font-size: 0.80rem; margin-top: 1px; }
     .pitch-cents.sharp { color: #ff8844; }
     .pitch-cents.flat  { color: #44aaff; }
     .pitch-cents.tune  { color: #44ffaa; }
