@@ -3,216 +3,466 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AA1 Prototype — YAMNet Sound Classifier</title>
+  <title>AA1 — Sound Identifier</title>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ベース */
     body {
       background: #0a0f1a;
       color: #ccd8e8;
       font-family: 'Courier New', monospace;
-      font-size: 15px;
+      font-size: 14px;
       line-height: 1.5;
-      padding: 24px;
-      max-width: 1200px;        /* 2カラム用に拡大 */
+      padding: 16px;
+      max-width: 1280px;
       margin: 0 auto;
     }
-    h1 { color: #5599ff; font-size: 1.25rem; margin-bottom: 14px; }
+
+    /* ─── ヘッダー ─── */
+    #header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    #header h1 {
+      color: #5599ff;
+      font-size: 1.2rem;
+      white-space: nowrap;
+    }
     #version-badge {
-      font-size: 0.75rem; font-weight: normal;
-      color: #556677; vertical-align: middle;
-      margin-left: 8px;
+      font-size: 0.72rem;
+      color: #445566;
+      font-weight: normal;
+      vertical-align: middle;
+      margin-left: 6px;
+    }
+    #model-status { font-size: 0.82rem; color: #55ffbb; }
+    #context-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: auto;
+    }
+    #context-wrap label { font-size: 0.82rem; color: #8899aa; }
+    #context-select {
+      background: #1a2a4a;
+      border: 1px solid #4466aa;
+      color: #99bbee;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-family: inherit;
+      cursor: pointer;
     }
 
-    /* ステータス */
-    .status-row { margin: 5px 0; font-size: 0.9rem; }
-    #model-status { color: #55ffbb; }
-    #status       { color: #ffbb44; }
-    #loading-note { font-size: 0.85rem; color: #8899aa; margin-top: 5px; line-height: 1.5; }
+    /* ─── ステータスバー ─── */
+    #statusbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 7px 0;
+      margin-bottom: 12px;
+      font-size: 0.82rem;
+      border-bottom: 1px solid #1a2a3a;
+    }
+    #status-text  { color: #ffbb44; }
+    #loading-note { color: #667788; }
 
-    /* ボタン */
-    .btn-row { display: flex; gap: 8px; margin: 14px 0; }
-    button {
-      background: #1a2a4a; border: 1px solid #4466aa;
-      color: #99bbee; padding: 10px 18px; border-radius: 6px;
-      cursor: pointer; font-size: 0.92rem; font-family: inherit;
+    /* ─── 共通パネル ─── */
+    .panel {
+      background: #0d1520;
+      border: 1px solid #2a3f5f;
+      border-radius: 8px;
+      padding: 12px 14px;
     }
-    button:hover:not(:disabled) { background: #223366; color: #ddeeff; }
-    button:disabled { opacity: 0.35; cursor: not-allowed; }
-    button.active   { background: #223366; border-color: #88aaee; color: #ddeeff; }
+    .panel-title {
+      font-size: 0.76rem;
+      color: #667788;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
 
-    /* dBメーター */
-    #db-wrap  { margin: 12px 0; }
-    #db-label { font-size: 0.88rem; color: #7799aa; margin-bottom: 4px; }
-    #db-value { font-size: 3rem; font-weight: bold; color: #44aaff; }
-
-    /* プライマリ識別結果 */
-    #primary-box {
-      margin: 14px 0; padding: 18px;
-      background: #0d1520; border: 1px solid #2a3f5f; border-radius: 8px;
-      text-align: center;
-    }
-    #primary-label { font-size: 0.88rem; color: #7799aa; margin-bottom: 8px; }
-    #primary-class { font-size: 2rem; font-weight: bold; color: #ccd8e8; }
-    #primary-score { font-size: 0.95rem; color: #8899bb; margin-top: 6px; }
-
-    /* パネル共通 */
-    .panel-box, #perf-box {
-      margin: 14px 0; padding: 14px;
-      background: #0d1520; border: 1px solid #2a3f5f; border-radius: 8px;
-    }
-    .panel-label, #perf-label {
-      font-size: 0.88rem; color: #8899bb; margin-bottom: 10px; font-weight: bold;
-    }
-    .panel-hint { margin-left: 8px; color: #667788; font-size: 0.78rem; font-weight: normal; }
-
-    /* トップ5リスト */
-    #results-label { font-size: 0.92rem; color: #8899bb; font-weight: bold; margin: 16px 0 8px; }
-    .result-item {
-      margin: 7px 0; padding: 10px 14px;
-      background: #0d1520; border-left: 4px solid #2a3f5f; border-radius: 0 6px 6px 0;
-    }
-    .result-item.hl { border-left-color: #44ffaa; background: #0a1d14; }
-    .result-name    { font-size: 0.95rem; color: #ccd8e8; margin-bottom: 6px; }
-    .result-item.hl .result-name { color: #88ffcc; }
-    .bar-wrap { background: #080d15; border-radius: 3px; height: 9px; overflow: hidden; }
-    .bar      { height: 100%; border-radius: 3px; transition: width 0.4s ease;
-                background: linear-gradient(90deg, #224488, #4488ff); }
-    .result-item.hl .bar { background: linear-gradient(90deg, #226644, #44ffaa); }
-    .result-pct { font-size: 0.85rem; color: #7799aa; margin-top: 4px; }
-
-    /* パフォーマンスパネル */
-    #perf-row    { display: flex; align-items: baseline; gap: 14px; margin-bottom: 10px; }
-    #perf-ms     { font-size: 2.2rem; font-weight: bold; color: #ffcc44; }
-    #perf-ms-unit{ font-size: 0.9rem; color: #bb9933; }
-    #perf-frames { font-size: 0.88rem; color: #8899aa; }
-    #perf-avg    { font-size: 0.88rem; color: #8899aa; }
-    #perf-canvas { width: 100%; height: 80px; display: block; border-radius: 4px; }
-
-#ts-legend  { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
-    .ts-legend-item {
-      display: flex; align-items: center; gap: 5px;
-      font-size: 0.88rem; color: #ccd8e8;
-    }
-    .ts-legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-    #ts-canvas { width: 100%; height: 240px; display: block; border-radius: 4px; }
-
-    /* サマリーレポート */
-    #report {
-      display: none; margin-top: 20px; padding: 16px;
-      background: #0d1520; border: 1px solid #2a4466; border-radius: 8px;
-    }
-    #report.visible { display: block; }
-    #report h2 {
-      color: #5599ff; font-size: 1.05rem; margin-bottom: 14px;
-      border-bottom: 1px solid #2a3f5f; padding-bottom: 8px;
-    }
-    .report-meta { font-size: 0.9rem; color: #8899aa; margin-bottom: 14px; line-height: 2; }
-    .report-meta strong { color: #ccd8e8; }
-    .report-section-title {
-      font-size: 0.85rem; color: #7799aa; font-weight: bold;
-      margin: 16px 0 8px; letter-spacing: 0.04em;
-    }
-    .report-bar-item { margin: 7px 0; }
-    .report-bar-label {
-      display: flex; justify-content: space-between;
-      font-size: 0.88rem; color: #ccd8e8; margin-bottom: 4px;
-    }
-    .report-bar-label .pct { color: #8899aa; font-size: 0.83rem; }
-    .report-bar-wrap { background: #080d15; border-radius: 3px; height: 11px; overflow: hidden; }
-    .report-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
-    .fill-voice { background: linear-gradient(90deg, #224488, #44aaff); }
-    .fill-music { background: linear-gradient(90deg, #442288, #aa44ff); }
-    .fill-env   { background: linear-gradient(90deg, #224422, #44cc88); }
-    .fill-other { background: linear-gradient(90deg, #334455, #7799aa); }
-    .report-perf { font-size: 0.9rem; color: #8899aa; line-height: 2; }
-    .report-perf strong { color: #ccd8e8; }
-
-    /* 2カラムグリッド（PC） */
-    #grid {
+    /* ─── メイングリッド ─── */
+    #main-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0 14px;
+      grid-template-columns: 220px 1fr 265px;
+      gap: 10px;
       align-items: start;
     }
-    #col-left, #col-right { display: flex; flex-direction: column; }
-    #grid-full { /* 全幅エリア（レポート） */ }
 
-    /* モバイルは1カラム */
-    @media (max-width: 680px) {
-      #grid { grid-template-columns: 1fr; }
+    /* ─── 左列 ─── */
+    #col-left { display: flex; flex-direction: column; gap: 10px; }
+
+    /* 音源選択 */
+    .src-btns { display: flex; flex-direction: column; gap: 6px; }
+    .src-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #1a2a4a;
+      border: 1px solid #2a3f5f;
+      color: #8899bb;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-family: inherit;
+      text-align: left;
+      transition: background 0.15s, border-color 0.15s;
+      width: 100%;
+    }
+    .src-btn:hover:not(:disabled) {
+      background: #1e3060; border-color: #4466aa; color: #ccd8e8;
+    }
+    .src-btn.active {
+      background: #1e3060; border-color: #5588ff; color: #88bbff;
+    }
+    .src-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .src-icon { font-size: 1.0rem; }
+
+    #btn-stop {
+      width: 100%; margin-top: 6px;
+      padding: 8px;
+      background: #2a1a1a; border: 1px solid #663333;
+      color: #cc8888; border-radius: 6px;
+      cursor: pointer; font-family: inherit; font-size: 0.88rem;
+    }
+    #btn-stop:hover:not(:disabled) { background: #3a2222; color: #ffaaaa; }
+    #btn-stop:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ピッチ */
+    .pitch-note {
+      font-size: 2.2rem;
+      font-weight: bold;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .note-jp { color: #ffee88; }
+    .note-en {
+      font-size: 0.95rem;
+      color: #aa8833;
+      margin-left: 5px;
+      font-weight: normal;
+    }
+    #pitch-freq   { font-size: 0.85rem; color: #aa8833; margin-top: 2px; }
+    .pitch-cents  { font-size: 0.80rem; margin-top: 1px; }
+    .pitch-cents.sharp { color: #ff8844; }
+    .pitch-cents.flat  { color: #44aaff; }
+    .pitch-cents.tune  { color: #44ffaa; }
+    #pitch-bar-wrap {
+      margin-top: 8px;
+      position: relative;
+      height: 4px;
+      background: #1a2a3a;
+      border-radius: 2px;
+    }
+    #pitch-bar-center {
+      position: absolute;
+      top: -4px; left: 50%;
+      width: 1px; height: 12px;
+      background: #334455;
+      transform: translateX(-50%);
+    }
+    #pitch-bar-needle {
+      position: absolute;
+      top: -4px;
+      width: 2px; height: 12px;
+      background: #ffdd44;
+      border-radius: 1px;
+      transform: translateX(-50%);
+      transition: left 0.12s;
+    }
+    #pitch-none { font-size: 0.85rem; color: #445566; }
+
+    /* dB */
+    .db-val  { font-size: 1.9rem; font-weight: bold; color: #44aaff; }
+    .db-unit { font-size: 0.85rem; color: #336699; margin-left: 2px; }
+
+    /* ─── 中央列 ─── */
+    #col-center { display: flex; flex-direction: column; gap: 10px; }
+
+    /* プライマリ識別 */
+    #primary-panel {
+      padding: 20px 16px;
+      text-align: center;
+      border-width: 2px;
+      transition: border-color 0.35s, background 0.35s;
+    }
+    #primary-panel.cat-voice   { border-color: #44aaff; background: #081828; }
+    #primary-panel.cat-music   { border-color: #cc66ff; background: #120820; }
+    #primary-panel.cat-nature  { border-color: #44cc88; background: #081a10; }
+    #primary-panel.cat-machine { border-color: #ffaa44; background: #1a1008; }
+    #primary-panel.cat-other   { border-color: #2a3f5f; background: #0d1520; }
+
+    #primary-cat {
+      font-size: 0.78rem;
+      font-weight: bold;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      opacity: 0.85;
+    }
+    #primary-cat.cat-voice   { color: #44aaff; }
+    #primary-cat.cat-music   { color: #cc66ff; }
+    #primary-cat.cat-nature  { color: #44cc88; }
+    #primary-cat.cat-machine { color: #ffaa44; }
+    #primary-cat.cat-other   { color: #8899aa; }
+
+    #primary-name {
+      font-size: 2.6rem;
+      font-weight: bold;
+      color: #eef2ff;
+      line-height: 1.2;
+      margin-bottom: 14px;
+      min-height: 3.5rem;
+    }
+    #primary-conf-bar-wrap {
+      background: #0a1018;
+      border-radius: 4px;
+      height: 10px;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    #primary-conf-bar {
+      height: 100%;
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+    #primary-conf-pct {
+      font-size: 1.15rem;
+      font-weight: bold;
+      color: #7788aa;
+    }
+
+    /* カテゴリ別グラデーションバー */
+    .bar-voice   { background: linear-gradient(90deg, #1a4488, #44aaff); }
+    .bar-music   { background: linear-gradient(90deg, #4a1a88, #cc66ff); }
+    .bar-nature  { background: linear-gradient(90deg, #1a5533, #44cc88); }
+    .bar-machine { background: linear-gradient(90deg, #6a3a00, #ffaa44); }
+    .bar-other   { background: linear-gradient(90deg, #2a3a4a, #8899aa); }
+
+    /* 候補リスト */
+    #candidates { display: flex; flex-direction: column; gap: 6px; }
+    .cand-item {
+      padding: 8px 12px;
+      background: #0a1018;
+      border-left: 3px solid #2a3f5f;
+      border-radius: 0 6px 6px 0;
+    }
+    .cand-item.cat-voice   { border-left-color: #44aaff55; }
+    .cand-item.cat-music   { border-left-color: #cc66ff55; }
+    .cand-item.cat-nature  { border-left-color: #44cc8855; }
+    .cand-item.cat-machine { border-left-color: #ffaa4455; }
+    .cand-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .cand-name { font-size: 0.9rem; color: #aabbc8; }
+    .cand-pct  { font-size: 0.84rem; color: #667788; }
+    .cand-bar-wrap { background: #080d15; border-radius: 2px; height: 4px; overflow: hidden; }
+    .cand-bar {
+      height: 100%; border-radius: 2px;
+      opacity: 0.6;
+      transition: width 0.4s ease;
+    }
+
+    /* ─── 右列 ─── */
+    #col-right { display: flex; flex-direction: column; gap: 10px; }
+
+    #btn-snap {
+      width: 100%;
+      padding: 11px;
+      background: #1a3a2a;
+      border: 1px solid #336644;
+      color: #66cc99;
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.92rem;
+      transition: background 0.15s;
+    }
+    #btn-snap:hover:not(:disabled) { background: #224433; color: #88ffcc; }
+    #btn-snap:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    #snap-panel { overflow: hidden; }
+    #snap-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+    #snap-list::-webkit-scrollbar { width: 4px; }
+    #snap-list::-webkit-scrollbar-track { background: #080d15; }
+    #snap-list::-webkit-scrollbar-thumb { background: #2a3f5f; border-radius: 2px; }
+
+    .snap-item {
+      padding: 7px 10px;
+      background: #0a1018;
+      border-radius: 6px;
+      border-left: 3px solid #2a3f5f;
+      font-size: 0.80rem;
+    }
+    .snap-item.cat-voice   { border-left-color: #44aaff; }
+    .snap-item.cat-music   { border-left-color: #cc66ff; }
+    .snap-item.cat-nature  { border-left-color: #44cc88; }
+    .snap-item.cat-machine { border-left-color: #ffaa44; }
+    .snap-time { color: #556677; font-size: 0.74rem; margin-bottom: 2px; }
+    .snap-name { color: #ccd8e8; font-weight: bold; margin-bottom: 1px; }
+    .snap-sub  { color: #7788aa; font-size: 0.76rem; }
+    #snap-empty { font-size: 0.82rem; color: #445566; }
+
+    /* ─── 時系列グラフ（全幅）─── */
+    #ts-section { margin-top: 10px; }
+    #ts-legend {
+      display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;
+    }
+    .ts-legend-item {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 0.80rem; color: #aabbcc;
+    }
+    .ts-legend-dot {
+      width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+    }
+    #ts-canvas { width: 100%; height: 180px; display: block; border-radius: 4px; }
+
+    /* ─── モバイル（1カラム）─── */
+    @media (max-width: 780px) {
+      body { padding: 10px; font-size: 13px; }
+      #main-grid { grid-template-columns: 1fr; }
+      #col-left {
+        flex-direction: row; flex-wrap: wrap; gap: 8px;
+      }
+      #source-panel { flex: 0 0 100%; }
+      .src-btns { flex-direction: row; }
+      #pitch-panel, #db-panel { flex: 1; min-width: 130px; }
+      #primary-name { font-size: 1.9rem; }
+      #ts-canvas { height: 140px; }
     }
   </style>
 </head>
 <body>
 
-<h1>AA1 Prototype — YAMNet <span id="version-badge">v0.1.13</span></h1>
-
-<div class="status-row" id="model-status">⏳ 初期化中...</div>
-<div class="status-row" id="status">停止中</div>
-<div id="loading-note"></div>
-
-<div class="btn-row">
-  <button id="btn-start" disabled>🎙 マイク開始</button>
-  <button id="btn-stop"  disabled>⏹ 停止</button>
+<!-- ─── ヘッダー ─── -->
+<div id="header">
+  <h1>AA1 <span id="version-badge">v0.2.0</span></h1>
+  <span id="model-status">⏳ 初期化中...</span>
+  <div id="context-wrap">
+    <label for="context-select">📍 コンテキスト:</label>
+    <select id="context-select">
+      <option value="none">なし</option>
+      <option value="home">🏠 自宅</option>
+      <option value="office">💼 オフィス</option>
+      <option value="meeting">🪑 会議室</option>
+      <option value="cafe">☕ カフェ</option>
+      <option value="train">🚃 電車内</option>
+      <option value="outdoor">🌳 屋外</option>
+    </select>
+  </div>
 </div>
 
-<div id="grid">
-  <!-- 左列：識別結果 -->
+<!-- ─── ステータスバー ─── -->
+<div id="statusbar">
+  <span id="status-text">停止中</span>
+  <span id="loading-note"></span>
+</div>
+
+<!-- hidden ファイル入力 -->
+<input type="file" id="file-input" accept="audio/*,video/*" style="display:none">
+
+<!-- ─── メイングリッド ─── -->
+<div id="main-grid">
+
+  <!-- 左列 -->
   <div id="col-left">
 
-    <div id="db-wrap">
-      <div id="db-label">音圧 (RMS)</div>
-      <div id="db-value">--- dB</div>
+    <!-- 音源 -->
+    <div class="panel" id="source-panel">
+      <div class="panel-title">🔌 音源</div>
+      <div class="src-btns">
+        <button class="src-btn" id="btn-mic" disabled>
+          <span class="src-icon">🎙</span>
+          <span>マイク</span>
+        </button>
+        <button class="src-btn" id="btn-file" disabled>
+          <span class="src-icon">📁</span>
+          <span>ファイルを開く</span>
+        </button>
+        <button class="src-btn" id="btn-tab" disabled>
+          <span class="src-icon">🖥</span>
+          <span>タブ音声（PC）</span>
+        </button>
+      </div>
+      <button id="btn-stop" disabled>⏹ 停止</button>
     </div>
 
-    <div id="primary-box">
-      <div id="primary-label">識別結果（1位）</div>
-      <div id="primary-class">---</div>
-      <div id="primary-score"></div>
+    <!-- ピッチ -->
+    <div class="panel" id="pitch-panel">
+      <div class="panel-title">🎵 ピッチ</div>
+      <div id="pitch-display">
+        <div id="pitch-none">---</div>
+      </div>
     </div>
 
-    <div id="results-label">トップ 5</div>
-    <div id="results"></div>
+    <!-- 音圧 -->
+    <div class="panel" id="db-panel">
+      <div class="panel-title">🔊 音圧</div>
+      <span class="db-val" id="db-value">---</span>
+      <span class="db-unit">dB</span>
+    </div>
 
   </div><!-- /col-left -->
 
-  <!-- 右列：可視化 -->
-  <div id="col-right">
+  <!-- 中央列 -->
+  <div id="col-center">
 
-    <!-- 主要クラス時系列 -->
-    <div class="panel-box">
-      <div class="panel-label">📈 主要クラス 確信度の推移</div>
-      <div id="ts-legend"></div>
-      <canvas id="ts-canvas" height="150"></canvas>
+    <!-- プライマリ識別 -->
+    <div class="panel cat-other" id="primary-panel">
+      <div id="primary-cat" class="cat-other">---</div>
+      <div id="primary-name">---</div>
+      <div id="primary-conf-bar-wrap">
+        <div id="primary-conf-bar" class="bar-other"></div>
+      </div>
+      <div id="primary-conf-pct">0%</div>
     </div>
 
-    <!-- パフォーマンスパネル -->
-    <div id="perf-box">
-      <div id="perf-label">⚡ 推論パフォーマンス</div>
-      <div id="perf-row">
-        <span id="perf-ms">---</span><span id="perf-ms-unit">ms</span>
-        <span id="perf-frames"></span>
-        <span id="perf-avg"></span>
+    <!-- 候補 -->
+    <div class="panel">
+      <div class="panel-title">候補（2位・3位）</div>
+      <div id="candidates"></div>
+    </div>
+
+  </div><!-- /col-center -->
+
+  <!-- 右列 -->
+  <div id="col-right">
+
+    <button id="btn-snap" disabled>📸 今の音を記録</button>
+
+    <div class="panel" id="snap-panel">
+      <div class="panel-title">📋 スナップショット</div>
+      <div id="snap-list">
+        <div id="snap-empty">まだ記録がありません</div>
       </div>
-      <canvas id="perf-canvas" height="60"></canvas>
     </div>
 
   </div><!-- /col-right -->
-</div><!-- /grid -->
 
-<!-- 全幅：サマリーレポート -->
-<div id="report">
-  <h2>📊 測定サマリー</h2>
-  <div class="report-meta" id="report-meta"></div>
-  <div class="report-section-title">識別結果の内訳（推論回数ベース）</div>
-  <div id="report-dist"></div>
-  <div class="report-section-title">検出クラス ランキング（上位10）</div>
-  <div id="report-ranking"></div>
-  <div class="report-section-title">推論パフォーマンス</div>
-  <div class="report-perf" id="report-perf"></div>
+</div><!-- /main-grid -->
+
+<!-- 時系列グラフ（全幅）-->
+<div id="ts-section">
+  <div class="panel" id="ts-panel">
+    <div class="panel-title">📈 確信度の推移</div>
+    <div id="ts-legend"></div>
+    <canvas id="ts-canvas" height="130"></canvas>
+  </div>
 </div>
 
 <script>
@@ -221,119 +471,67 @@
 // ============================================================
 // 定数
 // ============================================================
-const YAMNET_SR      = 16000;  // YAMNet要求サンプルレート (Hz)
-const FRAME_SAMPLES  = 16000;  // 推論1回あたりのサンプル数（1秒）
-const NOISE_FLOOR_DB = -80;    // dBFS ノイズフロア
-
-// AA1で重要視するクラスID（ハイライト表示）
-const HL_CLASSES = new Set([
-  0,   // Speech
-  2,   // Conversation
-  3,   // Narration, monologue
-  12,  // Whispering
-  13,  // Laughter
-  24,  // Singing
-  406, // Mechanical fan
-  407, // Air conditioning
-  494, // Silence
-  500, // Inside, small room
-  501, // Inside, large room or hall
-  507, // Noise
-  508, // Environmental noise
-]);
+const YAMNET_SR      = 16000;
+const FRAME_SAMPLES  = 16000;
+const NOISE_FLOOR_DB = -80;
 
 // ============================================================
-// UI
+// カテゴリ定義
 // ============================================================
-const modelStatusEl  = document.getElementById('model-status');
-const statusEl       = document.getElementById('status');
-const loadingNoteEl  = document.getElementById('loading-note');
-const btnStart       = document.getElementById('btn-start');
-const btnStop        = document.getElementById('btn-stop');
-const dbValueEl      = document.getElementById('db-value');
-const primaryClassEl = document.getElementById('primary-class');
-const primaryScoreEl = document.getElementById('primary-score');
-const resultsEl      = document.getElementById('results');
-const perfEl         = document.getElementById('perf');
+const CATEGORIES = {
+  voice:   { label: '声・会話',     color: '#44aaff', emoji: '🗣', barClass: 'bar-voice'   },
+  music:   { label: '音楽・BGM',    color: '#cc66ff', emoji: '🎵', barClass: 'bar-music'   },
+  nature:  { label: '自然音',       color: '#44cc88', emoji: '🌿', barClass: 'bar-nature'  },
+  machine: { label: '機械・生活音', color: '#ffaa44', emoji: '⚙',  barClass: 'bar-machine' },
+  other:   { label: 'その他',       color: '#8899aa', emoji: '❓', barClass: 'bar-other'   },
+};
+
+function getCategory(id) {
+  if (id >= 0   && id <= 73)  return 'voice';    // 人の声・笑い・歌など
+  if (id >= 74  && id <= 131) return 'nature';   // 動物・鳥
+  if (id >= 132 && id <= 264) return 'music';    // 音楽全般
+  if (id >= 265 && id <= 299) return 'nature';   // 自然音（雨・水・炎など）
+  if (id >= 300 && id <= 340) return 'machine';  // 乗り物
+  if (id >= 341 && id <= 415) return 'machine';  // 家電・機械・警告音
+  return 'other';
+}
 
 // ============================================================
-// 日本語クラス名マッピング（主要クラス）
+// 日本語クラス名マッピング
 // ============================================================
 const JP_NAMES = {
-  // 人の声・発話
-  0:   '人の声',        1:   '子供の声',     2:   '会話',
-  3:   'ナレーション',  4:   '喃語',          5:   '音声合成',
-  6:   '叫び声',        7:   '怒鳴り声',      8:   '歓声',
-  9:   '叫び',          10:  '子供の叫び',    11:  '悲鳴',
-  12:  'ひそひそ声',
-  // 笑い・泣き
-  13:  '笑い声',        14:  '赤ちゃんの笑い', 15: 'クスクス笑い',
-  19:  '泣き声',        20:  '赤ちゃんの泣き', 23: 'ため息',
-  // 歌・鼻歌
-  24:  '歌声',          25:  '合唱',           26: 'ヨーデル',
-  32:  '鼻歌',
-  // 呼吸・咳
-  36:  '咳',            37:  '咳払い',         38: 'くしゃみ',
-  // 音楽
-  132: '音楽',          133: '楽器',
-  211: 'ポップミュージック',  212: 'ヒップホップ',
-  213: 'Rソウル',      214: 'ファンク',        215: 'Rリズム＆ブルース',
-  216: 'カントリー',   217: 'ブルーグラス',    218: 'ジャズ',
-  219: 'クラシック',   220: 'オペラ',          221: 'エレクトロニック',
-  222: 'ハウス',        223: 'テクノ',          224: 'ダブ',
-  225: 'レゲエ',        226: 'パンク',          227: 'ロック',
-  228: 'インディーロック', 229: 'ヘビーメタル', 230: 'プログレ',
-  261: 'BGM',           262: '環境音楽',        263: 'テーマ音楽',
-  264: 'ジングル',
-  // 生活音・機械
-  348: 'ドア',          349: '引き戸',          350: 'きしみ音',
-  351: '鍵',            360: '電子レンジ',       361: 'ブレンダー',
-  362: '掃除機',        363: 'タイプライター',   364: 'キーボード打鍵',
-  // 警告・通知
-  382: 'アラーム',      383: '警告音',           384: 'ベル',
-  385: '目覚まし時計',  388: 'サイレン',         389: 'ブザー',
-  390: '煙感知器',      391: '火災報知器',
-  // 電話・通信
-  392: '電話の着信音',  393: '携帯の着信音',     395: '電話の音',
-  // 空調・機械
-  397: 'ホワイトノイズ機', 406: '送風機',        407: '空調音',
-  408: '換気扇',
-  // 乗り物
-  300: '自動車',        308: 'バス',             314: 'トラック',
-  319: 'バイク',        324: '電車',             325: '地下鉄',
-  // 自然音
-  283: '雨音',          284: '水の音',           286: '川のせせらぎ',
-  287: '滝',            288: '海',               289: '波',
-  292: '炎',            293: '焚き火のパチパチ音',
-  // 場所コンテキスト
-  494: '静寂',
-  500: '室内（小部屋）',     501: '室内（大部屋・ホール）',
-  502: '室内（公共空間）',   503: '屋外（都市）',
-  504: '屋外（自然）',       505: '残響',
-  // ノイズ
-  507: 'ノイズ',        508: '環境ノイズ',       509: 'ホワイトノイズ',
-  514: 'ホワイトノイズ信号',  515: 'ピンクノイズ',
+  0:'人の声', 1:'子供の声', 2:'会話', 3:'ナレーション', 4:'喃語',
+  5:'音声合成', 6:'叫び声', 7:'怒鳴り声', 8:'歓声', 9:'叫び',
+  10:'子供の叫び', 11:'悲鳴', 12:'ひそひそ声', 13:'笑い声',
+  14:'赤ちゃんの笑い', 15:'クスクス笑い', 19:'泣き声',
+  20:'赤ちゃんの泣き', 23:'ため息', 24:'歌声', 25:'合唱',
+  26:'ヨーデル', 32:'鼻歌', 36:'咳', 37:'咳払い', 38:'くしゃみ',
+  74:'犬', 75:'犬の吠え声', 76:'猫', 77:'猫の鳴き声', 80:'鳥の声',
+  81:'カラスの声', 82:'ニワトリ', 83:'フクロウ',
+  132:'音楽', 133:'楽器', 211:'ポップ', 212:'ヒップホップ',
+  213:'R&Bソウル', 214:'ファンク', 215:'リズム＆ブルース',
+  216:'カントリー', 217:'ブルーグラス', 218:'ジャズ',
+  219:'クラシック', 220:'オペラ', 221:'エレクトロニック',
+  222:'ハウス', 223:'テクノ', 224:'ダブ', 225:'レゲエ',
+  226:'パンク', 227:'ロック', 228:'インディーロック',
+  229:'ヘビーメタル', 230:'プログレッシブロック',
+  261:'BGM', 262:'環境音楽', 263:'テーマ音楽', 264:'ジングル',
+  283:'雨音', 284:'水の音', 286:'川のせせらぎ', 287:'滝',
+  288:'海', 289:'波', 292:'炎', 293:'焚き火の音',
+  300:'自動車', 308:'バス', 314:'トラック', 319:'バイク',
+  324:'電車', 325:'地下鉄',
+  348:'ドア', 349:'引き戸', 360:'電子レンジ', 361:'ブレンダー',
+  362:'掃除機', 363:'タイプライター', 364:'キーボード打鍵',
+  382:'アラーム', 383:'警告音', 384:'ベル', 385:'目覚まし時計',
+  388:'サイレン', 389:'ブザー', 390:'煙感知器', 391:'火災報知器',
+  392:'電話の着信音', 393:'携帯の着信音', 395:'電話の音',
+  397:'ホワイトノイズ機', 406:'送風機', 407:'空調音', 408:'換気扇',
+  494:'静寂',
+  500:'室内（小部屋）', 501:'室内（大部屋・ホール）',
+  502:'室内（公共空間）', 503:'屋外（都市）', 504:'屋外（自然）',
+  505:'残響', 507:'ノイズ', 508:'環境ノイズ', 509:'ホワイトノイズ',
 };
 
-// クラスをグループに分類（レポート用）
-const CLASS_GROUP = (i) => {
-  if (i <= 31)              return 'voice';  // 声・発話・歌
-  if (i >= 132 && i <= 264) return 'music';  // 音楽
-  if ([406,407,408,362,363,364,494,507,508,509].includes(i)) return 'env'; // 環境
-  if (i >= 500 && i <= 515) return 'env';
-  return 'other';
-};
-
-const GROUP_LABELS = {
-  voice: { label: '声・会話',    fill: 'fill-voice' },
-  music: { label: '音楽・BGM',   fill: 'fill-music' },
-  env:   { label: '環境・機械音', fill: 'fill-env'   },
-  other: { label: 'その他',       fill: 'fill-other' },
-};
-
-// ============================================================
-// クラス名の読み込み（GitHub raw CSV）
-// ============================================================
 const CLASS_NAMES = {};
 
 async function loadClassNames() {
@@ -346,61 +544,108 @@ async function loadClassNames() {
       const m = line.match(/^(\d+),\S+,"?([^"]+)"?/);
       if (m) CLASS_NAMES[parseInt(m[1])] = m[2].trim();
     });
-  } catch (e) {
-    console.warn('クラス名CSV読み込み失敗:', e.message);
-  }
+  } catch (e) { console.warn('クラス名CSV読み込み失敗:', e.message); }
 }
 
-// 日本語名を優先、なければ英語、なければクラス番号
-function getClassName(idx) {
-  return JP_NAMES[idx] || CLASS_NAMES[idx] || `Class ${idx}`;
+function getClassName(id) {
+  return JP_NAMES[id] || CLASS_NAMES[id] || `Class ${id}`;
 }
 
 // ============================================================
-// YAMNet モデルの読み込み
+// コンテキスト重み付け
+// ============================================================
+const CONTEXT_PRESETS = {
+  none: { boostIds:[], suppressIds:[], boostRanges:[], suppressRanges:[] },
+  home: {
+    boostIds:    [0,1,2,13,76,77,132,360,361,362,364,384,392,406,407,494,500],
+    suppressIds: [],
+    boostRanges:    [],
+    suppressRanges: [[300,340]],
+  },
+  office: {
+    boostIds:    [0,2,3,364,406,407,408,382,392,393,500,501],
+    suppressIds: [74,75,76,77,80,81],
+    boostRanges:    [],
+    suppressRanges: [[132,264],[300,340],[283,295]],
+  },
+  meeting: {
+    boostIds:    [0,1,2,3,12,13,406,407,494,500,501],
+    suppressIds: [],
+    boostRanges:    [],
+    suppressRanges: [[132,264],[300,340],[74,131],[283,295]],
+  },
+  cafe: {
+    boostIds:    [0,2,13,132,133,361,406,407,500,502],
+    suppressIds: [74,75,76],
+    boostRanges:    [[211,230]],
+    suppressRanges: [[300,340],[283,295]],
+  },
+  train: {
+    boostIds:    [0,2,324,325,500,501,507,508],
+    suppressIds: [74,75,76,77],
+    boostRanges:    [],
+    suppressRanges: [[360,395],[283,295],[132,264]],
+  },
+  outdoor: {
+    boostIds:    [0,2,283,284,286,288,289,292,300,308,314,319,503,504,507,508],
+    suppressIds: [],
+    boostRanges:    [[74,131]],
+    suppressRanges: [[360,415],[500,501]],
+  },
+};
+
+function applyContextWeights(scores, contextKey) {
+  const ctx = CONTEXT_PRESETS[contextKey];
+  if (!ctx) return scores;
+  const out      = new Float32Array(scores);
+  const BOOST    = 2.0;
+  const SUPPRESS = 0.12;
+  ctx.boostIds.forEach(id => { if (id < out.length) out[id] *= BOOST; });
+  ctx.boostRanges.forEach(([lo,hi]) => {
+    for (let i = lo; i <= hi && i < out.length; i++) out[i] *= BOOST;
+  });
+  ctx.suppressIds.forEach(id => { if (id < out.length) out[id] *= SUPPRESS; });
+  ctx.suppressRanges.forEach(([lo,hi]) => {
+    for (let i = lo; i <= hi && i < out.length; i++) out[i] *= SUPPRESS;
+  });
+  return out;
+}
+
+// ============================================================
+// YAMNet モデル
 // ============================================================
 let model = null;
 
+const modelStatusEl = document.getElementById('model-status');
+const statusTextEl  = document.getElementById('status-text');
+const loadingNoteEl = document.getElementById('loading-note');
+
 async function loadModel() {
-  modelStatusEl.textContent  = '🔄 YAMNet モデル読み込み中...';
-  loadingNoteEl.textContent  = '初回は15〜30秒かかります（約13MB）。2回目以降はキャッシュされます。';
-  const t0 = performance.now();
+  modelStatusEl.textContent = '🔄 YAMNet 読み込み中...';
+  loadingNoteEl.textContent = '初回は15〜30秒かかります（約13MB）';
   try {
-    // TF Hub 経由で YAMNet TF.js モデルを取得
     model = await tf.loadGraphModel(
       'https://tfhub.dev/google/tfjs-model/yamnet/tfjs/1',
       { fromTFHub: true }
     );
-    const sec = ((performance.now() - t0) / 1000).toFixed(1);
-    modelStatusEl.textContent = `✅ モデル読み込み完了 (${sec}秒)`;
+    modelStatusEl.textContent = '✅ YAMNet 準備完了';
     loadingNoteEl.textContent = '';
-    btnStart.disabled = false;
+    enableSourceButtons();
   } catch (e) {
-    modelStatusEl.textContent = '❌ モデル読み込み失敗: ' + e.message;
-    loadingNoteEl.textContent = 'ネットワーク接続を確認してください。';
-    console.error('モデル読み込みエラー:', e);
+    modelStatusEl.textContent = '❌ 読み込み失敗: ' + e.message;
   }
 }
 
-// ============================================================
-// 主要クラス時系列 設定
-// ============================================================
-const TS_CLASSES = [
-  { id: 0,   label: '人の声',    color: '#44aaff' },
-  { id: 132, label: '音楽',      color: '#aa44ff' },
-  { id: 494, label: '静寂',      color: '#44ffaa' },
-  { id: 407, label: '空調音',    color: '#ffaa44' },
-  { id: 508, label: '環境ノイズ', color: '#ff6644' },
-];
-const TS_HISTORY_LEN = 60;  // 直近60回分を表示
-const tsHistory = TS_CLASSES.map(() => []);  // クラスごとの履歴
-
-
-// ============================================================
-// 測定履歴（レポート用）
-// ============================================================
-let sessionHistory  = [];  // { classId, score, ms } を推論ごとに記録
-let sessionStartTs  = null;
+function enableSourceButtons() {
+  ['btn-mic','btn-file','btn-tab'].forEach(id =>
+    document.getElementById(id).disabled = false
+  );
+}
+function disableSourceButtons() {
+  ['btn-mic','btn-file','btn-tab'].forEach(id =>
+    document.getElementById(id).disabled = true
+  );
+}
 
 // ============================================================
 // 音声パイプライン
@@ -408,226 +653,371 @@ let sessionStartTs  = null;
 let audioCtx  = null;
 let source    = null;
 let processor = null;
-let sampleBuf = [];   // ダウンサンプル後の16kHz PCMを蓄積
+let mediaEl   = null;
+let sampleBuf = [];
+let nativeSR  = 48000;
+let isRunning = false;
 
-async function start() {
+async function startMic() {
+  let stream;
   try {
-    statusEl.textContent = 'マイク接続中...';
-
-    // getUserMedia（3段階フォールバック）
-    let stream;
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { autoGainControl:false, echoCancellation:false, noiseSuppression:false },
+      video: false,
+    });
+  } catch {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { autoGainControl: false, echoCancellation: false, noiseSuppression: false },
-        video: false,
-      });
-    } catch {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: false, noiseSuppression: false },
-          video: false,
-        });
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      }
+      stream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+    } catch (e) {
+      statusTextEl.textContent = 'マイクエラー: ' + e.message; return;
     }
+  }
+  await setupAudioGraph(ctx => ctx.createMediaStreamSource(stream));
+  statusTextEl.textContent = '🎙 マイク測定中...';
+  document.getElementById('btn-mic').classList.add('active');
+}
 
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
+async function startFile(file) {
+  mediaEl = document.createElement('video');
+  mediaEl.src = URL.createObjectURL(file);
+  await setupAudioGraph(ctx => ctx.createMediaElementSource(mediaEl));
+  mediaEl.play();
+  statusTextEl.textContent = '📁 ' + file.name;
+  document.getElementById('btn-file').classList.add('active');
+}
 
-    const nativeSR = audioCtx.sampleRate;  // 通常 48000 Hz
-    source = audioCtx.createMediaStreamSource(stream);
+async function startTab() {
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ audio:true, video:false });
+  } catch {
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({ audio:true, video:true });
+      stream.getVideoTracks().forEach(t => t.stop());
+    } catch (e) {
+      statusTextEl.textContent = 'タブ音声エラー: ' + e.message; return;
+    }
+  }
+  await setupAudioGraph(ctx => ctx.createMediaStreamSource(stream));
+  statusTextEl.textContent = '🖥 タブ音声測定中...';
+  document.getElementById('btn-tab').classList.add('active');
+}
 
-    // ScriptProcessorNode でサンプルを取得
-    // （AudioWorkletの方が推奨だが互換性優先）
-    const bufSize = 4096;
-    processor = audioCtx.createScriptProcessor(bufSize, 1, 1);
+async function setupAudioGraph(sourceFactory) {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+  nativeSR  = audioCtx.sampleRate;
+  source    = sourceFactory(audioCtx);
+  processor = audioCtx.createScriptProcessor(4096, 1, 1);
+  processor.onaudioprocess = onAudioProcess;
+  source.connect(processor);
+  processor.connect(audioCtx.destination);
 
-    processor.onaudioprocess = (e) => {
-      const input = e.inputBuffer.getChannelData(0);
+  sampleBuf = [];
+  isRunning = true;
+  lastTop   = null;
+  disableSourceButtons();
+  document.getElementById('btn-stop').disabled = false;
+  document.getElementById('btn-snap').disabled = false;
+  tsHistory.forEach(h => (h.length = 0));
+  renderTsLegend();
+}
 
-      // --- RMS dB 計算・表示 ---
-      let rms = 0;
-      for (let i = 0; i < input.length; i++) rms += input[i] * input[i];
-      rms = Math.sqrt(rms / input.length);
-      const db = rms > 0 ? Math.max(0, 20 * Math.log10(rms) - NOISE_FLOOR_DB) : 0;
-      dbValueEl.textContent = db.toFixed(1) + ' dB';
+function stopAll() {
+  isRunning = false;
+  if (processor) { processor.disconnect(); processor = null; }
+  if (source)    { source.disconnect();    source    = null; }
+  if (mediaEl)   { mediaEl.pause(); URL.revokeObjectURL(mediaEl.src); mediaEl = null; }
+  if (audioCtx)  { audioCtx.close();       audioCtx  = null; }
+  sampleBuf = []; lastTop = null;
 
-      // --- ダウンサンプリング（線形補間）: nativeSR → 16kHz ---
-      const ratio = nativeSR / YAMNET_SR;
-      const outLen = Math.floor(input.length / ratio);
-      for (let i = 0; i < outLen; i++) {
-        const pos = i * ratio;
-        const lo  = Math.floor(pos);
-        const hi  = Math.min(lo + 1, input.length - 1);
-        const frac = pos - lo;
-        sampleBuf.push(input[lo] * (1 - frac) + input[hi] * frac);
-      }
+  statusTextEl.textContent = '停止中';
+  enableSourceButtons();
+  ['btn-mic','btn-file','btn-tab'].forEach(id =>
+    document.getElementById(id).classList.remove('active')
+  );
+  document.getElementById('btn-stop').disabled = true;
+  document.getElementById('btn-snap').disabled = true;
 
-      // FRAME_SAMPLES 分溜まったら推論
-      if (sampleBuf.length >= FRAME_SAMPLES) {
-        const chunk = sampleBuf.splice(0, FRAME_SAMPLES);
-        runInference(chunk);  // 非同期・非ブロッキング
-      }
-    };
+  // 表示リセット
+  document.getElementById('db-value').textContent      = '---';
+  document.getElementById('primary-name').textContent  = '---';
+  document.getElementById('primary-cat').textContent   = '---';
+  document.getElementById('primary-cat').className     = 'cat-other';
+  document.getElementById('primary-panel').className   = 'panel cat-other';
+  document.getElementById('primary-conf-pct').textContent = '0%';
+  document.getElementById('primary-conf-bar').style.width = '0%';
+  document.getElementById('candidates').innerHTML = '';
+  document.getElementById('pitch-display').innerHTML = '<div id="pitch-none">---</div>';
+  const tc = document.getElementById('ts-canvas');
+  tc.getContext('2d').clearRect(0, 0, tc.width, tc.height);
+}
 
-    source.connect(processor);
-    processor.connect(audioCtx.destination);
+// ============================================================
+// 音声処理コールバック
+// ============================================================
+function onAudioProcess(e) {
+  const input = e.inputBuffer.getChannelData(0);
 
-    // 履歴リセット
-    sessionHistory = [];
-    sessionStartTs = Date.now();
-    tsHistory.forEach(h => h.length = 0);
-    document.getElementById('report').classList.remove('visible');
+  // dB 計算
+  let rms = 0;
+  for (let i = 0; i < input.length; i++) rms += input[i] * input[i];
+  rms = Math.sqrt(rms / input.length);
+  const db = rms > 0 ? Math.max(0, 20 * Math.log10(rms) - NOISE_FLOOR_DB) : 0;
+  document.getElementById('db-value').textContent = db.toFixed(1);
 
-    // 時系列グラフの凡例を描画
-    document.getElementById('ts-legend').innerHTML = TS_CLASSES.map(c =>
-      `<div class="ts-legend-item">
-        <div class="ts-legend-dot" style="background:${c.color}"></div>
-        <span>${c.label}</span>
-      </div>`
-    ).join('');
+  // ピッチ検出
+  updatePitchDisplay(detectPitch(input, nativeSR));
 
-    statusEl.textContent  = '測定中...';
-    btnStart.disabled     = true;
-    btnStart.classList.add('active');
-    btnStop.disabled      = false;
-
-  } catch (e) {
-    statusEl.textContent = 'エラー: ' + e.message;
-    console.error(e);
+  // ダウンサンプリング → 16kHz
+  const ratio  = nativeSR / YAMNET_SR;
+  const outLen = Math.floor(input.length / ratio);
+  for (let i = 0; i < outLen; i++) {
+    const pos = i * ratio;
+    const lo  = Math.floor(pos);
+    const hi  = Math.min(lo + 1, input.length - 1);
+    sampleBuf.push(input[lo] * (1 - (pos - lo)) + input[hi] * (pos - lo));
+  }
+  if (sampleBuf.length >= FRAME_SAMPLES) {
+    const chunk = sampleBuf.splice(0, FRAME_SAMPLES);
+    runInference(chunk);
   }
 }
 
-function stop() {
-  if (processor) { processor.disconnect(); processor = null; }
-  if (source)    { source.disconnect();    source    = null; }
-  if (audioCtx)  { audioCtx.close();       audioCtx  = null; }
-  sampleBuf = [];
-  statusEl.textContent  = '停止中';
-  if (sessionHistory.length > 0) showReport();
-  btnStart.disabled     = false;
-  btnStart.classList.remove('active');
-  btnStop.disabled      = true;
-  dbValueEl.textContent      = '--- dB';
-  primaryClassEl.textContent = '---';
-  primaryScoreEl.textContent = '';
-  resultsEl.innerHTML        = '';
-  perfMsEl.textContent       = '---';
-  perfMsEl.style.color       = '#ffcc44';
-  perfFramesEl.textContent   = '';
-  perfAvgEl.textContent      = '';
-  perfHistory.length = 0;
-  resizePerfCanvas();
-  perfCtx.clearRect(0, 0, perfCanvas.width, perfCanvas.height);
-  const tc = document.getElementById('ts-canvas');
-  tc.getContext('2d').clearRect(0, 0, tc.width, tc.height);
+// ============================================================
+// ピッチ検出（自己相関法）
+// ============================================================
+function detectPitch(buffer, sr) {
+  const SIZE = buffer.length;
+  const HALF = Math.floor(SIZE / 2);
+  if (HALF < 64) return -1;
+
+  // 無音チェック
+  let rms = 0;
+  for (let i = 0; i < SIZE; i++) rms += buffer[i] * buffer[i];
+  if (Math.sqrt(rms / SIZE) < 0.004) return -1;
+
+  // 自己相関
+  const ac = new Float32Array(HALF);
+  for (let lag = 0; lag < HALF; lag++) {
+    let s = 0;
+    for (let i = 0; i < HALF; i++) s += buffer[i] * buffer[i + lag];
+    ac[lag] = s;
+  }
+
+  // 最初の谷を越えたところを探索開始点にする
+  let d = 1;
+  while (d < HALF - 1 && ac[d] >= ac[d-1]) d++;
+  while (d < HALF - 1 && ac[d] <= ac[d-1]) d++;
+
+  // 最大ピーク探索
+  let maxVal = -Infinity, maxLag = -1;
+  for (let i = d; i < HALF; i++) {
+    if (ac[i] > maxVal) { maxVal = ac[i]; maxLag = i; }
+  }
+  if (maxLag < 2 || maxLag >= HALF - 1) return -1;
+
+  // 信頼度チェック
+  if (ac[0] <= 0 || maxVal / ac[0] < 0.15) return -1;
+
+  // 放物線補間（サブサンプル精度）
+  const y1 = ac[maxLag-1], y2 = ac[maxLag], y3 = ac[maxLag+1];
+  const denom = 2*y2 - y1 - y3;
+  const lag = denom !== 0 ? maxLag + (y3 - y1) / (2 * denom) : maxLag;
+
+  const freq = sr / lag;
+  return (freq >= 40 && freq <= 5000) ? freq : -1;
+}
+
+const NOTE_EN = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const NOTE_JP = ['ド','ド♯','レ','レ♯','ミ','ファ','ファ♯','ソ','ソ♯','ラ','ラ♯','シ'];
+
+function freqToNote(freq) {
+  const semitones = 12 * Math.log2(freq / 440.0);
+  const rounded   = Math.round(semitones);
+  const midi      = 69 + rounded;
+  const noteIdx   = ((midi % 12) + 12) % 12;
+  const octave    = Math.floor(midi / 12) - 1;
+  const cents     = Math.round((semitones - rounded) * 100);
+  return { en: NOTE_EN[noteIdx] + octave, jp: NOTE_JP[noteIdx], octave, cents, freq };
+}
+
+let lastPitchStr = null;  // スナップショット用
+
+function updatePitchDisplay(freq) {
+  const el = document.getElementById('pitch-display');
+  if (freq < 0) {
+    lastPitchStr = null;
+    el.innerHTML = '<div id="pitch-none">---</div>';
+    return;
+  }
+  const note = freqToNote(freq);
+  const centsClass = Math.abs(note.cents) <= 10 ? 'tune' : (note.cents > 0 ? 'sharp' : 'flat');
+  const centsText  = note.cents === 0 ? '±0¢' : (note.cents > 0 ? `+${note.cents}¢` : `${note.cents}¢`);
+  const needlePct  = Math.min(100, Math.max(0, (note.cents + 50)));
+  lastPitchStr = `${note.jp}(${note.en}) ${parseFloat(note.freq).toFixed(1)}Hz`;
+
+  el.innerHTML = `
+    <div class="pitch-note">
+      <span class="note-jp">${note.jp}</span>
+      <span class="note-en">${note.en}</span>
+    </div>
+    <div id="pitch-freq">${parseFloat(note.freq).toFixed(1)} Hz</div>
+    <div class="pitch-cents ${centsClass}">${centsText}</div>
+    <div id="pitch-bar-wrap">
+      <div id="pitch-bar-center"></div>
+      <div id="pitch-bar-needle" style="left:${needlePct}%"></div>
+    </div>`;
 }
 
 // ============================================================
 // YAMNet 推論
 // ============================================================
 let inferring = false;
+let lastTop   = null;
 
 async function runInference(samples) {
   if (inferring || !model) return;
   inferring = true;
-  const t0 = performance.now();
-
   try {
-    const inputTensor = tf.tensor1d(new Float32Array(samples));
-
-    // YAMNet の出力: [scores, embeddings, log_mel_spectrogram]
-    // scores shape: [frames, 521]
-    const outputs = model.predict(inputTensor);
+    const inputTensor  = tf.tensor1d(new Float32Array(samples));
+    const outputs      = model.predict(inputTensor);
     const scoresTensor = Array.isArray(outputs) ? outputs[0] : outputs;
-    const scoresData   = await scoresTensor.array();  // [[...521 values...], ...]
+    const scoresData   = await scoresTensor.array();
 
-    // 全フレームを平均してクラスごとの代表スコアを算出
-    const nFrames  = scoresData.length;
-    const nClasses = scoresData[0].length;
-    const avg      = new Float32Array(nClasses);
-    for (let f = 0; f < nFrames; f++) {
-      for (let c = 0; c < nClasses; c++) {
-        avg[c] += scoresData[f][c];
-      }
-    }
-    for (let c = 0; c < nClasses; c++) avg[c] /= nFrames;
+    // フレーム平均
+    const nF = scoresData.length, nC = scoresData[0].length;
+    const avg = new Float32Array(nC);
+    for (let f = 0; f < nF; f++)
+      for (let c = 0; c < nC; c++) avg[c] += scoresData[f][c];
+    for (let c = 0; c < nC; c++) avg[c] /= nF;
 
-    // トップ5を抽出
-    const indexed = Array.from(avg).map((v, i) => ({ i, v }));
-    indexed.sort((a, b) => b.v - a.v);
-    const top5 = indexed.slice(0, 5);
+    // コンテキスト重み付け
+    const contextKey = document.getElementById('context-select').value;
+    const weighted   = applyContextWeights(avg, contextKey);
 
-    const elapsed = Math.round(performance.now() - t0);
+    // トップ5
+    const top5 = Array.from(weighted)
+      .map((v, i) => ({ i, v }))
+      .sort((a, b) => b.v - a.v)
+      .slice(0, 5);
 
-    // --- 主要クラスのスコアを履歴に追加 ---
-    TS_CLASSES.forEach((cls, idx) => {
-      tsHistory[idx].push(avg[cls.id]);
-      if (tsHistory[idx].length > TS_HISTORY_LEN) tsHistory[idx].shift();
-    });
-
-    updateUI(top5, elapsed, nFrames);
+    lastTop = top5;
+    updatePrimaryDisplay(top5);
+    updateCandidates(top5);
+    updateTsHistory(weighted);
     drawTimeSeries();
 
-    // テンソルのメモリ解放
     inputTensor.dispose();
     if (Array.isArray(outputs)) outputs.forEach(t => t.dispose());
     else outputs.dispose();
 
-  } catch (e) {
-    console.error('推論エラー:', e);
-    perfEl.textContent = '推論エラー: ' + e.message;
-  }
-
+  } catch (e) { console.error('推論エラー:', e); }
   inferring = false;
 }
 
 // ============================================================
-// 主要クラス 時系列グラフ描画
+// プライマリ表示
 // ============================================================
+function updatePrimaryDisplay(top5) {
+  const { i, v } = top5[0];
+  const cat  = getCategory(i);
+  const info = CATEGORIES[cat];
+  const pct  = (v * 100).toFixed(1);
+
+  document.getElementById('primary-panel').className = `panel cat-${cat}`;
+
+  const catEl = document.getElementById('primary-cat');
+  catEl.textContent = `${info.emoji} ${info.label}`;
+  catEl.className   = `cat-${cat}`;
+
+  document.getElementById('primary-name').textContent = getClassName(i);
+
+  const bar = document.getElementById('primary-conf-bar');
+  bar.className    = info.barClass;
+  bar.style.width  = Math.min(100, v * 100).toFixed(1) + '%';
+
+  document.getElementById('primary-conf-pct').textContent = pct + '%';
+}
+
+function updateCandidates(top5) {
+  document.getElementById('candidates').innerHTML =
+    top5.slice(1, 3).map(({ i, v }) => {
+      const cat  = getCategory(i);
+      const info = CATEGORIES[cat];
+      const barW = Math.min(100, v * 100).toFixed(1);
+      return `<div class="cand-item cat-${cat}">
+        <div class="cand-row">
+          <span class="cand-name">${getClassName(i)}</span>
+          <span class="cand-pct">${(v*100).toFixed(1)}%</span>
+        </div>
+        <div class="cand-bar-wrap">
+          <div class="cand-bar ${info.barClass}" style="width:${barW}%"></div>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+// ============================================================
+// 時系列グラフ
+// ============================================================
+const TS_CLASSES = [
+  { id: 0,   label: '人の声',     color: '#44aaff' },
+  { id: 132, label: '音楽',       color: '#cc66ff' },
+  { id: 494, label: '静寂',       color: '#44ffaa' },
+  { id: 407, label: '空調音',     color: '#ffaa44' },
+  { id: 508, label: '環境ノイズ', color: '#ff6644' },
+];
+const TS_MAX   = 80;
+const tsHistory = TS_CLASSES.map(() => []);
+
+function updateTsHistory(weighted) {
+  TS_CLASSES.forEach((cls, idx) => {
+    tsHistory[idx].push(weighted[cls.id] || 0);
+    if (tsHistory[idx].length > TS_MAX) tsHistory[idx].shift();
+  });
+}
+
+function renderTsLegend() {
+  document.getElementById('ts-legend').innerHTML = TS_CLASSES.map(c =>
+    `<div class="ts-legend-item">
+      <div class="ts-legend-dot" style="background:${c.color}"></div>
+      <span>${c.label}</span>
+    </div>`
+  ).join('');
+}
+
 function drawTimeSeries() {
   const canvas = document.getElementById('ts-canvas');
   const ctx    = canvas.getContext('2d');
   const dpr    = window.devicePixelRatio || 1;
-  canvas.width  = canvas.offsetWidth * dpr;
+  canvas.width  = canvas.offsetWidth  * dpr;
   canvas.height = canvas.offsetHeight * dpr;
   const w = canvas.width, h = canvas.height;
-  const padL = 38 * dpr, padR = 8 * dpr;
-  const padT = 8 * dpr,  padB = 22 * dpr;
-  const chartW = w - padL - padR;
-  const chartH = h - padT - padB;
+  const pL=38*dpr, pR=8*dpr, pT=8*dpr, pB=20*dpr;
+  const cW=w-pL-pR, cH=h-pT-pB;
 
   ctx.clearRect(0, 0, w, h);
-
-  // 背景
   ctx.fillStyle = '#080d15';
-  ctx.fillRect(padL, padT, chartW, chartH);
+  ctx.fillRect(pL, pT, cW, cH);
 
-  // Y軸ラベル用の左パディングを確保（文字を描いてからグリッド）
-  const fontSize = Math.round(11 * dpr);
-  ctx.font      = `${fontSize}px Courier New`;
+  const fs = Math.round(10 * dpr);
+  ctx.font = `${fs}px Courier New`;
 
-  // グリッド（0.25, 0.5, 0.75, 1.0）
-  ctx.strokeStyle = '#253545';
+  // グリッド
+  ctx.strokeStyle = '#1a2a3a';
   ctx.lineWidth   = 1;
-  ctx.setLineDash([3 * dpr, 3 * dpr]);
+  ctx.setLineDash([3*dpr, 3*dpr]);
   [0.25, 0.5, 0.75, 1.0].forEach(v => {
-    const y     = padT + chartH * (1 - v);
-    const label = (v * 100).toFixed(0) + '%';
-    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
-    ctx.fillStyle   = '#99aabb';
-    ctx.textAlign   = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, padL - 4 * dpr, y);
+    const y = pT + cH*(1-v);
+    ctx.beginPath(); ctx.moveTo(pL,y); ctx.lineTo(pL+cW,y); ctx.stroke();
+    ctx.fillStyle = '#556677'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillText((v*100).toFixed(0)+'%', pL-4*dpr, y);
   });
   ctx.setLineDash([]);
-  ctx.textAlign    = 'left';
-  ctx.textBaseline = 'alphabetic';
 
-  // 各クラスの折れ線
-  const len = Math.max(...tsHistory.map(h => h.length));
-  if (len < 2) return;
+  const maxLen = Math.max(...tsHistory.map(h => h.length));
+  if (maxLen < 2) return;
 
   TS_CLASSES.forEach((cls, idx) => {
     const hist = tsHistory[idx];
@@ -636,227 +1026,86 @@ function drawTimeSeries() {
     ctx.strokeStyle = cls.color;
     ctx.lineWidth   = 1.5 * dpr;
     hist.forEach((val, i) => {
-      // 右端が最新
-      const x = padL + chartW * ((TS_HISTORY_LEN - hist.length + i) / (TS_HISTORY_LEN - 1));
-      const y = padT + chartH * (1 - Math.min(1, val));
+      const x = pL + cW * ((TS_MAX - hist.length + i) / (TS_MAX - 1));
+      const y = pT + cH * (1 - Math.min(1, val));
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
     ctx.stroke();
-
-    // 最新値を右端に小さく表示
-    const last = hist[hist.length - 1];
-    const lastX = padL + chartW;
-    const lastY = padT + chartH * (1 - Math.min(1, last));
+    // 最新値ドット
+    const last = hist[hist.length-1];
+    const lx = pL+cW, ly = pT+cH*(1-Math.min(1,last));
     ctx.fillStyle = cls.color;
-    ctx.beginPath();
-    ctx.arc(lastX, lastY, 3 * dpr, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(lx, ly, 3*dpr, 0, Math.PI*2); ctx.fill();
   });
 
-  // X軸ラベル（時間）
-  ctx.fillStyle    = '#99aabb';
-  ctx.font         = `${fontSize}px Courier New`;
-  ctx.textAlign    = 'left';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(`← ${TS_HISTORY_LEN}回前`, padL, h - 3 * dpr);
-  ctx.textAlign = 'right';
-  ctx.fillText('今 →', padL + chartW, h - 3 * dpr);
-  ctx.textAlign = 'left';
+  // X軸ラベル
+  ctx.fillStyle='#445566'; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+  ctx.fillText(`← ${TS_MAX}回前`, pL, h-3*dpr);
+  ctx.textAlign='right';
+  ctx.fillText('今 →', pL+cW, h-3*dpr);
 }
 
 // ============================================================
-// パフォーマンス グラフ
+// スナップショット
 // ============================================================
-const PERF_HISTORY = 30;          // 表示する推論回数
-const perfHistory  = [];          // { ms } の履歴
-const perfCanvas   = document.getElementById('perf-canvas');
-const perfCtx      = perfCanvas.getContext('2d');
-const perfMsEl     = document.getElementById('perf-ms');
-const perfFramesEl = document.getElementById('perf-frames');
-const perfAvgEl    = document.getElementById('perf-avg');
+const snapshots = [];
 
-function resizePerfCanvas() {
-  perfCanvas.width  = perfCanvas.offsetWidth  * (window.devicePixelRatio || 1);
-  perfCanvas.height = perfCanvas.offsetHeight * (window.devicePixelRatio || 1);
-}
-window.addEventListener('resize', resizePerfCanvas);
+function takeSnapshot() {
+  if (!lastTop) return;
+  const { i, v } = lastTop[0];
+  const cat  = getCategory(i);
+  const info = CATEGORIES[cat];
+  const now  = new Date();
+  const time = [now.getHours(), now.getMinutes(), now.getSeconds()]
+    .map(n => String(n).padStart(2,'0')).join(':');
 
-function drawPerfGraph() {
-  resizePerfCanvas();
-  const w   = perfCanvas.width;
-  const h   = perfCanvas.height;
-  const dpr = window.devicePixelRatio || 1;
-  perfCtx.clearRect(0, 0, w, h);
-
-  if (perfHistory.length < 2) return;
-
-  // スケール: 最大値を上限（最低200ms表示）
-  const maxMs   = Math.max(200, ...perfHistory.map(d => d.ms));
-  const barW    = w / PERF_HISTORY;
-  const padTop  = 4 * dpr;
-
-  perfHistory.forEach((d, idx) => {
-    const barH = ((d.ms / maxMs) * (h - padTop));
-    const x    = idx * barW;
-    const y    = h - barH;
-
-    // 色: 速い=緑 / 普通=黄 / 遅い=赤
-    const color = d.ms < 150 ? '#44cc88'
-                : d.ms < 300 ? '#ffcc44'
-                :               '#ff5544';
-    perfCtx.fillStyle = color;
-    perfCtx.fillRect(x + 1, y, barW - 2, barH);
+  snapshots.unshift({
+    time, cat,
+    name: getClassName(i),
+    pct:  (v * 100).toFixed(1),
+    pitch: lastPitchStr,
+    emoji: info.emoji,
   });
+  if (snapshots.length > 30) snapshots.pop();
+  renderSnapshots();
+}
 
-  // 300ms ラインを点線で表示
-  const refY = h - (300 / maxMs) * (h - padTop);
-  if (refY > 0 && refY < h) {
-    perfCtx.setLineDash([3 * dpr, 3 * dpr]);
-    perfCtx.strokeStyle = '#ff554466';
-    perfCtx.lineWidth   = 1 * dpr;
-    perfCtx.beginPath();
-    perfCtx.moveTo(0, refY);
-    perfCtx.lineTo(w, refY);
-    perfCtx.stroke();
-    perfCtx.setLineDash([]);
-    // ラベル
-    perfCtx.fillStyle = '#ff8866cc';
-    perfCtx.font      = `${11 * dpr}px Courier New`;
-    perfCtx.fillText('300ms', 4 * dpr, refY - 3 * dpr);
+function renderSnapshots() {
+  const listEl = document.getElementById('snap-list');
+  if (snapshots.length === 0) {
+    listEl.innerHTML = '<div id="snap-empty">まだ記録がありません</div>';
+    return;
   }
-}
-
-function updatePerfDisplay(elapsedMs, nFrames) {
-  // 履歴を更新
-  perfHistory.push({ ms: elapsedMs });
-  if (perfHistory.length > PERF_HISTORY) perfHistory.shift();
-
-  // 数値表示
-  perfMsEl.textContent     = elapsedMs;
-  perfMsEl.style.color     = elapsedMs < 150 ? '#44ffaa'
-                           : elapsedMs < 300 ? '#ffcc44' : '#ff5544';
-  perfFramesEl.textContent = `フレーム: ${nFrames}`;
-
-  const avg = Math.round(perfHistory.reduce((s, d) => s + d.ms, 0) / perfHistory.length);
-  perfAvgEl.textContent    = `平均: ${avg}ms`;
-
-  drawPerfGraph();
+  listEl.innerHTML = snapshots.map(s =>
+    `<div class="snap-item cat-${s.cat}">
+      <div class="snap-time">${s.time}</div>
+      <div class="snap-name">${s.emoji} ${s.name}</div>
+      <div class="snap-sub">${s.pct}%${s.pitch ? '　' + s.pitch : ''}</div>
+    </div>`
+  ).join('');
 }
 
 // ============================================================
-// UI 更新
+// イベントリスナー
 // ============================================================
-function updateUI(top5, elapsedMs, nFrames) {
-  const first     = top5[0];
-  const firstName = getClassName(first.i);
-  const firstPct  = (first.v * 100).toFixed(1);
-
-  // プライマリ表示
-  primaryClassEl.textContent = firstName;
-  primaryClassEl.style.color = HL_CLASSES.has(first.i) ? '#44ffaa' : '#aabbcc';
-  primaryScoreEl.textContent = `確信度 ${firstPct}%  (class ${first.i})`;
-
-  // トップ5リスト
-  resultsEl.innerHTML = top5.map(({ i, v }) => {
-    const name  = getClassName(i);
-    const pct   = (v * 100).toFixed(1);
-    const barW  = Math.min(100, v * 300).toFixed(1);
-    const isHL  = HL_CLASSES.has(i);
-    return `<div class="result-item ${isHL ? 'hl' : ''}">
-      <div class="result-name">${name}</div>
-      <div class="bar-wrap"><div class="bar" style="width:${barW}%"></div></div>
-      <div class="result-pct">${pct}%  (class ${i})</div>
-    </div>`;
-  }).join('');
-
-  // パフォーマンスグラフ更新
-  updatePerfDisplay(elapsedMs, nFrames);
-
-  // 履歴に記録（1位クラスのみ）
-  sessionHistory.push({ classId: first.i, score: first.v, ms: elapsedMs });
-}
-
-// ============================================================
-// サマリーレポート生成
-// ============================================================
-function showReport() {
-  const total    = sessionHistory.length;
-  const duration = Math.round((Date.now() - sessionStartTs) / 1000);
-  const mm = String(Math.floor(duration / 60)).padStart(2, '0');
-  const ss = String(duration % 60).padStart(2, '0');
-
-  // --- メタ情報 ---
-  document.getElementById('report-meta').innerHTML =
-    `<strong>測定時間</strong>　${mm}:${ss}<br>` +
-    `<strong>推論回数</strong>　${total} 回<br>` +
-    `<strong>測定日時</strong>　${new Date(sessionStartTs).toLocaleString('ja-JP')}`;
-
-  // --- グループ別集計 ---
-  const groupCount = { voice: 0, music: 0, env: 0, other: 0 };
-  const classCount = {};
-  sessionHistory.forEach(({ classId }) => {
-    const g = CLASS_GROUP(classId);
-    groupCount[g]++;
-    classCount[classId] = (classCount[classId] || 0) + 1;
-  });
-
-  const distEl = document.getElementById('report-dist');
-  distEl.innerHTML = Object.entries(groupCount).map(([key, cnt]) => {
-    const pct  = total > 0 ? (cnt / total * 100).toFixed(1) : '0.0';
-    const info = GROUP_LABELS[key];
-    return `<div class="report-bar-item">
-      <div class="report-bar-label">
-        <span>${info.label}</span>
-        <span class="pct">${pct}%　(${cnt}回)</span>
-      </div>
-      <div class="report-bar-wrap">
-        <div class="report-bar-fill ${info.fill}" style="width:${pct}%"></div>
-      </div>
-    </div>`;
-  }).join('');
-
-  // --- クラス別ランキング（上位10） ---
-  const ranked = Object.entries(classCount)
-    .map(([id, cnt]) => ({ id: parseInt(id), cnt }))
-    .sort((a, b) => b.cnt - a.cnt)
-    .slice(0, 10);
-
-  const maxCnt = ranked[0]?.cnt || 1;
-  const rankEl = document.getElementById('report-ranking');
-  rankEl.innerHTML = ranked.map(({ id, cnt }, idx) => {
-    const pct  = (cnt / total * 100).toFixed(1);
-    const barW = (cnt / maxCnt * 100).toFixed(1);
-    const fill = GROUP_LABELS[CLASS_GROUP(id)].fill;
-    return `<div class="report-bar-item">
-      <div class="report-bar-label">
-        <span>${idx + 1}. ${getClassName(id)}</span>
-        <span class="pct">${pct}%　(${cnt}回)</span>
-      </div>
-      <div class="report-bar-wrap">
-        <div class="report-bar-fill ${fill}" style="width:${barW}%"></div>
-      </div>
-    </div>`;
-  }).join('');
-
-  // --- パフォーマンス統計 ---
-  const msList = sessionHistory.map(h => h.ms);
-  const avgMs  = Math.round(msList.reduce((a, b) => a + b, 0) / msList.length);
-  const minMs  = Math.min(...msList);
-  const maxMs  = Math.max(...msList);
-  document.getElementById('report-perf').innerHTML =
-    `<strong>平均推論時間</strong>　${avgMs} ms<br>` +
-    `<strong>最小 / 最大</strong>　${minMs} ms / ${maxMs} ms`;
-
-  document.getElementById('report').classList.add('visible');
-  document.getElementById('report').scrollIntoView({ behavior: 'smooth' });
-}
+document.getElementById('btn-mic').addEventListener('click', startMic);
+document.getElementById('btn-tab').addEventListener('click', startTab);
+document.getElementById('btn-file').addEventListener('click', () =>
+  document.getElementById('file-input').click()
+);
+document.getElementById('file-input').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) startFile(f);
+  e.target.value = '';
+});
+document.getElementById('btn-stop').addEventListener('click', stopAll);
+document.getElementById('btn-snap').addEventListener('click', takeSnapshot);
+window.addEventListener('resize', drawTimeSeries);
 
 // ============================================================
 // 初期化
 // ============================================================
-btnStart.addEventListener('click', start);
-btnStop.addEventListener('click',  stop);
-
+renderTsLegend();
 (async () => {
   await loadClassNames();
   await loadModel();
