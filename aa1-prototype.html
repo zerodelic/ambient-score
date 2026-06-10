@@ -754,6 +754,10 @@ async function setupAudioGraph(sourceFactory) {
   document.getElementById('btn-snap').disabled = false;
   tsHistory.forEach(h => (h.length = 0));
   renderTsLegend();
+
+  // dB・ピッチグラフを200ms毎にサンプリング開始
+  if (pitchSampleTimer) clearInterval(pitchSampleTimer);
+  pitchSampleTimer = setInterval(samplePitchAndDb, 200);
 }
 
 function stopAll() {
@@ -763,6 +767,7 @@ function stopAll() {
   if (mediaEl)   { mediaEl.pause(); URL.revokeObjectURL(mediaEl.src); mediaEl = null; }
   if (audioCtx)  { audioCtx.close();       audioCtx  = null; }
   sampleBuf = []; lastTop = null;
+  if (pitchSampleTimer) { clearInterval(pitchSampleTimer); pitchSampleTimer = null; }
 
   statusTextEl.textContent = '停止中';
   enableSourceButtons();
@@ -789,7 +794,7 @@ function stopAll() {
   document.getElementById('pitch-cents-el').className   = 'pitch-cents';
   document.getElementById('pitch-bar-needle').style.left = '50%';
   dbHistory.length = 0; pitchDisplayHistory.length = 0;
-  currentDb = 0; currentSmoothedPitch = -1; audioProcessCount = 0;
+  currentDb = 0; currentSmoothedPitch = -1;
   ['ts-canvas','db-canvas','pitch-canvas'].forEach(id => {
     const c = document.getElementById(id);
     c.getContext('2d').clearRect(0, 0, c.width, c.height);
@@ -799,14 +804,22 @@ function stopAll() {
 // ============================================================
 // 音声処理コールバック
 // ============================================================
-// dB・ピッチの時系列履歴（YAMNet推論とは独立した高頻度サンプリング）
-const PITCH_TS_MAX       = 120;  // 表示する履歴点数
-const PITCH_SAMPLE_EVERY = 3;    // audioProcessコールバック何回に1回サンプリングするか（3回≒250ms）
+// dB・ピッチの時系列履歴（setIntervalで200ms毎に確実にサンプリング）
+const PITCH_TS_MAX    = 120;  // 表示する履歴点数（120点 × 200ms = 24秒分）
 const dbHistory           = [];
 const pitchDisplayHistory = [];
 let currentDb             = 0;
 let currentSmoothedPitch  = -1;
-let audioProcessCount     = 0;
+let pitchSampleTimer      = null;
+
+function samplePitchAndDb() {
+  dbHistory.push(currentDb);
+  if (dbHistory.length > PITCH_TS_MAX) dbHistory.shift();
+  pitchDisplayHistory.push(currentSmoothedPitch);
+  if (pitchDisplayHistory.length > PITCH_TS_MAX) pitchDisplayHistory.shift();
+  drawDbGraph();
+  drawPitchGraph();
+}
 
 function onAudioProcess(e) {
   const input = e.inputBuffer.getChannelData(0);
@@ -821,17 +834,6 @@ function onAudioProcess(e) {
 
   // ピッチ検出
   updatePitchDisplay(detectPitch(input, nativeSR));
-
-  // dB・ピッチを高頻度でサンプリングしてグラフ更新
-  audioProcessCount++;
-  if (audioProcessCount % PITCH_SAMPLE_EVERY === 0) {
-    dbHistory.push(currentDb);
-    if (dbHistory.length > PITCH_TS_MAX) dbHistory.shift();
-    pitchDisplayHistory.push(currentSmoothedPitch);
-    if (pitchDisplayHistory.length > PITCH_TS_MAX) pitchDisplayHistory.shift();
-    drawDbGraph();
-    drawPitchGraph();
-  }
 
   // ダウンサンプリング → 16kHz
   const ratio  = nativeSR / YAMNET_SR;
