@@ -789,7 +789,7 @@ function stopAll() {
   document.getElementById('pitch-cents-el').className   = 'pitch-cents';
   document.getElementById('pitch-bar-needle').style.left = '50%';
   dbHistory.length = 0; pitchDisplayHistory.length = 0;
-  currentDb = 0; currentSmoothedPitch = -1;
+  currentDb = 0; currentSmoothedPitch = -1; audioProcessCount = 0;
   ['ts-canvas','db-canvas','pitch-canvas'].forEach(id => {
     const c = document.getElementById(id);
     c.getContext('2d').clearRect(0, 0, c.width, c.height);
@@ -799,11 +799,14 @@ function stopAll() {
 // ============================================================
 // 音声処理コールバック
 // ============================================================
-// dB・ピッチの時系列履歴
+// dB・ピッチの時系列履歴（YAMNet推論とは独立した高頻度サンプリング）
+const PITCH_TS_MAX       = 120;  // 表示する履歴点数
+const PITCH_SAMPLE_EVERY = 3;    // audioProcessコールバック何回に1回サンプリングするか（3回≒250ms）
 const dbHistory           = [];
 const pitchDisplayHistory = [];
 let currentDb             = 0;
 let currentSmoothedPitch  = -1;
+let audioProcessCount     = 0;
 
 function onAudioProcess(e) {
   const input = e.inputBuffer.getChannelData(0);
@@ -818,6 +821,17 @@ function onAudioProcess(e) {
 
   // ピッチ検出
   updatePitchDisplay(detectPitch(input, nativeSR));
+
+  // dB・ピッチを高頻度でサンプリングしてグラフ更新
+  audioProcessCount++;
+  if (audioProcessCount % PITCH_SAMPLE_EVERY === 0) {
+    dbHistory.push(currentDb);
+    if (dbHistory.length > PITCH_TS_MAX) dbHistory.shift();
+    pitchDisplayHistory.push(currentSmoothedPitch);
+    if (pitchDisplayHistory.length > PITCH_TS_MAX) pitchDisplayHistory.shift();
+    drawDbGraph();
+    drawPitchGraph();
+  }
 
   // ダウンサンプリング → 16kHz
   const ratio  = nativeSR / YAMNET_SR;
@@ -984,8 +998,6 @@ async function runInference(samples) {
     updateCandidates(top5);
     updateTsHistory(weighted);
     drawTimeSeries();
-    drawDbGraph();
-    drawPitchGraph();
 
     inputTensor.dispose();
     if (Array.isArray(outputs)) outputs.forEach(t => t.dispose());
@@ -1055,10 +1067,6 @@ function updateTsHistory(weighted) {
     tsHistory[idx].push(weighted[cls.id] || 0);
     if (tsHistory[idx].length > TS_MAX) tsHistory[idx].shift();
   });
-  dbHistory.push(currentDb);
-  if (dbHistory.length > TS_MAX) dbHistory.shift();
-  pitchDisplayHistory.push(currentSmoothedPitch);
-  if (pitchDisplayHistory.length > TS_MAX) pitchDisplayHistory.shift();
 }
 
 function renderTsLegend() {
@@ -1164,11 +1172,11 @@ function drawDbGraph() {
   ctx.setLineDash([]);
 
   // 塗りつぶしエリア
-  const x0 = pL + cW*((TS_MAX-dbHistory.length)/(TS_MAX-1));
+  const x0 = pL + cW*((PITCH_TS_MAX-dbHistory.length)/(PITCH_TS_MAX-1));
   ctx.beginPath();
   ctx.moveTo(x0, pT+cH);
   dbHistory.forEach((val,i) => {
-    const x = pL + cW*((TS_MAX-dbHistory.length+i)/(TS_MAX-1));
+    const x = pL + cW*((PITCH_TS_MAX-dbHistory.length+i)/(PITCH_TS_MAX-1));
     const y = pT + cH*(1-Math.min(1,val/maxDb));
     ctx.lineTo(x,y);
   });
@@ -1181,7 +1189,7 @@ function drawDbGraph() {
   ctx.beginPath();
   ctx.strokeStyle='#44aaff'; ctx.lineWidth=1.5*dpr;
   dbHistory.forEach((val,i) => {
-    const x = pL + cW*((TS_MAX-dbHistory.length+i)/(TS_MAX-1));
+    const x = pL + cW*((PITCH_TS_MAX-dbHistory.length+i)/(PITCH_TS_MAX-1));
     const y = pT + cH*(1-Math.min(1,val/maxDb));
     i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
   });
@@ -1232,7 +1240,7 @@ function drawPitchGraph() {
   pitchDisplayHistory.forEach((freq,i) => {
     if (freq <= 0) { penDown=false; return; }
     const midi = 12*Math.log2(freq/440)+69;
-    const x = pL + cW*((TS_MAX-pitchDisplayHistory.length+i)/(TS_MAX-1));
+    const x = pL + cW*((PITCH_TS_MAX-pitchDisplayHistory.length+i)/(PITCH_TS_MAX-1));
     const y = pT + cH*(1-(midi-MIDI_MIN)/MIDI_RANGE);
     if (y < pT || y > pT+cH) { penDown=false; return; }
     penDown ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
@@ -1244,7 +1252,7 @@ function drawPitchGraph() {
   pitchDisplayHistory.forEach((freq,i) => {
     if (freq <= 0) return;
     const midi = 12*Math.log2(freq/440)+69;
-    const x = pL + cW*((TS_MAX-pitchDisplayHistory.length+i)/(TS_MAX-1));
+    const x = pL + cW*((PITCH_TS_MAX-pitchDisplayHistory.length+i)/(PITCH_TS_MAX-1));
     const y = pT + cH*(1-(midi-MIDI_MIN)/MIDI_RANGE);
     if (y < pT || y > pT+cH) return;
     ctx.fillStyle='#ffdd44';
