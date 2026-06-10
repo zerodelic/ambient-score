@@ -334,6 +334,15 @@
       width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
     }
     #ts-canvas { width: 100%; height: 180px; display: block; border-radius: 4px; }
+    #ts-bottom-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    #db-canvas, #pitch-canvas {
+      width: 100%; height: 90px; display: block; border-radius: 4px;
+    }
 
     /* ─── モバイル（1カラム）─── */
     @media (max-width: 780px) {
@@ -347,6 +356,7 @@
       #pitch-panel, #db-panel { flex: 1; min-width: 130px; }
       #primary-name { font-size: 1.9rem; }
       #ts-canvas { height: 140px; }
+      #ts-bottom-row { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -474,6 +484,16 @@
     <div class="panel-title">📈 確信度の推移</div>
     <div id="ts-legend"></div>
     <canvas id="ts-canvas" height="130"></canvas>
+  </div>
+  <div id="ts-bottom-row">
+    <div class="panel">
+      <div class="panel-title">🔊 音圧の推移</div>
+      <canvas id="db-canvas" height="70"></canvas>
+    </div>
+    <div class="panel">
+      <div class="panel-title">🎵 ピッチの推移</div>
+      <canvas id="pitch-canvas" height="70"></canvas>
+    </div>
   </div>
 </div>
 
@@ -767,13 +787,23 @@ function stopAll() {
   document.getElementById('pitch-cents-el').textContent = '';
   document.getElementById('pitch-cents-el').className   = 'pitch-cents';
   document.getElementById('pitch-bar-needle').style.left = '50%';
-  const tc = document.getElementById('ts-canvas');
-  tc.getContext('2d').clearRect(0, 0, tc.width, tc.height);
+  dbHistory.length = 0; pitchDisplayHistory.length = 0;
+  currentDb = 0; currentSmoothedPitch = -1;
+  ['ts-canvas','db-canvas','pitch-canvas'].forEach(id => {
+    const c = document.getElementById(id);
+    c.getContext('2d').clearRect(0, 0, c.width, c.height);
+  });
 }
 
 // ============================================================
 // 音声処理コールバック
 // ============================================================
+// dB・ピッチの時系列履歴
+const dbHistory           = [];
+const pitchDisplayHistory = [];
+let currentDb             = 0;
+let currentSmoothedPitch  = -1;
+
 function onAudioProcess(e) {
   const input = e.inputBuffer.getChannelData(0);
 
@@ -783,6 +813,7 @@ function onAudioProcess(e) {
   rms = Math.sqrt(rms / input.length);
   const db = rms > 0 ? Math.max(0, 20 * Math.log10(rms) - NOISE_FLOOR_DB) : 0;
   document.getElementById('db-value').textContent = db.toFixed(1);
+  currentDb = db;
 
   // ピッチ検出
   updatePitchDisplay(detectPitch(input, nativeSR));
@@ -887,6 +918,8 @@ function updatePitchDisplay(rawFreq) {
   const centsEl  = document.getElementById('pitch-cents-el');
   const needleEl = document.getElementById('pitch-bar-needle');
 
+  currentSmoothedPitch = freq;
+
   if (freq < 0) {
     if (jpEl.textContent === '---') return;  // 既に無音表示ならスキップ
     lastPitchStr = null;
@@ -950,6 +983,8 @@ async function runInference(samples) {
     updateCandidates(top5);
     updateTsHistory(weighted);
     drawTimeSeries();
+    drawDbGraph();
+    drawPitchGraph();
 
     inputTensor.dispose();
     if (Array.isArray(outputs)) outputs.forEach(t => t.dispose());
@@ -1019,6 +1054,10 @@ function updateTsHistory(weighted) {
     tsHistory[idx].push(weighted[cls.id] || 0);
     if (tsHistory[idx].length > TS_MAX) tsHistory[idx].shift();
   });
+  dbHistory.push(currentDb);
+  if (dbHistory.length > TS_MAX) dbHistory.shift();
+  pitchDisplayHistory.push(currentSmoothedPitch);
+  if (pitchDisplayHistory.length > TS_MAX) pitchDisplayHistory.shift();
 }
 
 function renderTsLegend() {
@@ -1089,6 +1128,130 @@ function drawTimeSeries() {
 }
 
 // ============================================================
+// 音圧グラフ
+// ============================================================
+function drawDbGraph() {
+  const canvas = document.getElementById('db-canvas');
+  const ctx    = canvas.getContext('2d');
+  const dpr    = window.devicePixelRatio || 1;
+  canvas.width  = canvas.offsetWidth  * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  const w = canvas.width, h = canvas.height;
+  const pL=42*dpr, pR=8*dpr, pT=6*dpr, pB=6*dpr;
+  const cW=w-pL-pR, cH=h-pT-pB;
+
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#080d15';
+  ctx.fillRect(pL,pT,cW,cH);
+
+  if (dbHistory.length < 2) return;
+
+  const maxDb = Math.max(30, ...dbHistory);
+  const fs = Math.round(10*dpr);
+  ctx.font = `${fs}px Courier New`;
+
+  // グリッド
+  ctx.setLineDash([3*dpr, 3*dpr]);
+  [0.5, 1.0].forEach(v => {
+    const y     = pT + cH*(1-v);
+    const label = Math.round(v*maxDb)+'dB';
+    ctx.strokeStyle='#1a2a3a'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pL,y); ctx.lineTo(pL+cW,y); ctx.stroke();
+    ctx.fillStyle='#556677'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillText(label, pL-3*dpr, y);
+  });
+  ctx.setLineDash([]);
+
+  // 塗りつぶしエリア
+  const x0 = pL + cW*((TS_MAX-dbHistory.length)/(TS_MAX-1));
+  ctx.beginPath();
+  ctx.moveTo(x0, pT+cH);
+  dbHistory.forEach((val,i) => {
+    const x = pL + cW*((TS_MAX-dbHistory.length+i)/(TS_MAX-1));
+    const y = pT + cH*(1-Math.min(1,val/maxDb));
+    ctx.lineTo(x,y);
+  });
+  ctx.lineTo(pL+cW, pT+cH);
+  ctx.closePath();
+  ctx.fillStyle = '#44aaff18';
+  ctx.fill();
+
+  // ライン
+  ctx.beginPath();
+  ctx.strokeStyle='#44aaff'; ctx.lineWidth=1.5*dpr;
+  dbHistory.forEach((val,i) => {
+    const x = pL + cW*((TS_MAX-dbHistory.length+i)/(TS_MAX-1));
+    const y = pT + cH*(1-Math.min(1,val/maxDb));
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+}
+
+// ============================================================
+// ピッチグラフ
+// ============================================================
+function drawPitchGraph() {
+  const canvas = document.getElementById('pitch-canvas');
+  const ctx    = canvas.getContext('2d');
+  const dpr    = window.devicePixelRatio || 1;
+  canvas.width  = canvas.offsetWidth  * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  const w = canvas.width, h = canvas.height;
+  const pL=30*dpr, pR=8*dpr, pT=6*dpr, pB=6*dpr;
+  const cW=w-pL-pR, cH=h-pT-pB;
+
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#080d15';
+  ctx.fillRect(pL,pT,cW,cH);
+
+  // Y軸: MIDI 40(E2)〜84(C6) = 人声・楽器の実用範囲
+  const MIDI_MIN = 40, MIDI_MAX = 84, MIDI_RANGE = MIDI_MAX - MIDI_MIN;
+  const fs = Math.round(10*dpr);
+  ctx.font = `${fs}px Courier New`;
+
+  // オクターブごとのグリッド（C音）
+  ctx.setLineDash([3*dpr, 3*dpr]);
+  [48,60,72,84].forEach(midi => {
+    const y = pT + cH*(1-(midi-MIDI_MIN)/MIDI_RANGE);
+    if (y < pT-2 || y > pT+cH+2) return;
+    ctx.strokeStyle='#1a2a3a'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pL,y); ctx.lineTo(pL+cW,y); ctx.stroke();
+    const oct = Math.floor(midi/12)-1;
+    ctx.fillStyle='#556677'; ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillText(`C${oct}`, pL-3*dpr, y);
+  });
+  ctx.setLineDash([]);
+
+  if (pitchDisplayHistory.filter(f=>f>0).length < 1) return;
+
+  // ライン（検出時のみ繋ぐ）
+  ctx.beginPath();
+  ctx.strokeStyle='#ffdd44'; ctx.lineWidth=1.5*dpr;
+  let penDown = false;
+  pitchDisplayHistory.forEach((freq,i) => {
+    if (freq <= 0) { penDown=false; return; }
+    const midi = 12*Math.log2(freq/440)+69;
+    const x = pL + cW*((TS_MAX-pitchDisplayHistory.length+i)/(TS_MAX-1));
+    const y = pT + cH*(1-(midi-MIDI_MIN)/MIDI_RANGE);
+    if (y < pT || y > pT+cH) { penDown=false; return; }
+    penDown ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
+    penDown = true;
+  });
+  ctx.stroke();
+
+  // ドット
+  pitchDisplayHistory.forEach((freq,i) => {
+    if (freq <= 0) return;
+    const midi = 12*Math.log2(freq/440)+69;
+    const x = pL + cW*((TS_MAX-pitchDisplayHistory.length+i)/(TS_MAX-1));
+    const y = pT + cH*(1-(midi-MIDI_MIN)/MIDI_RANGE);
+    if (y < pT || y > pT+cH) return;
+    ctx.fillStyle='#ffdd44';
+    ctx.beginPath(); ctx.arc(x,y,2.5*dpr,0,Math.PI*2); ctx.fill();
+  });
+}
+
+// ============================================================
 // スナップショット
 // ============================================================
 const snapshots = [];
@@ -1143,7 +1306,7 @@ document.getElementById('file-input').addEventListener('change', e => {
 });
 document.getElementById('btn-stop').addEventListener('click', stopAll);
 document.getElementById('btn-snap').addEventListener('click', takeSnapshot);
-window.addEventListener('resize', drawTimeSeries);
+window.addEventListener('resize', () => { drawTimeSeries(); drawDbGraph(); drawPitchGraph(); });
 
 // ============================================================
 // 初期化
