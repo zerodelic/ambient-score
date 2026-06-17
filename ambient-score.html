@@ -1890,6 +1890,7 @@
   ];
 
   let audioCtx, analyser, source, animId;
+  let _freqBuf = null, _timeBuf = null; // draw() で再利用するバッファ
   const specCanvas = document.getElementById('spectrum');
   const waveCanvas = document.getElementById('waveform');
   const tsCanvas   = document.getElementById('timeseries');
@@ -2309,6 +2310,15 @@
       analyser.smoothingTimeConstant = 0.8;
       source = audioCtx.createMediaStreamSource(stream);
       source.connect(analyser);
+      _freqBuf = new Float32Array(analyser.frequencyBinCount);
+      _timeBuf = new Float32Array(analyser.fftSize);
+      // オクターブバンドのビン範囲を事前計算（毎フレームO(N)スキャンを回避）
+      const _nyquist = audioCtx.sampleRate / 2;
+      const _bufLen  = analyser.frequencyBinCount;
+      OCTAVE_BANDS.forEach(b => {
+        b.lowBin  = Math.max(0,          Math.floor((b.fc / Math.SQRT2 / _nyquist) * _bufLen));
+        b.highBin = Math.min(_bufLen - 1, Math.ceil((b.fc * Math.SQRT2 / _nyquist) * _bufLen));
+      });
 
       const sr = audioCtx.sampleRate;
       document.getElementById('val-sr').textContent = 'サンプリングレート: ' + sr.toLocaleString() + ' Hz';
@@ -2316,6 +2326,8 @@
         '20Hz – ' + (sr / 2).toLocaleString() + 'Hz (Nyquist)';
       // 開始時にセッション集計・ログをリセット
       startTime = null;
+      elapsedOffset = 0;
+      pauseStartTs  = null;
       sessionStartClock = formatClock();
       lastLogTime = 0;
       logData = [];
@@ -2395,6 +2407,7 @@
   function stop() {
     if (animId) cancelAnimationFrame(animId);
     if (audioCtx) audioCtx.close();
+    analyser = null; source = null; audioCtx = null;
     closeFileLog(); // ファイルログを閉じる（非同期だが待たない）
     document.getElementById('btn-filelog').disabled = true; // 対応/非対応問わず停止中は無効
     document.getElementById('mic-info').textContent = '';
@@ -2521,7 +2534,7 @@
     wtfCtx.putImageData(imageData, 0, dataH - rowH);
 
     // sessionStorage に定期保存（5秒ごと）
-    if (!drawWaterfall._lastSave || elapsed - drawWaterfall._lastSave > 5) {
+    if (!drawWaterfall._lastSave || elapsed - drawWaterfall._lastSave > 5000) {
       drawWaterfall._lastSave = elapsed;
       try {
         sessionStorage.setItem('wtf-snapshot', wtfCanvas.toDataURL('image/webp', 0.6));
@@ -2677,12 +2690,13 @@
   }
 
   function draw(timestamp = 0) {
+    if (!analyser) return;
     animId = requestAnimationFrame(draw);
 
     const fftSize = analyser.fftSize;
     const bufLen = analyser.frequencyBinCount;
-    const freqData = new Float32Array(bufLen);
-    const timeData = new Float32Array(fftSize);
+    const freqData = _freqBuf;
+    const timeData = _timeBuf;
     analyser.getFloatFrequencyData(freqData);
     analyser.getFloatTimeDomainData(timeData);
 
@@ -2704,7 +2718,8 @@
     // --- 直近3秒のローリング最大値 ---
     peakBuffer[peakBufIdx % PEAK_WINDOW_FRAMES] = dbShifted;
     peakBufIdx++;
-    const peakHold = Math.max(...peakBuffer);
+    let peakHold = 0;
+    for (let i = 0; i < peakBuffer.length; i++) if (peakBuffer[i] > peakHold) peakHold = peakBuffer[i];
 
     // --- セッション最大・平均 ---
     if (dbShifted > sessionMax) sessionMax = dbShifted;
@@ -2729,7 +2744,7 @@
 
     // 経過時間の基準を初回フレームで確定
     if (startTime === null) startTime = timestamp;
-    const elapsed = timestamp - startTime;
+    const elapsed = timestamp - startTime - elapsedOffset;
 
     // 数値メーターは METER_INTERVAL_MS ごとにのみ更新（視認しやすくするため）
     const shouldUpdateMeter = timestamp - lastMeterTime >= METER_INTERVAL_MS;
@@ -2995,17 +3010,11 @@
 
     // --- Octave bands ---
     OCTAVE_BANDS.forEach(b => {
-      const fc = b.fc;
-      const fLow = fc / Math.SQRT2;
-      const fHigh = fc * Math.SQRT2;
       let sum = 0, count = 0;
-      for (let i = 0; i < bufLen; i++) {
-        const f = (i / bufLen) * nyquist;
-        if (f >= fLow && f <= fHigh) {
-          const linear = Math.pow(10, freqData[i] / 20);
-          sum += linear * linear;
-          count++;
-        }
+      for (let i = b.lowBin; i <= b.highBin; i++) {
+        const linear = Math.pow(10, freqData[i] / 20);
+        sum += linear * linear;
+        count++;
       }
       let dbOct = -Infinity;
       if (count > 0 && sum > 0) dbOct = 10 * Math.log10(sum / count);
@@ -3042,6 +3051,7 @@
 
     // 活動ゲート: 背景より 4dB 以上（複数人発話でも検出できるよう緩和）
     if (dbShifted < 2 || activityDb < 4) {
+      prevWasVoice = false;
       smoothVoiceScore = smoothVoiceScore * 0.85;
       if (shouldUpdateMeter) {
         const gateLabel = dbShifted < 2 ? '静寂 / 無音' : '🔊 騒音・環境音';
@@ -3406,6 +3416,8 @@
   let lastLogTime = 0;
   let logData = []; // CSVエクスポート用
   let startTime = null;
+  let elapsedOffset = 0;       // 一時停止中の累積時間(ms)
+  let pauseStartTs  = null;    // pause() を呼んだ時刻
   let sessionStartClock = null; // 実時計での開始時刻
   let lastTsImageUrl = null;   // レポート用：停止時の時系列グラフ画像
 
@@ -3459,13 +3471,9 @@
   async function appendRowToFile(data) {
     if (!_fileWriter) return;
     try {
-      const row = [
-        data.elapsed,
-        ...LOG_COLS.map(c => {
-          const col = LOG_COLS.find(x => x.id === c.id);
-          return col ? col.fmt(data[c.id]) : '';
-        }),
-      ].join(',') + '\n';
+      const enabled = getEnabledCols();
+      const cols = LOG_COLS.filter(c => enabled.includes(c.id));
+      const row = [data.elapsed, ...cols.map(c => c.fmt(data[c.id]))].join(',') + '\n';
       const encoded = new TextEncoder().encode(row);
       await _fileWriter.write({ type: 'write', position: _fileOffset, data: encoded });
       _fileOffset += encoded.byteLength;
@@ -3643,6 +3651,7 @@
   function pause() {
     if (animId) cancelAnimationFrame(animId);
     isPaused = true;
+    pauseStartTs = performance.now();
     btnPause.textContent = '▶ 再開';
     btnPause.classList.add('active');
     status.textContent = '一時停止中';
@@ -3651,14 +3660,16 @@
   }
 
   function resume() {
+    if (pauseStartTs !== null) {
+      elapsedOffset += performance.now() - pauseStartTs;
+      pauseStartTs = null;
+    }
     isPaused = false;
     btnPause.textContent = '⏸ 一時停止';
     btnPause.classList.remove('active');
     status.textContent = '測定中...';
     setLabelButtons(true);
     addAlertLogEntry('dismiss', '▶ 再開');
-    // startTime を一時停止分だけ前倒しして elapsed を継続させる
-    if (startTime !== null) startTime = null; // 次フレームで再設定
     lastMeterTime = 0;
     draw();
   }
@@ -3725,7 +3736,6 @@
   // =============================================
   function showSummary() {
     const endClock = formatClock();
-    const elapsedSec = sessionCount > 0 ? Math.round(sessionCount / 60 * (1000 / 300) * 0.3) : 0;
     // 測定時間は logData の件数から計算（1件≒1秒）
     const durationSec = logData.length;
     const durationStr = durationSec >= 60
@@ -3833,13 +3843,15 @@
       return;
     }
     const gradeColors = { A:'#44ffaa', B:'#88ffcc', C:'#ffcc44', D:'#ff8844', E:'#ff4444' };
-    list.innerHTML = history.map((s, i) => `
-      <div class="history-row">
-        <span class="history-period">${i === 0 ? '▶ 今回　' : ''}${s.period}（${s.duration}）</span>
-        <span class="history-score" style="color:${gradeColors[s.grade]||'#88ffcc'}">${s.score}点</span>
-        <span class="history-grade" style="color:${gradeColors[s.grade]||'#88ffcc'}">${s.grade}</span>
-        <span class="history-dur">${s.occupancy}%</span>
-      </div>`).join('');
+    list.innerHTML = history.map((s, i) => {
+      const color = gradeColors[s.grade] || '#88ffcc';
+      return `<div class="history-row">
+        <span class="history-period">${i === 0 ? '▶ 今回　' : ''}${escHtml(s.period)}（${escHtml(s.duration)}）</span>
+        <span class="history-score" style="color:${escHtml(color)}">${escHtml(String(s.score))}点</span>
+        <span class="history-grade" style="color:${escHtml(color)}">${escHtml(s.grade)}</span>
+        <span class="history-dur">${escHtml(String(s.occupancy))}%</span>
+      </div>`;
+    }).join('');
   }
 
   // =============================================
@@ -4405,7 +4417,14 @@
     const sep = target.dataset.tip.indexOf('|');
     const title = sep >= 0 ? target.dataset.tip.slice(0, sep) : target.dataset.tip;
     const desc  = sep >= 0 ? target.dataset.tip.slice(sep + 1) : '';
-    tooltipEl.innerHTML = `<strong>${title}</strong>${desc ? '<br>' + desc : ''}`;
+    tooltipEl.innerHTML = '';
+    const strong = document.createElement('strong');
+    strong.textContent = title;
+    tooltipEl.appendChild(strong);
+    if (desc) {
+      tooltipEl.appendChild(document.createElement('br'));
+      tooltipEl.appendChild(document.createTextNode(desc));
+    }
     tooltipEl.classList.add('visible');
   });
 
