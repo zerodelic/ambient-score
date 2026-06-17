@@ -11,8 +11,8 @@
 
 | アプリID | 名前 | 状態 | 説明 |
 |---------|------|------|------|
-| **AS1** | Ambient Score 1 | ✅ 開発中 (v2.3.9) | 単一HTMLファイル、FFT+ヒューリスティックVAD |
-| **AA1** | Ambient AI 1 | 🔍 調査・設計中 | TensorFlow.js + YAMNet による高精度音識別 |
+| **AS1** | Ambient Score 1 | ✅ 開発中 (v2.6.0) | 単一HTMLファイル、FFT+ヒューリスティックVAD |
+| **AA1** | Ambient AI 1 | 🔨 プロトタイプ開発中 (v0.3.2) | TensorFlow.js + YAMNet による高精度音識別 |
 | **未定** | ログ解析アプリ | 💭 構想中 | AS1/AA1のCSVログを可視化・分析 |
 
 ---
@@ -21,7 +21,7 @@
 
 - **ファイル**: `ambient-score.html`（単一HTMLファイル、依存ライブラリなし）
 - **GitHub Pages**: `https://zerodelic.github.io/ambient-score/ambient-score.html`
-- **最新バージョン**: v2.3.9
+- **最新バージョン**: v2.6.0
 - **開発方針**: 1ファイルで動作・オフライン対応・PCとモバイル(iOS Chrome)両対応
 
 ### 主要な技術的決定事項
@@ -43,7 +43,7 @@ cp "/Users/hiroshi.onozawa/Library/Mobile Documents/com~apple~CloudDocs/400_Clau
 
 ---
 
-## AA1 (Ambient AI 1) — 構想
+## AA1 (Ambient AI 1) — プロトタイプ
 
 ### コンセプト
 
@@ -74,13 +74,17 @@ AS1の改良ではなく、AIを活用した**別アプリ**として開発す�
 | レイテンシ | 最小約0.96秒（AS1の300msより遅い） |
 | 注意 | 入力は16kHz必要 → AudioContext(48kHz)からリサンプリング要 |
 
-### プロトタイプ実装済み（aa1-prototype.html）
+### プロトタイプ実装済み（aa1-prototype.html / v0.3.2）
 
 - TF.js + YAMNet（CDN・TF Hub）でブラウザ動作を確認
 - 推論時間：**約40ms以下**（1秒サイクルの4%負荷）
 - Silence / Speech / Music の識別を概ね確認
 - 可視化：メルスペクトログラム・主要クラス時系列・パフォーマンスグラフ・サマリーレポート
 - FFTスペクトラム・JoyPlotの追加は**見送り**（メルスペクトログラムで代替可能）
+- ピッチ検出・大譜表（ト音記号 + ヘ音記号）表示・BPM検出
+- TF.js CDN に SRI integrity 属性を追加
+- XSS対策（escHtml）・CSVインジェクション対策
+- 自己相関をピッチ範囲限定計算に最適化（約3倍高速化）
 
 ### 次のステップ
 
