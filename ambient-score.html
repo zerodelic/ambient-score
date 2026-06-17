@@ -3481,6 +3481,14 @@
   }
 
   // 全列の定義（id・表示名・値フォーマッタ）※ null は空文字として出力
+  // ユーザー入力テキストを CSV フォーミュラインジェクションから保護
+  function csvSafe(s) {
+    const str = String(s);
+    // 数値はそのまま（負の数値を壊さないよう先頭が数字なら除外）
+    if (/^-?\d/.test(str)) return str;
+    return /^[=+\-@]/.test(str) ? `'${str}` : str;
+  }
+
   const LOG_COLS = [
     { id: 'dbVal',       label: '音圧(dB)',          fmt: v => v != null ? v.toFixed(1) : '' },
     { id: 'peak3s',      label: '直近3秒最大(dB)',   fmt: v => v != null ? v.toFixed(1) : '' },
@@ -3489,7 +3497,7 @@
     { id: 'occupancy',   label: '声の占有率(%)',      fmt: v => v != null ? v.toFixed(1) : '' },
     { id: 'voiceEvents', label: '声のイベント数',     fmt: v => v != null ? String(v) : '' },
     { id: 'voiceAvgDb',  label: '声の平均音圧(dB)',   fmt: v => (v != null && v >= 0) ? v.toFixed(1) : '' },
-    { id: 'note',        label: '注記',               fmt: v => v ? `"${v}"` : '' },
+    { id: 'note',        label: '注記',               fmt: v => v ? `"${csvSafe(v)}"` : '' },
   ];
 
   // 有効な列IDを取得
@@ -3837,8 +3845,12 @@
   // =============================================
   // --- レポート生成 ---
   // =============================================
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   function generateReport() {
-    const location  = document.getElementById('report-location').value.trim() || '未設定';
+    const location  = escHtml(document.getElementById('report-location').value.trim() || '未設定');
     const period    = document.getElementById('summary-period').textContent;
     const scoreNum  = document.getElementById('sum-score-num').textContent;
     const scoreColor= document.getElementById('sum-score-num').style.color || '#44ffaa';
@@ -3876,7 +3888,7 @@
       : labels.map(d => `
           <tr>
             <td style="color:#555;padding:5px 12px;white-space:nowrap;">${d.elapsed}</td>
-            <td style="padding:5px 12px;">${d.note}</td>
+            <td style="padding:5px 12px;">${escHtml(d.note)}</td>
           </tr>`).join('');
 
     const html = `<!DOCTYPE html>
