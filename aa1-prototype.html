@@ -4,7 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AA1 — Sound Identifier</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"
+          integrity="sha384-xc4sZTUOM2obsQR75Be0zGbt7Gb6mOVFJN4yBm30Xn0YQLDWIY+yrtFmLmIank6w"
+          crossorigin="anonymous"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -182,6 +184,21 @@
       transition: left 0.15s;
     }
 
+    /* BPM */
+    #bpm-display {
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 8px; padding-top: 6px;
+      border-top: 1px solid #1a2535;
+    }
+    #bpm-beat {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #1e3a4a; flex-shrink: 0;
+      transition: background 0.08s, box-shadow 0.08s;
+    }
+    #bpm-beat.on { background: #55ccff; box-shadow: 0 0 7px #55ccff99; }
+    #bpm-value { font-size: 2rem; font-weight: bold; color: #77bbdd; font-variant-numeric: tabular-nums; min-width: 3ch; }
+    .bpm-unit  { font-size: 0.72rem; color: #5588aa; }
+
     /* dB */
     .db-val  { font-size: 1.9rem; font-weight: bold; color: #44aaff; }
     .db-unit { font-size: 0.85rem; color: #336699; margin-left: 2px; }
@@ -334,15 +351,14 @@
     .ts-legend-dot {
       width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
     }
-    #ts-canvas { width: 100%; height: 180px; display: block; border-radius: 4px; }
+    #ts-canvas    { width: 100%; height: 160px; display: block; border-radius: 4px; }
+    #db-canvas    { width: 100%; height: 160px; display: block; border-radius: 4px; }
+    #pitch-canvas { width: 100%; height: 220px; display: block; border-radius: 4px; }
     #ts-bottom-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: flex;
+      flex-direction: column;
       gap: 10px;
       margin-top: 10px;
-    }
-    #db-canvas, #pitch-canvas {
-      width: 100%; height: 90px; display: block; border-radius: 4px;
     }
 
     /* ─── モバイル（1カラム）─── */
@@ -356,7 +372,8 @@
       .src-btns { flex-direction: row; }
       #pitch-panel, #db-panel { flex: 1; min-width: 130px; }
       #primary-name { font-size: 1.9rem; }
-      #ts-canvas { height: 140px; }
+      #ts-canvas, #db-canvas { height: 120px; }
+      #pitch-canvas { height: 180px; }
       #ts-bottom-row { grid-template-columns: 1fr; }
     }
   </style>
@@ -365,7 +382,7 @@
 
 <!-- ─── ヘッダー ─── -->
 <div id="header">
-  <h1>AA1 <span id="version-badge">v0.2.0</span></h1>
+  <h1>AA1 <span id="version-badge">v0.3.2</span></h1>
   <span id="model-status">⏳ 初期化中...</span>
   <div id="context-wrap">
     <label for="context-select">📍 コンテキスト:</label>
@@ -431,6 +448,11 @@
           <div id="pitch-bar-needle" style="left:50%"></div>
         </div>
       </div>
+      <div id="bpm-display">
+        <span id="bpm-beat"></span>
+        <span id="bpm-value">--</span>
+        <span class="bpm-unit">BPM</span>
+      </div>
     </div>
 
     <!-- 音圧 -->
@@ -492,7 +514,7 @@
       <canvas id="db-canvas" height="70"></canvas>
     </div>
     <div class="panel">
-      <div class="panel-title">🎵 ピッチの推移</div>
+      <div class="panel-title">🎼 五線譜（ピッチ推移）</div>
       <canvas id="pitch-canvas" height="70"></canvas>
     </div>
   </div>
@@ -582,6 +604,10 @@ async function loadClassNames() {
 
 function getClassName(id) {
   return JP_NAMES[id] || CLASS_NAMES[id] || `Class ${id}`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ============================================================
@@ -793,8 +819,11 @@ function stopAll() {
   document.getElementById('pitch-cents-el').textContent = '';
   document.getElementById('pitch-cents-el').className   = 'pitch-cents';
   document.getElementById('pitch-bar-needle').style.left = '50%';
-  dbHistory.length = 0; pitchDisplayHistory.length = 0;
+  dbHistory.length = 0; pitchDisplayHistory.length = 0; labelHistory.length = 0;
+  onsetTimes.length = 0; onsetTracker = 0; smoothedBpm = null;
   currentDb = 0; currentSmoothedPitch = -1;
+  document.getElementById('bpm-value').textContent = '--';
+  document.getElementById('bpm-beat').classList.remove('on');
   ['ts-canvas','db-canvas','pitch-canvas'].forEach(id => {
     const c = document.getElementById(id);
     c.getContext('2d').clearRect(0, 0, c.width, c.height);
@@ -808,15 +837,41 @@ function stopAll() {
 const PITCH_TS_MAX    = 120;  // 表示する履歴点数（120点 × 200ms = 24秒分）
 const dbHistory           = [];
 const pitchDisplayHistory = [];
+const labelHistory        = [];  // ピッチラベル履歴（音符名文字列 or ''）
 let currentDb             = 0;
 let currentSmoothedPitch  = -1;
 let pitchSampleTimer      = null;
+
+// ── BPM 検出 ──────────────────────────────────────────────────
+const onsetTimes   = [];        // オンセット（立ち上がり）タイムスタンプ
+let   onsetTracker = 0;         // ピーク追従エンベロープ（dB）
+let   smoothedBpm  = null;      // EMA 平滑化後の BPM
+const ONSET_DECAY  = 0.80;      // フレームごとの減衰率（~85ms 毎）
+const ONSET_THRESH = 7;         // オンセット判定の dB 上昇閾値
+const ONSET_WIN_MS = 8000;      // 有効オンセット保持時間（ms）
 
 function samplePitchAndDb() {
   dbHistory.push(currentDb);
   if (dbHistory.length > PITCH_TS_MAX) dbHistory.shift();
   pitchDisplayHistory.push(currentSmoothedPitch);
   if (pitchDisplayHistory.length > PITCH_TS_MAX) pitchDisplayHistory.shift();
+  // ラベル履歴: 検出時のみ音符名を記録
+  if (currentSmoothedPitch > 0) {
+    const rm = ((Math.round(12 * Math.log2(currentSmoothedPitch / 440) + 69)) % 12 + 12) % 12;
+    labelHistory.push(NOTE_JP[rm]);
+  } else {
+    labelHistory.push('');
+  }
+  if (labelHistory.length > PITCH_TS_MAX) labelHistory.shift();
+
+  // BPM 更新（200ms ごと、EMA 平滑化）
+  const rawBpm = estimateBPM();
+  if (rawBpm !== null) {
+    smoothedBpm = smoothedBpm === null ? rawBpm : Math.round(smoothedBpm * 0.75 + rawBpm * 0.25);
+  }
+  const bpmEl = document.getElementById('bpm-value');
+  if (bpmEl) bpmEl.textContent = smoothedBpm !== null ? smoothedBpm : '--';
+
   drawDbGraph();
   drawPitchGraph();
 }
@@ -831,6 +886,18 @@ function onAudioProcess(e) {
   const db = rms > 0 ? Math.max(0, 20 * Math.log10(rms) - NOISE_FLOOR_DB) : 0;
   document.getElementById('db-value').textContent = db.toFixed(1);
   currentDb = db;
+
+  // オンセット検出（BPM 用）
+  if (db > onsetTracker + ONSET_THRESH && db > 5) {
+    const now = performance.now();
+    onsetTimes.push(now);
+    const cutoff = now - ONSET_WIN_MS;
+    while (onsetTimes.length && onsetTimes[0] < cutoff) onsetTimes.shift();
+    // ビートドットを点滅
+    const dot = document.getElementById('bpm-beat');
+    if (dot) { dot.classList.add('on'); setTimeout(() => dot.classList.remove('on'), 120); }
+  }
+  onsetTracker = Math.max(db, onsetTracker * ONSET_DECAY);
 
   // ピッチ検出
   updatePitchDisplay(detectPitch(input, nativeSR));
@@ -853,6 +920,33 @@ function onAudioProcess(e) {
 // ============================================================
 // ピッチ検出（自己相関法）
 // ============================================================
+// ── BPM 推定: IOI（音間隔）ヒストグラム法 ────────────────────
+function estimateBPM() {
+  const now = performance.now();
+  const recent = onsetTimes.filter(t => now - t < ONSET_WIN_MS);
+  if (recent.length < 4) return null;
+
+  // 全ペアの間隔から BPM 候補に投票（1〜4 拍分の倍率を考慮）
+  const bins = new Float32Array(241); // index = BPM (40–240)
+  for (let i = 0; i < recent.length - 1; i++) {
+    for (let j = i + 1; j < Math.min(i + 10, recent.length); j++) {
+      const ioi = recent[j] - recent[i];
+      for (let mult = 1; mult <= 4; mult++) {
+        const bpm = Math.round(60000 / (ioi / mult));
+        if (bpm >= 40 && bpm <= 240) {
+          bins[bpm] += 1.0 / (mult * (j - i));
+        }
+      }
+    }
+  }
+  // ピーク BPM を検索
+  let peakBpm = 0, peakVal = 0;
+  for (let b = 40; b <= 240; b++) {
+    if (bins[b] > peakVal) { peakVal = bins[b]; peakBpm = b; }
+  }
+  return peakVal >= 1.5 ? peakBpm : null;
+}
+
 function detectPitch(buffer, sr) {
   const SIZE = buffer.length;
   const HALF = Math.floor(SIZE / 2);
@@ -863,25 +957,24 @@ function detectPitch(buffer, sr) {
   for (let i = 0; i < SIZE; i++) rms += buffer[i] * buffer[i];
   if (Math.sqrt(rms / SIZE) < 0.004) return -1;
 
-  // 自己相関
-  const ac = new Float32Array(HALF);
-  for (let lag = 0; lag < HALF; lag++) {
+  // 自己相関 — ピッチ範囲 40–5000Hz に対応するラグのみ計算
+  const LAG_MIN = Math.max(2,  Math.floor(sr / 5000));
+  const LAG_MAX = Math.min(HALF - 1, Math.ceil(sr / 40));
+  const ac = new Float32Array(LAG_MAX + 1);
+  ac[0] = 0;
+  for (let i = 0; i < HALF; i++) ac[0] += buffer[i] * buffer[i];
+  for (let lag = LAG_MIN; lag <= LAG_MAX; lag++) {
     let s = 0;
     for (let i = 0; i < HALF; i++) s += buffer[i] * buffer[i + lag];
     ac[lag] = s;
   }
 
-  // 最初の谷を越えたところを探索開始点にする
-  let d = 1;
-  while (d < HALF - 1 && ac[d] >= ac[d-1]) d++;
-  while (d < HALF - 1 && ac[d] <= ac[d-1]) d++;
-
-  // 最大ピーク探索
+  // 最大ピーク探索（探索範囲をラグ限定域内に絞る）
   let maxVal = -Infinity, maxLag = -1;
-  for (let i = d; i < HALF; i++) {
+  for (let i = LAG_MIN; i <= LAG_MAX; i++) {
     if (ac[i] > maxVal) { maxVal = ac[i]; maxLag = i; }
   }
-  if (maxLag < 2 || maxLag >= HALF - 1) return -1;
+  if (maxLag <= LAG_MIN || maxLag >= HALF - 1) return -1;
 
   // 信頼度チェック
   if (ac[0] <= 0 || maxVal / ac[0] < 0.15) return -1;
@@ -916,8 +1009,8 @@ function getSmoothedPitch(raw) {
   pitchBuf.push(raw);
   if (pitchBuf.length > PITCH_BUF_SIZE) pitchBuf.shift();
   const valid = pitchBuf.filter(f => f > 0);
-  // 半数以上のフレームでピッチが検出されていなければ「無音」扱い
-  if (valid.length < Math.ceil(PITCH_BUF_SIZE * 0.5)) return -1;
+  // 1/3 以上のフレームでピッチが検出されていれば有効（短い音でも表示）
+  if (valid.length < Math.ceil(PITCH_BUF_SIZE * 0.33)) return -1;
   // 外れ値に強いメディアンを返す
   const sorted = [...valid].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)];
@@ -972,9 +1065,10 @@ let lastTop   = null;
 async function runInference(samples) {
   if (inferring || !model) return;
   inferring = true;
+  let inputTensor = null, outputs = null;
   try {
-    const inputTensor  = tf.tensor1d(new Float32Array(samples));
-    const outputs      = model.predict(inputTensor);
+    inputTensor  = tf.tensor1d(new Float32Array(samples));
+    outputs      = model.predict(inputTensor);
     const scoresTensor = Array.isArray(outputs) ? outputs[0] : outputs;
     const scoresData   = await scoresTensor.array();
 
@@ -1001,12 +1095,15 @@ async function runInference(samples) {
     updateTsHistory(weighted);
     drawTimeSeries();
 
-    inputTensor.dispose();
-    if (Array.isArray(outputs)) outputs.forEach(t => t.dispose());
-    else outputs.dispose();
-
   } catch (e) { console.error('推論エラー:', e); }
-  inferring = false;
+  finally {
+    if (inputTensor) inputTensor.dispose();
+    if (outputs) {
+      if (Array.isArray(outputs)) outputs.forEach(t => t.dispose());
+      else outputs.dispose();
+    }
+    inferring = false;
+  }
 }
 
 // ============================================================
@@ -1041,7 +1138,7 @@ function updateCandidates(top5) {
       const barW = Math.min(100, v * 100).toFixed(1);
       return `<div class="cand-item cat-${cat}">
         <div class="cand-row">
-          <span class="cand-name">${getClassName(i)}</span>
+          <span class="cand-name">${escHtml(getClassName(i))}</span>
           <span class="cand-pct">${(v*100).toFixed(1)}%</span>
         </div>
         <div class="cand-bar-wrap">
@@ -1080,13 +1177,21 @@ function renderTsLegend() {
   ).join('');
 }
 
+// canvas ごとのサイズキャッシュ — resize 時のみ更新してリフローを抑制
+const canvasState = {};
+function refreshCanvases() {
+  const dpr = window.devicePixelRatio || 1;
+  for (const id of ['ts-canvas', 'db-canvas', 'pitch-canvas']) {
+    const canvas = document.getElementById(id);
+    canvas.width  = canvas.offsetWidth  * dpr;
+    canvas.height = canvas.offsetHeight * dpr;
+    canvasState[id] = { canvas, ctx: canvas.getContext('2d'), dpr, w: canvas.width, h: canvas.height };
+  }
+}
+
 function drawTimeSeries() {
-  const canvas = document.getElementById('ts-canvas');
-  const ctx    = canvas.getContext('2d');
-  const dpr    = window.devicePixelRatio || 1;
-  canvas.width  = canvas.offsetWidth  * dpr;
-  canvas.height = canvas.offsetHeight * dpr;
-  const w = canvas.width, h = canvas.height;
+  if (!canvasState['ts-canvas']) refreshCanvases();
+  const { canvas, ctx, dpr, w, h } = canvasState['ts-canvas'];
   const pL=38*dpr, pR=8*dpr, pT=8*dpr, pB=20*dpr;
   const cW=w-pL-pR, cH=h-pT-pB;
 
@@ -1142,12 +1247,8 @@ function drawTimeSeries() {
 // 音圧グラフ
 // ============================================================
 function drawDbGraph() {
-  const canvas = document.getElementById('db-canvas');
-  const ctx    = canvas.getContext('2d');
-  const dpr    = window.devicePixelRatio || 1;
-  canvas.width  = canvas.offsetWidth  * dpr;
-  canvas.height = canvas.offsetHeight * dpr;
-  const w = canvas.width, h = canvas.height;
+  if (!canvasState['db-canvas']) refreshCanvases();
+  const { canvas, ctx, dpr, w, h } = canvasState['db-canvas'];
   const pL=42*dpr, pR=8*dpr, pT=6*dpr, pB=6*dpr;
   const cW=w-pL-pR, cH=h-pT-pB;
 
@@ -1202,63 +1303,187 @@ function drawDbGraph() {
 // ピッチグラフ
 // ============================================================
 function drawPitchGraph() {
-  const canvas = document.getElementById('pitch-canvas');
-  const ctx    = canvas.getContext('2d');
-  const dpr    = window.devicePixelRatio || 1;
-  canvas.width  = canvas.offsetWidth  * dpr;
-  canvas.height = canvas.offsetHeight * dpr;
-  const w = canvas.width, h = canvas.height;
-  const pL=30*dpr, pR=8*dpr, pT=6*dpr, pB=6*dpr;
-  const cW=w-pL-pR, cH=h-pT-pB;
+  if (!canvasState['pitch-canvas']) refreshCanvases();
+  const { canvas, ctx, dpr, w, h } = canvasState['pitch-canvas'];
 
-  ctx.clearRect(0,0,w,h);
-  ctx.fillStyle='#080d15';
-  ctx.fillRect(pL,pT,cW,cH);
+  const LABEL_H = 26 * dpr;               // ラベルバー高さ
+  const pL=58*dpr, pR=10*dpr, pT=12*dpr, pB=8*dpr;
+  const cW = w - pL - pR;
+  const cH = h - pT - LABEL_H - pB;       // 譜面エリア高さ
 
-  // Y軸: MIDI 40(E2)〜84(C6) = 人声・楽器の実用範囲
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#080d15';
+  ctx.fillRect(pL, pT, cW, cH);           // 譜面エリア背景
+  ctx.fillStyle = '#060a10';
+  ctx.fillRect(pL, pT + cH, cW, LABEL_H); // ラベルバー背景
+
+  // ── 表示音域: E2(40)〜C6(84) ──
   const MIDI_MIN = 40, MIDI_MAX = 84, MIDI_RANGE = MIDI_MAX - MIDI_MIN;
-  const fs = Math.round(10*dpr);
-  ctx.font = `${fs}px Courier New`;
+  const midiToY  = m => pT + cH * (1 - (m - MIDI_MIN) / MIDI_RANGE);
 
-  // オクターブごとのグリッド（C音）
-  ctx.setLineDash([3*dpr, 3*dpr]);
-  [48,60,72,84].forEach(midi => {
-    const y = pT + cH*(1-(midi-MIDI_MIN)/MIDI_RANGE);
-    if (y < pT-2 || y > pT+cH+2) return;
-    ctx.strokeStyle='#1a2a3a'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(pL,y); ctx.lineTo(pL+cW,y); ctx.stroke();
-    const oct = Math.floor(midi/12)-1;
-    ctx.fillStyle='#556677'; ctx.textAlign='right'; ctx.textBaseline='middle';
-    ctx.fillText(`C${oct}`, pL-3*dpr, y);
+  // ── 大譜表: ヘ音部（低音）+ ト音部（高音）──
+  // ヘ音記号: G2=43, B2=47, D3=50, F3=53, A3=57
+  // ト音記号: E4=64, G4=67, B4=71, D5=74, F5=77
+  const BASS_LINES   = [43, 47, 50, 53, 57];
+  const TREBLE_LINES = [64, 67, 71, 74, 77];
+
+  const trebleBottom = midiToY(TREBLE_LINES[0]); // E4
+  const trebleTop    = midiToY(TREBLE_LINES[4]); // F5
+  const bassBottom   = midiToY(BASS_LINES[0]);   // G2
+  const bassTop      = midiToY(BASS_LINES[4]);   // A3
+  const lineGap      = (trebleBottom - trebleTop) / 4; // ト音部基準の五線間隔
+
+  // オクターブ区切り点線 (C音)
+  ctx.setLineDash([2*dpr, 4*dpr]);
+  ctx.lineWidth = 0.6 * dpr;
+  [48, 60, 72, 84].forEach(m => {
+    const y = midiToY(m);
+    if (y < pT || y > pT + cH) return;
+    ctx.strokeStyle = '#15202e';
+    ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(pL+cW, y); ctx.stroke();
   });
   ctx.setLineDash([]);
 
-  if (pitchDisplayHistory.filter(f=>f>0).length < 1) return;
-
-  // ライン（検出時のみ繋ぐ）
-  ctx.beginPath();
-  ctx.strokeStyle='#ffdd44'; ctx.lineWidth=1.5*dpr;
-  let penDown = false;
-  pitchDisplayHistory.forEach((freq,i) => {
-    if (freq <= 0) { penDown=false; return; }
-    const midi = 12*Math.log2(freq/440)+69;
-    const x = pL + cW*((PITCH_TS_MAX-pitchDisplayHistory.length+i)/(PITCH_TS_MAX-1));
-    const y = pT + cH*(1-(midi-MIDI_MIN)/MIDI_RANGE);
-    if (y < pT || y > pT+cH) { penDown=false; return; }
-    penDown ? ctx.lineTo(x,y) : ctx.moveTo(x,y);
-    penDown = true;
+  // ヘ音部 + ト音部の五線（各5本）
+  ctx.lineWidth   = 0.9 * dpr;
+  ctx.strokeStyle = '#2e4d72';
+  [...BASS_LINES, ...TREBLE_LINES].forEach(m => {
+    const y = midiToY(m);
+    ctx.beginPath(); ctx.moveTo(pL, y); ctx.lineTo(pL+cW, y); ctx.stroke();
   });
-  ctx.stroke();
 
-  // ドット
-  pitchDisplayHistory.forEach((freq,i) => {
+  // 左縦線: 低音部の底〜高音部の天井を一本で繋ぐ（大譜表の縦棒）
+  ctx.lineWidth   = 1.5 * dpr;
+  ctx.strokeStyle = '#2e4d72';
+  ctx.beginPath(); ctx.moveTo(pL, bassBottom); ctx.lineTo(pL, trebleTop); ctx.stroke();
+
+  // ── ヘ音記号 (U+1D122: 𝄢) ──
+  // textBaseline='middle' でフォント依存のずれを回避し、譜表中央に配置
+  const bassClefSize = (bassBottom - bassTop) * 1.35;
+  const bassClefCenterY = (bassBottom + bassTop) / 2;
+  ctx.save();
+  ctx.font         = `${bassClefSize}px Bravura, 'Noto Music', 'Segoe UI Symbol', serif`;
+  ctx.fillStyle    = '#4a6fa0';
+  ctx.textAlign    = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String.fromCodePoint(0x1D122), pL - 3*dpr, bassClefCenterY);
+  ctx.restore();
+
+  // ── ト音記号 (U+1D11E: 𝄞) ──
+  const trebleClefSize = (trebleBottom - trebleTop) * 2.1;
+  ctx.save();
+  ctx.font         = `${trebleClefSize}px Bravura, 'Noto Music', 'Segoe UI Symbol', serif`;
+  ctx.fillStyle    = '#4a6fa0';
+  ctx.textAlign    = 'right';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(String.fromCodePoint(0x1D11E), pL - 3*dpr, midiToY(67) + lineGap * 0.9);
+  ctx.restore();
+
+  // C音ラベル（左端）
+  const fs = Math.round(8*dpr);
+  ctx.font = `${fs}px Courier New`;
+  [48, 60, 72, 84].forEach(m => {
+    const y = midiToY(m);
+    if (y < pT - 4*dpr || y > pT + cH + 4*dpr) return;
+    ctx.fillStyle = '#3d5570'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(`C${Math.floor(m/12)-1}`, 14*dpr, y);
+  });
+
+  // ── ラベルバー区切り線 ──
+  const labelBarTop = pT + cH;
+  ctx.strokeStyle = '#1e3045';
+  ctx.lineWidth   = 0.7 * dpr;
+  ctx.beginPath(); ctx.moveTo(pL, labelBarTop); ctx.lineTo(pL+cW, labelBarTop); ctx.stroke();
+
+  // ── ラベルバー描画（音符名を時系列で表示、連続同音は省略）──
+  const labelBarY = labelBarTop + LABEL_H / 2;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign    = 'center';
+  let prevLabel = '';
+  const LN = labelHistory.length;
+  labelHistory.forEach((label, i) => {
+    if (!label) { prevLabel = ''; return; }
+    if (label === prevLabel) return;          // 同じ音が続く場合はスキップ
+    prevLabel = label;
+    const x     = pL + cW * ((PITCH_TS_MAX - LN + i) / (PITCH_TS_MAX - 1));
+    const alpha = 0.25 + 0.75 * (i / Math.max(1, LN - 1));
+    ctx.font      = `${Math.round(8*dpr)}px 'Hiragino Sans', 'Yu Gothic', sans-serif`;
+    ctx.fillStyle = `rgba(255,220,100,${alpha})`;
+    ctx.fillText(label, x, labelBarY);
+  });
+
+  if (pitchDisplayHistory.filter(f => f > 0).length < 1) return;
+
+  // ── 四分音符（符頭 + 符幹）の定数 ──
+  const MIDDLE_MIDI = 71;            // B4: 以下は符幹上向き、より上は下向き
+  const rx      = lineGap * 0.50;
+  const ry      = lineGap * 0.33;
+  const tilt    = -Math.PI / 8;     // -22.5°
+  const stemLen = lineGap * 3.2;
+  const N       = pitchDisplayHistory.length;
+
+  // 加線描画ヘルパー
+  const drawLedger = (ly, x, lw) => {
+    ctx.beginPath(); ctx.moveTo(x - lw, ly); ctx.lineTo(x + lw, ly); ctx.stroke();
+  };
+
+  pitchDisplayHistory.forEach((freq, i) => {
     if (freq <= 0) return;
-    const midi = 12*Math.log2(freq/440)+69;
-    const x = pL + cW*((PITCH_TS_MAX-pitchDisplayHistory.length+i)/(PITCH_TS_MAX-1));
-    const y = pT + cH*(1-(midi-MIDI_MIN)/MIDI_RANGE);
-    if (y < pT || y > pT+cH) return;
-    ctx.fillStyle='#ffdd44';
-    ctx.beginPath(); ctx.arc(x,y,2.5*dpr,0,Math.PI*2); ctx.fill();
+    const midi = 12 * Math.log2(freq / 440) + 69;
+    if (midi < MIDI_MIN - 2 || midi > MIDI_MAX + 2) return;
+
+    const clampedMidi = Math.max(MIDI_MIN, Math.min(MIDI_MAX, midi));
+    const x     = pL + cW * ((PITCH_TS_MAX - N + i) / (PITCH_TS_MAX - 1));
+    const y     = midiToY(clampedMidi);
+    const alpha = 0.20 + 0.80 * (i / Math.max(1, N - 1));
+    const lw    = rx * 1.7;
+
+    ctx.strokeStyle = `rgba(46,77,114,${Math.min(1, alpha + 0.1)})`;
+    ctx.lineWidth   = 0.9 * dpr;
+
+    // ── 加線 ──
+    // ト音部より上
+    if (y < trebleTop - lineGap * 0.6) {
+      for (let ly = trebleTop - lineGap; ly >= y - ry; ly -= lineGap)
+        drawLedger(ly, x, lw);
+    }
+    // ト音部より下かつヘ音部より上（ギャップ）→ 中央 C4 のみ加線
+    if (y > trebleBottom + lineGap * 0.5 && y < bassTop - lineGap * 0.5) {
+      const c4y = midiToY(60);
+      if (Math.abs(y - c4y) < lineGap * 0.6) drawLedger(c4y, x, lw);
+    }
+    // ヘ音部より下
+    if (y > bassBottom + lineGap * 0.6) {
+      for (let ly = bassBottom + lineGap; ly <= y + ry; ly += lineGap)
+        drawLedger(ly, x, lw);
+    }
+
+    // ── 符幹 ──
+    const stemUp = midi <= MIDDLE_MIDI;
+    ctx.strokeStyle = `rgba(240,220,160,${alpha})`;
+    ctx.lineWidth   = 1.3 * dpr;
+    ctx.beginPath();
+    if (stemUp) {
+      ctx.moveTo(x + rx * 0.88, y); ctx.lineTo(x + rx * 0.88, y - stemLen);
+    } else {
+      ctx.moveTo(x - rx * 0.88, y); ctx.lineTo(x - rx * 0.88, y + stemLen);
+    }
+    ctx.stroke();
+
+    // ── 符頭（塗り楕円） ──
+    ctx.fillStyle = `rgba(240,220,160,${alpha})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, tilt, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 最新音符: 白縁ハイライト
+    if (i === N - 1) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth   = 1.5 * dpr;
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx + 1.5*dpr, ry + 1*dpr, tilt, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   });
 }
 
@@ -1296,8 +1521,8 @@ function renderSnapshots() {
   listEl.innerHTML = snapshots.map(s =>
     `<div class="snap-item cat-${s.cat}">
       <div class="snap-time">${s.time}</div>
-      <div class="snap-name">${s.emoji} ${s.name}</div>
-      <div class="snap-sub">${s.pct}%${s.pitch ? '　' + s.pitch : ''}</div>
+      <div class="snap-name">${escHtml(s.emoji)} ${escHtml(s.name)}</div>
+      <div class="snap-sub">${s.pct}%${s.pitch ? '　' + escHtml(s.pitch) : ''}</div>
     </div>`
   ).join('');
 }
@@ -1317,15 +1542,15 @@ document.getElementById('file-input').addEventListener('change', e => {
 });
 document.getElementById('btn-stop').addEventListener('click', stopAll);
 document.getElementById('btn-snap').addEventListener('click', takeSnapshot);
-window.addEventListener('resize', () => { drawTimeSeries(); drawDbGraph(); drawPitchGraph(); });
+window.addEventListener('resize', () => { refreshCanvases(); drawTimeSeries(); drawDbGraph(); drawPitchGraph(); });
 
 // ============================================================
 // 初期化
 // ============================================================
+refreshCanvases();
 renderTsLegend();
 (async () => {
-  await loadClassNames();
-  await loadModel();
+  await Promise.all([loadClassNames(), loadModel()]);
 })();
 </script>
 </body>
