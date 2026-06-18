@@ -37,10 +37,22 @@
     #header-left {
       flex: 0 0 auto;
       display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 10px;
+      min-width: 130px;
+    }
+    #app-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 9px;
+      flex-shrink: 0;
+    }
+    #header-left-info {
+      display: flex;
       flex-direction: column;
       align-items: flex-start;
       gap: 4px;
-      min-width: 130px;
     }
 
     #live-clock-row {
@@ -1526,14 +1538,17 @@
   <!-- Row 1: 時計＋ステータス（左） ── タイトル（中央） ── スペーサー（右） -->
   <div id="header-row1">
     <div id="header-left">
-      <div id="live-clock-date">---</div>
-      <div id="live-clock-row">
-        <div id="live-clock-time">--:--:--</div>
-        <div id="status">マイクへのアクセスを許可してください</div>
-        <div id="elapsed-wrap" style="display:none;">測定時間: <span id="elapsed-time"></span></div>
-        <div id="val-sr" data-tip="サンプリングレート|マイクが1秒間に音を記録する回数。48000Hzの場合、ナイキスト周波数（表現できる最高音）は24000Hzになります。"></div>
+      <img id="app-icon" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMjAgMjIwIj48ZGVmcz48cmFkaWFsR3JhZGllbnQgaWQ9ImJnIiBjeD0iNjAlIiBjeT0iNDUlIiByPSI3MCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMxMDYwYzgiLz48c3RvcCBvZmZzZXQ9IjQwJSIgc3RvcC1jb2xvcj0iIzBjMjA0MCIvPjxzdG9wIG9mZnNldD0iODAlIiBzdG9wLWNvbG9yPSIjMDgwYzFjIi8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDMwNTA4Ii8+PC9yYWRpYWxHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjIyMCIgaGVpZ2h0PSIyMjAiIHJ4PSIzOCIgZmlsbD0idXJsKCNiZykiLz48Y2lyY2xlIGN4PSIyNSIgY3k9IjExNSIgcj0iNS41IiBmaWxsPSIjNTVjY2ZmIi8+PHBhdGggZD0iTSAzNSwxMDMgQSAxNiwxNiAwIDAsMSAzNSwxMjciIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzU1Y2NmZiIgc3Ryb2tlLXdpZHRoPSI1IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48cGF0aCBkPSJNIDQzLDk0IEEgMjgsMjggMCAwLDEgNDMsMTM2IiBmaWxsPSJub25lIiBzdHJva2U9IiM1NWNjZmYiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBvcGFjaXR5PSIwLjc1Ii8+PHBhdGggZD0iTSA1MSw4NCBBIDQwLDQwIDAgMCwxIDUxLDE0NiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNDRhYWZmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgb3BhY2l0eT0iMC41Ii8+PHBhdGggZD0iTSA1OCw3NSBBIDUyLDUyIDAgMCwxIDU4LDE1NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNDRhYWZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgb3BhY2l0eT0iMC4yOCIvPjxjaXJjbGUgY3g9IjE1NSIgY3k9IjEwOCIgcj0iNDQiIGZpbGw9IiMwYTFhMzAiLz48cmVjdCB4PSIxMzIiIHk9IjEwNCIgd2lkdGg9IjciIGhlaWdodD0iMjIiIHJ4PSIyIiBmaWxsPSIjNDRhYWZmIiBvcGFjaXR5PSIwLjkiLz48cmVjdCB4PSIxNDIiIHk9IjkwIiB3aWR0aD0iNyIgaGVpZ2h0PSIzNiIgcng9IjIiIGZpbGw9IiM1NWNjZmYiLz48cmVjdCB4PSIxNTIiIHk9Ijk4IiB3aWR0aD0iNyIgaGVpZ2h0PSIyOCIgcng9IjIiIGZpbGw9IiM0NGFhZmYiLz48cmVjdCB4PSIxNjIiIHk9IjExMCIgd2lkdGg9IjciIGhlaWdodD0iMTYiIHJ4PSIyIiBmaWxsPSIjNDRhYWZmIiBvcGFjaXR5PSIwLjgiLz48cmVjdCB4PSIxNzIiIHk9Ijk0IiB3aWR0aD0iNyIgaGVpZ2h0PSIzMiIgcng9IjIiIGZpbGw9IiM0NGFhZmYiIG9wYWNpdHk9IjAuOSIvPjx0ZXh0IHg9IjE1NSIgeT0iMTQ3IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNCIgZm9udC13ZWlnaHQ9IjcwMCIgZmlsbD0iIzQ0ZmZhYSI+QVMxPC90ZXh0PjxwYXRoIGQ9Ik0gMTMxLDE1MCBBIDQ5LDQ5IDAgMSwxIDE4OCwxNDQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzE4MzA1YSIgc3Ryb2tlLXdpZHRoPSI5IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48cGF0aCBkPSJNIDEzMSwxNTAgQSA0OSw0OSAwIDEsMSAyMDMsMTAwIiBmaWxsPSJub25lIiBzdHJva2U9IiM0NGZmYWEiIHN0cm9rZS13aWR0aD0iOSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PGxpbmUgeDE9IjYzIiB5MT0iMTE1IiB4Mj0iMTIyIiB5Mj0iMTE1IiBzdHJva2U9IiM1NWNjZmYiIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHBvbHlnb24gcG9pbnRzPSIxMjIsMTA5IDEzMCwxMTUgMTIyLDEyMSIgZmlsbD0iIzU1Y2NmZiIvPjwvc3ZnPg==" alt="AS1">
+      <div id="header-left-info">
+        <div id="live-clock-date">---</div>
+        <div id="live-clock-row">
+          <div id="live-clock-time">--:--:--</div>
+          <div id="status">マイクへのアクセスを許可してください</div>
+          <div id="elapsed-wrap" style="display:none;">測定時間: <span id="elapsed-time"></span></div>
+          <div id="val-sr" data-tip="サンプリングレート|マイクが1秒間に音を記録する回数。48000Hzの場合、ナイキスト周波数（表現できる最高音）は24000Hzになります。"></div>
+        </div>
+        <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
       </div>
-      <div id="mic-info" style="font-size:0.74rem; color:#88aadd; margin-top:3px; min-height:1.2em; letter-spacing:0.03em;"></div>
     </div>
     <div id="header-title">
       <h1>Ambient Score 1 <span id="app-version">v2.6.0 &nbsp;|&nbsp; 更新日：2026-06-02</span></h1>
