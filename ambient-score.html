@@ -2412,10 +2412,10 @@
 
       draw();
     } catch (e) {
-      clearInterval(elapsedTimer);
-      // analyser が生きていれば測定は継続中 → エラー表示で上書きしない
+      // analyser が生きていれば測定は継続中 → エラー表示・タイマー停止で上書きしない
       // （iOS で AudioContext の resume 警告などが throw されても測定は動く場合がある）
       if (!analyser) {
+        clearInterval(elapsedTimer);
         status.textContent = 'マイクアクセスエラー: ' + e.message;
       }
     }
