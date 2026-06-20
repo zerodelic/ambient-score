@@ -1905,7 +1905,7 @@
     { label: '16kHz', fc: 16000 },
   ];
 
-  let audioCtx, analyser, source, animId;
+  let audioCtx, analyser, source, animId, stream;
   let _freqBuf = null, _timeBuf = null; // draw() で再利用するバッファ
   const specCanvas = document.getElementById('spectrum');
   const waveCanvas = document.getElementById('waveform');
@@ -2273,7 +2273,7 @@
       //   ① AGC/NS/EC=off + sampleRate指定（PC Chrome/Edge/Firefox で成功）
       //   ② AGC/NS/EC=off のみ（sampleRate制約が通らないiOS Chromeで成功の可能性）
       //   ③ {audio: true}（最終フォールバック・NS/AGCがONになり音圧値が下がる）
-      let stream;
+      stream = null;
       try {
         stream = await getUserMedia({
           audio: {
@@ -2412,6 +2412,7 @@
 
       draw();
     } catch (e) {
+      clearInterval(elapsedTimer);
       // analyser が生きていれば測定は継続中 → エラー表示で上書きしない
       // （iOS で AudioContext の resume 警告などが throw されても測定は動く場合がある）
       if (!analyser) {
@@ -2422,6 +2423,7 @@
 
   function stop() {
     if (animId) cancelAnimationFrame(animId);
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     if (audioCtx) audioCtx.close();
     analyser = null; source = null; audioCtx = null;
     closeFileLog(); // ファイルログを閉じる（非同期だが待たない）
@@ -2446,7 +2448,7 @@
     try { lastTsImageUrl = tsCanvas.toDataURL('image/png'); } catch(e) { lastTsImageUrl = null; }
     clearCanvases();
     // データがある場合はサマリーを表示
-    if (sessionCount > 0) showSummary();
+    if (sessionCount > 0 && logData.length > 0) showSummary();
   }
 
   function clearCanvases() {
@@ -3707,7 +3709,17 @@
     }
   })();
   fftSizeEl.addEventListener('change', () => {
-    if (analyser) analyser.fftSize = parseInt(fftSizeEl.value);
+    if (analyser) {
+      analyser.fftSize = parseInt(fftSizeEl.value);
+      _freqBuf = new Float32Array(analyser.frequencyBinCount);
+      _timeBuf = new Float32Array(analyser.fftSize);
+      const _nyquist = audioCtx.sampleRate / 2;
+      const _bufLen  = analyser.frequencyBinCount;
+      OCTAVE_BANDS.forEach(b => {
+        b.lowBin  = Math.max(0,          Math.floor((b.fc / Math.SQRT2 / _nyquist) * _bufLen));
+        b.highBin = Math.min(_bufLen - 1, Math.ceil((b.fc * Math.SQRT2 / _nyquist) * _bufLen));
+      });
+    }
   });
 
   // ---- アラート設定 UI ----
@@ -3915,7 +3927,7 @@
       ? '<tr><td colspan="2" style="color:#999;text-align:center;padding:10px;">手動ラベルの記録なし</td></tr>'
       : labels.map(d => `
           <tr>
-            <td style="color:#555;padding:5px 12px;white-space:nowrap;">${d.elapsed}</td>
+            <td style="color:#555;padding:5px 12px;white-space:nowrap;">${escHtml(d.elapsed)}</td>
             <td style="padding:5px 12px;">${escHtml(d.note)}</td>
           </tr>`).join('');
 
@@ -4121,7 +4133,7 @@
   </div>
 
   <div class="report-footer">
-    騒音周波数アナライザー v1.8.1 で生成 — ${new Date().toLocaleString('ja-JP')}
+    騒音周波数アナライザー v2.6.1 で生成 — ${new Date().toLocaleString('ja-JP')}
   </div>
 </div>
 </body>
