@@ -3037,8 +3037,8 @@
       // オフセット後スケール (静寂=0)
       const dbOctShifted = isFinite(dbOct) ? Math.max(0, dbOct - NOISE_FLOOR_DB) : 0;
       const norm = Math.min(1, dbOctShifted / dbRange);
-      const fillEl = document.getElementById('oct-' + fc);
-      const dbEl = document.getElementById('octdb-' + fc);
+      const fillEl = document.getElementById('oct-' + b.fc);
+      const dbEl = document.getElementById('octdb-' + b.fc);
       if (fillEl) fillEl.style.height = (norm * 100) + '%';
       if (dbEl) dbEl.textContent = dbOctShifted > 0 ? dbOctShifted.toFixed(0) : '0';
     });
