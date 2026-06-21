@@ -1979,6 +1979,7 @@
   // 直近3秒の最大値（ローリングウィンドウ）
   const PEAK_WINDOW_MS = 3000; // 直近3秒（フレームレート非依存）
   let peakBuffer = []; // [{value, ts}] — RAFタイムスタンプ基準のローリングウィンドウ
+  const MAX_LOG_DOM = 600; // log-list DOM の最大件数（メモリ上限）
   let sessionMax = -Infinity;   // 開始からの最大
   let sessionSum = 0;           // 開始からのエネルギー累積（10^(dB/10) の総和）
   let sessionCount = 0;         // 開始からのフレーム数
@@ -2794,7 +2795,7 @@
         lastLogTime = elapsed;
         addLogEntry({
           elapsed:     formatClock(),
-        sessionSec:  elapsedSec,
+          sessionSec:  elapsedSec,
           ...latestSnap,
         });
       }
@@ -3633,8 +3634,6 @@
       <span class="log-val-voice">${escHtml(data.voiceLabel)}</span>
     `;
     list.insertBefore(entry, list.firstChild);
-    // DOM は最新 600 件のみ保持（メモリ上限）
-    const MAX_LOG_DOM = 600;
     while (list.children.length > MAX_LOG_DOM) list.removeChild(list.lastChild);
   }
 
