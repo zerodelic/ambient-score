@@ -1973,16 +1973,14 @@
   }
 
   // キャリブレーション
-  let calibOffset = parseFloat(localStorage.getItem('calibOffset') || '0');
+  let calibOffset = parseFloat(localStorage.getItem('calibOffset') || '0') || 0;
   let currentRawDb = 0;  // キャリブレーション前の生dB値（設定パネル表示用）
 
   // 直近3秒の最大値（ローリングウィンドウ）
-  const PEAK_WINDOW_SEC = 3;
-  const PEAK_WINDOW_FRAMES = PEAK_WINDOW_SEC * 60; // 60fps想定
-  const peakBuffer = new Array(PEAK_WINDOW_FRAMES).fill(0);
-  let peakBufIdx = 0;
+  const PEAK_WINDOW_MS = 3000; // 直近3秒（フレームレート非依存）
+  let peakBuffer = []; // [{value, ts}] — RAFタイムスタンプ基準のローリングウィンドウ
   let sessionMax = -Infinity;   // 開始からの最大
-  let sessionSum = 0;           // 開始からの累積合計（エネルギー平均用）
+  let sessionSum = 0;           // 開始からのエネルギー累積（10^(dB/10) の総和）
   let sessionCount = 0;         // 開始からのフレーム数
   const METER_INTERVAL_MS = 300; // 数値メーターの更新間隔（ms）
   let lastMeterTime = 0;
@@ -2349,8 +2347,7 @@
       logData = [];
       document.getElementById('log-list').innerHTML =
         '<div id="log-empty">測定を開始すると<br>ここに記録されます</div>';
-      peakBuffer.fill(0);
-      peakBufIdx = 0;
+      peakBuffer = [];
       sessionMax = -Infinity;
       sessionSum = 0;
       sessionCount = 0;
@@ -2442,8 +2439,7 @@
     btnStop.classList.remove('active');
     fftSizeEl.disabled = false;
     setLabelButtons(false);
-    peakBuffer.fill(0);
-    peakBufIdx = 0;
+    peakBuffer = [];
     // レポート用に時系列グラフをキャプチャ（clearCanvases前に実行）
     try { lastTsImageUrl = tsCanvas.toDataURL('image/png'); } catch(e) { lastTsImageUrl = null; }
     clearCanvases();
@@ -2734,16 +2730,17 @@
     const dbDisplay = dbShifted.toFixed(1);
 
     // --- 直近3秒のローリング最大値 ---
-    peakBuffer[peakBufIdx % PEAK_WINDOW_FRAMES] = dbShifted;
-    peakBufIdx++;
+    peakBuffer.push({ value: dbShifted, ts: timestamp });
+    const peakCutoff = timestamp - PEAK_WINDOW_MS;
+    while (peakBuffer.length > 0 && peakBuffer[0].ts < peakCutoff) peakBuffer.shift();
     let peakHold = 0;
-    for (let i = 0; i < peakBuffer.length; i++) if (peakBuffer[i] > peakHold) peakHold = peakBuffer[i];
+    for (let i = 0; i < peakBuffer.length; i++) if (peakBuffer[i].value > peakHold) peakHold = peakBuffer[i].value;
 
     // --- セッション最大・平均 ---
     if (dbShifted > sessionMax) sessionMax = dbShifted;
-    sessionSum += dbShifted;
+    sessionSum += Math.pow(10, dbShifted / 10);
     sessionCount++;
-    const sessionAvg = sessionCount > 0 ? sessionSum / sessionCount : 0;
+    const sessionAvg = sessionCount > 0 ? 10 * Math.log10(sessionSum / sessionCount) : 0;
 
     // --- 卓越周波数（メーター更新ブロックより前に計算）---
     let maxVal = -Infinity, maxIdx = 0;
@@ -2797,6 +2794,7 @@
         lastLogTime = elapsed;
         addLogEntry({
           elapsed:     formatClock(),
+        sessionSec:  elapsedSec,
           ...latestSnap,
         });
       }
@@ -3285,7 +3283,7 @@
       tsCtx.moveTo(x, padT + chartH);
       tsCtx.lineTo(x, padT + chartH + 4 * dpr);
       tsCtx.stroke();
-      tsCtx.fillText(entries[ei].elapsed, x, padT + chartH + 16 * dpr);
+      tsCtx.fillText(formatElapsed(entries[ei].sessionSec ?? ei), x, padT + chartH + 16 * dpr);
     }
     tsCtx.textAlign = 'left';
 
@@ -3394,7 +3392,7 @@
 
     // ② 平均音量スコア（WELL Building Standard基準）
     // 35dB以下=優良(75〜100点)、45dB=許容水準(50点)、65dB以上=0点
-    const avgDb       = sessionCount > 0 ? sessionSum / sessionCount : 0;
+    const avgDb       = sessionCount > 0 ? 10 * Math.log10(sessionSum / sessionCount) : 0;
     const volScore    = Math.max(0, Math.min(100, (65 - avgDb) * 2.5));
 
     // ③ 会話頻度スコア（0回/分=100点、20回/分以上=0点）
@@ -3630,11 +3628,14 @@
     setTimeout(() => entry.classList.remove('new'), 500);
 
     entry.innerHTML = `
-      <span class="log-time">${data.elapsed}</span>
+      <span class="log-time">${escHtml(data.elapsed)}</span>
       <span class="log-val-db">${data.dbVal.toFixed(1)} dB</span>
-      <span class="log-val-voice">${data.voiceLabel}</span>
+      <span class="log-val-voice">${escHtml(data.voiceLabel)}</span>
     `;
     list.insertBefore(entry, list.firstChild);
+    // DOM は最新 600 件のみ保持（メモリ上限）
+    const MAX_LOG_DOM = 600;
+    while (list.children.length > MAX_LOG_DOM) list.removeChild(list.lastChild);
   }
 
   function exportCSV() {
@@ -3776,7 +3777,7 @@
       : null;
 
     // 平均音量
-    const avgDb = sessionCount > 0 ? sessionSum / sessionCount : 0;
+    const avgDb = sessionCount > 0 ? 10 * Math.log10(sessionSum / sessionCount) : 0;
 
     // 声の占有率
     const occupancy = totalFrameCount > 0
@@ -3852,7 +3853,9 @@
       history.unshift(sessionRecord);
       if (history.length > MAX_HISTORY) history.length = MAX_HISTORY;
       localStorage.setItem(SESSION_HISTORY_KEY, JSON.stringify(history));
-    } catch (e) {}
+    } catch (e) {
+      console.warn('セッション履歴の保存に失敗しました（localStorage 容量不足の可能性）:', e);
+    }
 
     // ---- 履歴リストを描画 ----
     renderSessionHistory();
@@ -4210,8 +4213,12 @@
     document.querySelectorAll('.panel-section').forEach(p => {
       collapsed[p.dataset.panel] = p.classList.contains('collapsed');
     });
-    localStorage.setItem(PANEL_ORDER_KEY,     JSON.stringify(order));
-    localStorage.setItem(PANEL_COLLAPSED_KEY, JSON.stringify(collapsed));
+    try {
+      localStorage.setItem(PANEL_ORDER_KEY,     JSON.stringify(order));
+      localStorage.setItem(PANEL_COLLAPSED_KEY, JSON.stringify(collapsed));
+    } catch (e) {
+      console.warn('パネル状態の保存に失敗しました（localStorage 容量不足の可能性）:', e);
+    }
   }
 
   function restorePanelState() {
@@ -4245,7 +4252,10 @@
           content.style.maxHeight = 'none';
         }
       });
-    } catch (e) { /* 無視 */ }
+    } catch (e) {
+      localStorage.removeItem(PANEL_ORDER_KEY);
+      localStorage.removeItem(PANEL_COLLAPSED_KEY);
+    }
   }
 
   // --- 折りたたみトグル（app-body全体で委譲）---
