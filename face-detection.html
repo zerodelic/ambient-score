@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Face Detection — Realtime</title>
+  <title>Face Detection — People Counter</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -34,7 +34,7 @@
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
-    #app-title  { font-size: 13px; letter-spacing: 2px; color: var(--accent); }
+    #app-title   { font-size: 13px; letter-spacing: 2px; color: var(--accent); }
     #app-version { font-size: 11px; color: #3a3a4a; }
 
     /* ── Camera ── */
@@ -103,8 +103,7 @@
     /* ── Flip camera button ── */
     #flip-btn {
       position: absolute;
-      top: 10px;
-      right: 10px;
+      top: 10px; right: 10px;
       z-index: 20;
       display: none;
       align-items: center;
@@ -132,16 +131,33 @@
       padding: 10px 4px;
       text-align: center;
       border-right: 1px solid var(--border);
+      position: relative;
     }
     .stat:last-child { border-right: none; }
+
+    /* Hero stat: 通過人数 gets extra space */
+    .stat-hero { flex: 2; }
 
     .stat-val {
       font-size: 26px;
       font-weight: bold;
       color: var(--accent);
       line-height: 1;
+      transition: color 0.1s;
     }
-    .stat-val.alert { color: #f77; }
+
+    .stat-hero .stat-val {
+      font-size: 42px;
+    }
+
+    /* Flash animation when count increases */
+    @keyframes flash {
+      0%   { color: #fff; text-shadow: 0 0 20px #7cf; }
+      100% { color: var(--accent); text-shadow: none; }
+    }
+    .stat-val.flashing {
+      animation: flash 0.6s ease-out forwards;
+    }
 
     .stat-lbl {
       font-size: 10px;
@@ -149,6 +165,22 @@
       margin-top: 3px;
       letter-spacing: 1px;
     }
+
+    /* Reset button */
+    #reset-btn {
+      display: block;
+      margin: 4px auto 0;
+      background: transparent;
+      border: 1px solid #2a2a3a;
+      color: #444;
+      font-family: inherit;
+      font-size: 9px;
+      letter-spacing: 1px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #reset-btn:active { border-color: var(--accent); color: var(--accent); }
 
     /* ── Status bar ── */
     #status {
@@ -168,8 +200,8 @@
 <body>
 
 <div id="header">
-  <span id="app-title">FACE DETECTION</span>
-  <span id="app-version">v1.0.0</span>
+  <span id="app-title">PEOPLE COUNTER</span>
+  <span id="app-version">v1.1.0</span>
 </div>
 
 <div id="camera-wrap">
@@ -177,7 +209,7 @@
   <canvas id="overlay"></canvas>
 
   <div id="init-overlay">
-    <div class="spinner" id="spinner"></div>
+    <div class="spinner"></div>
     <div id="init-msg">モデルを読み込み中…</div>
     <button id="start-btn">カメラを起動</button>
   </div>
@@ -186,13 +218,14 @@
 </div>
 
 <div id="stats">
-  <div class="stat">
-    <div class="stat-val" id="val-faces">—</div>
-    <div class="stat-lbl">FACES</div>
+  <div class="stat stat-hero">
+    <div class="stat-val" id="val-passed">0</div>
+    <div class="stat-lbl">通過人数</div>
+    <button id="reset-btn">RESET</button>
   </div>
   <div class="stat">
-    <div class="stat-val" id="val-conf">—</div>
-    <div class="stat-lbl">CONF</div>
+    <div class="stat-val" id="val-live">—</div>
+    <div class="stat-lbl">現在</div>
   </div>
   <div class="stat">
     <div class="stat-val" id="val-fps">—</div>
@@ -209,9 +242,9 @@
 <script type="module">
 'use strict';
 
-const MP_VER   = '0.10.14';
-const CDN      = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`;
-const MODEL    = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
+const MP_VER = '0.10.14';
+const CDN    = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`;
+const MODEL  = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
 
 const video     = document.getElementById('video');
 const overlay   = document.getElementById('overlay');
@@ -220,20 +253,114 @@ const initOL    = document.getElementById('init-overlay');
 const initMsg   = document.getElementById('init-msg');
 const startBtn  = document.getElementById('start-btn');
 const flipBtn   = document.getElementById('flip-btn');
+const resetBtn  = document.getElementById('reset-btn');
 const statusEl  = document.getElementById('status');
-const valFaces  = document.getElementById('val-faces');
-const valConf   = document.getElementById('val-conf');
+const valPassed = document.getElementById('val-passed');
+const valLive   = document.getElementById('val-live');
 const valFps    = document.getElementById('val-fps');
 const valMs     = document.getElementById('val-ms');
 
-let detector    = null;
-let stream      = null;
-let rafId       = null;
-let lastVTime   = -1;
-let frontCam    = true;
+let detector   = null;
+let stream     = null;
+let rafId      = null;
+let lastVTime  = -1;
+let frontCam   = true;
 
 // FPS tracking
-let fCount = 0, fpsTimer = performance.now(), fps = 0;
+let fCount = 0, fpsTimer = performance.now();
+
+// ─────────────────────────────
+//  IoU helper
+// ─────────────────────────────
+function calcIoU(b1, b2) {
+  const ix1 = Math.max(b1.originX, b2.originX);
+  const iy1 = Math.max(b1.originY, b2.originY);
+  const ix2 = Math.min(b1.originX + b1.width,  b2.originX + b2.width);
+  const iy2 = Math.min(b1.originY + b1.height, b2.originY + b2.height);
+  if (ix2 <= ix1 || iy2 <= iy1) return 0;
+  const inter = (ix2 - ix1) * (iy2 - iy1);
+  const a1 = b1.width * b1.height;
+  const a2 = b2.width * b2.height;
+  return inter / (a1 + a2 - inter);
+}
+
+// ─────────────────────────────
+//  Face Tracker
+//  顔を個人単位で追跡し、フレームから退場したタイミングで +1 カウント
+// ─────────────────────────────
+const TRACK_COLORS = ['#7cf','#fc7','#f7c','#7fc','#c7f','#cf7','#fcc','#cfc'];
+
+class FaceTracker {
+  constructor({ maxMiss = 15, minIoU = 0.15 } = {}) {
+    this.tracks  = [];
+    this.nextId  = 1;
+    this.passed  = 0;
+    this.maxMiss = maxMiss;
+    this.minIoU  = minIoU;
+  }
+
+  reset() {
+    this.tracks = [];
+    this.passed = 0;
+    this.nextId = 1;
+  }
+
+  /** @param {Detection[]} detections — raw MediaPipe detections */
+  update(detections) {
+    const unmatched = new Set(detections.map((_, i) => i));
+
+    // Match detections → existing tracks via IoU
+    for (const t of this.tracks) {
+      if (t.dead) continue;
+      let best = { iou: this.minIoU, idx: -1 };
+      for (const i of unmatched) {
+        const iou = calcIoU(t.box, detections[i].boundingBox);
+        if (iou > best.iou) best = { iou, idx: i };
+      }
+      if (best.idx >= 0) {
+        t.box       = detections[best.idx].boundingBox;
+        t.conf      = detections[best.idx].categories?.[0]?.score ?? 0;
+        t.keypoints = detections[best.idx].keypoints;
+        t.missCount = 0;
+        unmatched.delete(best.idx);
+      } else {
+        t.missCount++;
+      }
+    }
+
+    // New tracks for unmatched detections
+    for (const i of unmatched) {
+      this.tracks.push({
+        id:         this.nextId++,
+        box:        detections[i].boundingBox,
+        conf:       detections[i].categories?.[0]?.score ?? 0,
+        keypoints:  detections[i].keypoints,
+        missCount:  0,
+        dead:       false,
+        color:      TRACK_COLORS[(this.nextId - 2) % TRACK_COLORS.length],
+      });
+    }
+
+    // Retire tracks that have been missing too long → count them
+    let newPassed = 0;
+    for (const t of this.tracks) {
+      if (!t.dead && t.missCount > this.maxMiss) {
+        t.dead = true;
+        this.passed++;
+        newPassed++;
+      }
+    }
+
+    // Prune fully dead tracks
+    this.tracks = this.tracks.filter(t => !t.dead);
+
+    return { active: this.tracks, newPassed };
+  }
+
+  get live() { return this.tracks.filter(t => !t.dead).length; }
+}
+
+const tracker = new FaceTracker({ maxMiss: 15, minIoU: 0.15 });
 
 // ─────────────────────────────
 //  MediaPipe init
@@ -248,10 +375,7 @@ async function initDetector() {
 
     setMsg('モデルを取得中…');
     detector = await FaceDetector.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath: MODEL,
-        delegate: 'GPU',
-      },
+      baseOptions: { modelAssetPath: MODEL, delegate: 'GPU' },
       runningMode: 'VIDEO',
       minDetectionConfidence: 0.5,
       minSuppressionThreshold: 0.3,
@@ -259,10 +383,9 @@ async function initDetector() {
 
     setMsg('カメラを起動中…');
     await startCamera();
-
   } catch (err) {
     console.error(err);
-    document.getElementById('spinner').style.display = 'none';
+    document.querySelector('.spinner').style.display = 'none';
     setMsg('エラー: ' + err.message);
     startBtn.style.display = 'block';
     statusEl.textContent = 'エラーが発生しました。ボタンで再試行してください。';
@@ -275,7 +398,6 @@ async function initDetector() {
 async function startCamera() {
   stopCamera();
 
-  // iOS 3-stage fallback
   const modes = [
     { video: { facingMode: frontCam ? 'user' : 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
     { video: { facingMode: frontCam ? 'user' : 'environment' } },
@@ -284,19 +406,13 @@ async function startCamera() {
 
   let s = null;
   for (const c of modes) {
-    try { s = await navigator.mediaDevices.getUserMedia(c); break; }
-    catch { /* try next */ }
+    try { s = await navigator.mediaDevices.getUserMedia(c); break; } catch { /* next */ }
   }
   if (!s) throw new Error('カメラにアクセスできませんでした');
 
   stream = s;
   video.srcObject = s;
-  await new Promise((res, rej) => {
-    video.onloadedmetadata = res;
-    video.onerror = rej;
-  });
-
-  // iOS requires explicit resume equivalent via play()
+  await new Promise((res, rej) => { video.onloadedmetadata = res; video.onerror = rej; });
   await video.play();
 
   resizeOverlay();
@@ -328,27 +444,29 @@ function startLoop() {
     fCount++;
     const now = performance.now();
     if (now - fpsTimer >= 1000) {
-      fps = Math.round(fCount * 1000 / (now - fpsTimer));
+      valFps.textContent = Math.round(fCount * 1000 / (now - fpsTimer));
       fCount = 0;
       fpsTimer = now;
-      valFps.textContent = fps;
     }
 
     // Detect
     const t0 = performance.now();
     let result;
-    try {
-      result = detector.detectForVideo(video, now);
-    } catch (e) {
-      console.warn('detect error:', e);
-      return;
-    }
-    const ms = Math.round(performance.now() - t0);
-    valMs.textContent = ms;
+    try { result = detector.detectForVideo(video, now); }
+    catch (e) { console.warn(e); return; }
+    valMs.textContent = Math.round(performance.now() - t0);
 
-    draw(result.detections);
+    // Track
+    const { active, newPassed } = tracker.update(result.detections);
+
+    // Update UI
+    valLive.textContent   = String(active.length);
+    valPassed.textContent = String(tracker.passed);
+
+    if (newPassed > 0) flashCounter();
+
+    draw(active);
   }
-
   loop();
 }
 
@@ -360,12 +478,10 @@ function resizeOverlay() {
   overlay.width  = wrap.clientWidth;
   overlay.height = wrap.clientHeight;
 }
-
 window.addEventListener('resize', resizeOverlay);
 
 /**
- * Map video pixel coords → canvas coords.
- * Handles object-fit:cover scaling and mirrors X for selfie view.
+ * Map video pixel (vx, vy) → canvas pixel, with object-fit:cover math + X-mirror.
  */
 function toCanvas(vx, vy) {
   const vw = video.videoWidth,  vh = video.videoHeight;
@@ -373,52 +489,31 @@ function toCanvas(vx, vy) {
   const scale = Math.max(cw / vw, ch / vh);
   const dx = (cw - vw * scale) / 2;
   const dy = (ch - vh * scale) / 2;
-
-  // Mirror X (matches the CSS scaleX(-1) on the video element)
-  const cx = cw - (vx * scale + dx);
-  const cy = vy * scale + dy;
-  return [cx, cy];
+  // Mirror X to match CSS scaleX(-1) on the video element
+  return [cw - (vx * scale + dx), vy * scale + dy];
 }
 
-// Keypoint colors: right_eye, left_eye, nose, mouth, right_ear, left_ear
-const KP_COLORS = ['#f88', '#88f', '#fc8', '#8fc', '#c8f', '#8ff'];
-
-function draw(detections) {
+function draw(tracks) {
   ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-  if (!detections.length) {
-    valFaces.textContent = '0';
-    valConf.textContent = '—';
-    return;
-  }
+  for (const t of tracks) {
+    const b = t.box;
+    const color = t.color;
+    const alpha = 0.35 + t.conf * 0.65;
 
-  valFaces.textContent = String(detections.length);
-  let maxConf = 0;
-
-  for (const det of detections) {
-    const conf = det.categories?.[0]?.score ?? 0;
-    if (conf > maxConf) maxConf = conf;
-
-    const b = det.boundingBox;
-
-    // Map all four corners (object-fit:cover may crop, so origin matters)
-    const [x1] = toCanvas(b.originX, b.originY);
-    const [x2, y2] = toCanvas(b.originX + b.width, b.originY + b.height);
-    const [, y1] = toCanvas(b.originX, b.originY);
-
-    // After X-mirror: x1 > x2 → swap to get left edge
+    // Map box corners (mirror X)
+    const [x1, y1] = toCanvas(b.originX,           b.originY);
+    const [x2, y2] = toCanvas(b.originX + b.width,  b.originY + b.height);
     const bx = Math.min(x1, x2);
     const by = Math.min(y1, y2);
     const bw = Math.abs(x2 - x1);
     const bh = Math.abs(y2 - y1);
 
-    const alpha = 0.35 + conf * 0.65;
-
     // Glow box
     ctx.save();
-    ctx.shadowColor = `rgba(119,204,255,${alpha})`;
+    ctx.shadowColor = color;
     ctx.shadowBlur  = 10;
-    ctx.strokeStyle = `rgba(119,204,255,${alpha})`;
+    ctx.strokeStyle = color + Math.round(alpha * 255).toString(16).padStart(2, '0');
     ctx.lineWidth   = 1.5;
     ctx.strokeRect(bx, by, bw, bh);
     ctx.restore();
@@ -429,58 +524,63 @@ function draw(detections) {
     ctx.lineWidth   = 2.5;
     ctx.lineCap     = 'round';
     [
-      [[bx,       by + cl], [bx,       by], [bx + cl,       by]],
-      [[bx+bw-cl, by],      [bx+bw,    by], [bx+bw,         by+cl]],
-      [[bx,       by+bh-cl],[bx,       by+bh],[bx+cl,        by+bh]],
-      [[bx+bw-cl, by+bh],   [bx+bw,   by+bh],[bx+bw,        by+bh-cl]],
+      [[bx,      by+cl],  [bx,     by],    [bx+cl,     by]],
+      [[bx+bw-cl,by],     [bx+bw,  by],    [bx+bw,     by+cl]],
+      [[bx,      by+bh-cl],[bx,    by+bh], [bx+cl,     by+bh]],
+      [[bx+bw-cl,by+bh],  [bx+bw, by+bh], [bx+bw,     by+bh-cl]],
     ].forEach(([[ax,ay],[mx,my],[ex,ey]]) => {
-      ctx.beginPath();
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(mx, my);
-      ctx.lineTo(ex, ey);
-      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(mx,my); ctx.lineTo(ex,ey); ctx.stroke();
     });
 
-    // Confidence label
+    // ID label
     ctx.font      = 'bold 12px Courier New';
-    ctx.fillStyle = `rgba(119,204,255,${alpha})`;
-    ctx.fillText(`${Math.round(conf * 100)}%`, bx + 4, by - 6);
+    ctx.fillStyle = color;
+    ctx.fillText(`#${t.id}  ${Math.round(t.conf * 100)}%`, bx + 4, by - 6);
 
     // Keypoints
-    for (let i = 0; i < (det.keypoints?.length ?? 0); i++) {
-      const kp = det.keypoints[i];
+    for (let i = 0; i < (t.keypoints?.length ?? 0); i++) {
+      const kp = t.keypoints[i];
       const [kx, ky] = toCanvas(kp.x * video.videoWidth, kp.y * video.videoHeight);
       ctx.beginPath();
       ctx.arc(kx, ky, 4, 0, Math.PI * 2);
-      ctx.fillStyle   = KP_COLORS[i] ?? '#fff';
+      ctx.fillStyle   = color;
       ctx.fill();
       ctx.strokeStyle = '#000';
       ctx.lineWidth   = 1;
       ctx.stroke();
     }
   }
-
-  valConf.textContent = Math.round(maxConf * 100) + '%';
 }
 
 // ─────────────────────────────
-//  UI events
+//  UI helpers
 // ─────────────────────────────
+function flashCounter() {
+  valPassed.classList.remove('flashing');
+  // Force reflow so re-adding the class restarts the animation
+  void valPassed.offsetWidth;
+  valPassed.classList.add('flashing');
+}
+
+function setMsg(t) { initMsg.textContent = t; }
+
+resetBtn.addEventListener('click', () => {
+  tracker.reset();
+  valPassed.textContent = '0';
+  valLive.textContent   = '—';
+});
+
 flipBtn.addEventListener('click', () => {
   frontCam = !frontCam;
-  startCamera().catch(err => {
-    statusEl.textContent = 'カメラ切替エラー: ' + err.message;
-  });
+  startCamera().catch(err => { statusEl.textContent = 'カメラ切替エラー: ' + err.message; });
 });
 
 startBtn.addEventListener('click', () => {
-  document.getElementById('spinner').style.display = 'block';
+  document.querySelector('.spinner').style.display = 'block';
   startBtn.style.display = 'none';
   setMsg('再起動中…');
   initDetector();
 });
-
-function setMsg(t) { initMsg.textContent = t; }
 
 // Boot
 initDetector();
