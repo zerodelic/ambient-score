@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Face Detection — Realtime</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent: #7cf;
+      --bg:     #0a0a0f;
+      --panel:  #111118;
+      --border: #1e1e2a;
+    }
+
+    body {
+      background: var(--bg);
+      color: #ddd;
+      font-family: 'Courier New', Courier, monospace;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Header ── */
+    #header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 14px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #app-title  { font-size: 13px; letter-spacing: 2px; color: var(--accent); }
+    #app-version { font-size: 11px; color: #3a3a4a; }
+
+    /* ── Camera ── */
+    #camera-wrap {
+      position: relative;
+      flex: 1 1 0;
+      overflow: hidden;
+      background: #000;
+    }
+
+    #video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* mirror selfie */
+    }
+
+    #overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── Init overlay ── */
+    #init-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 30;
+    }
+    #init-overlay.hidden { display: none; }
+
+    .spinner {
+      width: 38px; height: 38px;
+      border: 3px solid #2a2a3a;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #init-msg { font-size: 13px; color: #666; }
+
+    #start-btn {
+      display: none;
+      background: var(--accent);
+      color: #000;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 28px;
+      cursor: pointer;
+    }
+    #start-btn:active { background: #9df; }
+
+    /* ── Flip camera button ── */
+    #flip-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 20;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.55);
+      border: 1px solid #3a3a4a;
+      color: #fff;
+      font-size: 22px;
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    #flip-btn:active { background: rgba(119,204,255,0.25); }
+
+    /* ── Stats ── */
+    #stats {
+      display: flex;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .stat {
+      flex: 1;
+      padding: 10px 4px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+    .stat:last-child { border-right: none; }
+
+    .stat-val {
+      font-size: 26px;
+      font-weight: bold;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .stat-val.alert { color: #f77; }
+
+    .stat-lbl {
+      font-size: 10px;
+      color: #3a3a55;
+      margin-top: 3px;
+      letter-spacing: 1px;
+    }
+
+    /* ── Status bar ── */
+    #status {
+      font-size: 11px;
+      color: #3a3a55;
+      text-align: center;
+      padding: 4px 8px;
+      background: var(--bg);
+      border-top: 1px solid #111;
+      flex-shrink: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <span id="app-title">FACE DETECTION</span>
+  <span id="app-version">v1.0.0</span>
+</div>
+
+<div id="camera-wrap">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
+
+  <div id="init-overlay">
+    <div class="spinner" id="spinner"></div>
+    <div id="init-msg">モデルを読み込み中…</div>
+    <button id="start-btn">カメラを起動</button>
+  </div>
+
+  <button id="flip-btn">🔄</button>
+</div>
+
+<div id="stats">
+  <div class="stat">
+    <div class="stat-val" id="val-faces">—</div>
+    <div class="stat-lbl">FACES</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="val-conf">—</div>
+    <div class="stat-lbl">CONF</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="val-fps">—</div>
+    <div class="stat-lbl">FPS</div>
+  </div>
+  <div class="stat">
+    <div class="stat-val" id="val-ms">—</div>
+    <div class="stat-lbl">MS</div>
+  </div>
+</div>
+
+<div id="status">初期化中…</div>
+
+<script type="module">
+'use strict';
+
+const MP_VER   = '0.10.14';
+const CDN      = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MP_VER}`;
+const MODEL    = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
+
+const video     = document.getElementById('video');
+const overlay   = document.getElementById('overlay');
+const ctx       = overlay.getContext('2d');
+const initOL    = document.getElementById('init-overlay');
+const initMsg   = document.getElementById('init-msg');
+const startBtn  = document.getElementById('start-btn');
+const flipBtn   = document.getElementById('flip-btn');
+const statusEl  = document.getElementById('status');
+const valFaces  = document.getElementById('val-faces');
+const valConf   = document.getElementById('val-conf');
+const valFps    = document.getElementById('val-fps');
+const valMs     = document.getElementById('val-ms');
+
+let detector    = null;
+let stream      = null;
+let rafId       = null;
+let lastVTime   = -1;
+let frontCam    = true;
+
+// FPS tracking
+let fCount = 0, fpsTimer = performance.now(), fps = 0;
+
+// ─────────────────────────────
+//  MediaPipe init
+// ─────────────────────────────
+async function initDetector() {
+  try {
+    setMsg('WASM を取得中…');
+    const { FaceDetector, FilesetResolver } =
+      await import(`${CDN}/vision_bundle.mjs`);
+
+    const vision = await FilesetResolver.forVisionTasks(`${CDN}/wasm`);
+
+    setMsg('モデルを取得中…');
+    detector = await FaceDetector.createFromOptions(vision, {
+      baseOptions: {
+        modelAssetPath: MODEL,
+        delegate: 'GPU',
+      },
+      runningMode: 'VIDEO',
+      minDetectionConfidence: 0.5,
+      minSuppressionThreshold: 0.3,
+    });
+
+    setMsg('カメラを起動中…');
+    await startCamera();
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById('spinner').style.display = 'none';
+    setMsg('エラー: ' + err.message);
+    startBtn.style.display = 'block';
+    statusEl.textContent = 'エラーが発生しました。ボタンで再試行してください。';
+  }
+}
+
+// ─────────────────────────────
+//  Camera
+// ─────────────────────────────
+async function startCamera() {
+  stopCamera();
+
+  // iOS 3-stage fallback
+  const modes = [
+    { video: { facingMode: frontCam ? 'user' : 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
+    { video: { facingMode: frontCam ? 'user' : 'environment' } },
+    { video: true },
+  ];
+
+  let s = null;
+  for (const c of modes) {
+    try { s = await navigator.mediaDevices.getUserMedia(c); break; }
+    catch { /* try next */ }
+  }
+  if (!s) throw new Error('カメラにアクセスできませんでした');
+
+  stream = s;
+  video.srcObject = s;
+  await new Promise((res, rej) => {
+    video.onloadedmetadata = res;
+    video.onerror = rej;
+  });
+
+  // iOS requires explicit resume equivalent via play()
+  await video.play();
+
+  resizeOverlay();
+  initOL.classList.add('hidden');
+  flipBtn.style.display = 'flex';
+  statusEl.textContent = '検出中 — ' + (frontCam ? 'フロントカメラ' : 'リアカメラ');
+
+  startLoop();
+}
+
+function stopCamera() {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  lastVTime = -1;
+}
+
+// ─────────────────────────────
+//  Detection loop
+// ─────────────────────────────
+function startLoop() {
+  function loop() {
+    rafId = requestAnimationFrame(loop);
+
+    if (video.readyState < 2 || !video.videoWidth) return;
+    if (video.currentTime === lastVTime) return;
+    lastVTime = video.currentTime;
+
+    // FPS
+    fCount++;
+    const now = performance.now();
+    if (now - fpsTimer >= 1000) {
+      fps = Math.round(fCount * 1000 / (now - fpsTimer));
+      fCount = 0;
+      fpsTimer = now;
+      valFps.textContent = fps;
+    }
+
+    // Detect
+    const t0 = performance.now();
+    let result;
+    try {
+      result = detector.detectForVideo(video, now);
+    } catch (e) {
+      console.warn('detect error:', e);
+      return;
+    }
+    const ms = Math.round(performance.now() - t0);
+    valMs.textContent = ms;
+
+    draw(result.detections);
+  }
+
+  loop();
+}
+
+// ─────────────────────────────
+//  Drawing
+// ─────────────────────────────
+function resizeOverlay() {
+  const wrap = overlay.parentElement;
+  overlay.width  = wrap.clientWidth;
+  overlay.height = wrap.clientHeight;
+}
+
+window.addEventListener('resize', resizeOverlay);
+
+/**
+ * Map video pixel coords → canvas coords.
+ * Handles object-fit:cover scaling and mirrors X for selfie view.
+ */
+function toCanvas(vx, vy) {
+  const vw = video.videoWidth,  vh = video.videoHeight;
+  const cw = overlay.width,     ch = overlay.height;
+  const scale = Math.max(cw / vw, ch / vh);
+  const dx = (cw - vw * scale) / 2;
+  const dy = (ch - vh * scale) / 2;
+
+  // Mirror X (matches the CSS scaleX(-1) on the video element)
+  const cx = cw - (vx * scale + dx);
+  const cy = vy * scale + dy;
+  return [cx, cy];
+}
+
+// Keypoint colors: right_eye, left_eye, nose, mouth, right_ear, left_ear
+const KP_COLORS = ['#f88', '#88f', '#fc8', '#8fc', '#c8f', '#8ff'];
+
+function draw(detections) {
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+  if (!detections.length) {
+    valFaces.textContent = '0';
+    valConf.textContent = '—';
+    return;
+  }
+
+  valFaces.textContent = String(detections.length);
+  let maxConf = 0;
+
+  for (const det of detections) {
+    const conf = det.categories?.[0]?.score ?? 0;
+    if (conf > maxConf) maxConf = conf;
+
+    const b = det.boundingBox;
+
+    // Map all four corners (object-fit:cover may crop, so origin matters)
+    const [x1] = toCanvas(b.originX, b.originY);
+    const [x2, y2] = toCanvas(b.originX + b.width, b.originY + b.height);
+    const [, y1] = toCanvas(b.originX, b.originY);
+
+    // After X-mirror: x1 > x2 → swap to get left edge
+    const bx = Math.min(x1, x2);
+    const by = Math.min(y1, y2);
+    const bw = Math.abs(x2 - x1);
+    const bh = Math.abs(y2 - y1);
+
+    const alpha = 0.35 + conf * 0.65;
+
+    // Glow box
+    ctx.save();
+    ctx.shadowColor = `rgba(119,204,255,${alpha})`;
+    ctx.shadowBlur  = 10;
+    ctx.strokeStyle = `rgba(119,204,255,${alpha})`;
+    ctx.lineWidth   = 1.5;
+    ctx.strokeRect(bx, by, bw, bh);
+    ctx.restore();
+
+    // Corner brackets
+    const cl = Math.min(bw, bh) * 0.18;
+    ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+    ctx.lineWidth   = 2.5;
+    ctx.lineCap     = 'round';
+    [
+      [[bx,       by + cl], [bx,       by], [bx + cl,       by]],
+      [[bx+bw-cl, by],      [bx+bw,    by], [bx+bw,         by+cl]],
+      [[bx,       by+bh-cl],[bx,       by+bh],[bx+cl,        by+bh]],
+      [[bx+bw-cl, by+bh],   [bx+bw,   by+bh],[bx+bw,        by+bh-cl]],
+    ].forEach(([[ax,ay],[mx,my],[ex,ey]]) => {
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(mx, my);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+    });
+
+    // Confidence label
+    ctx.font      = 'bold 12px Courier New';
+    ctx.fillStyle = `rgba(119,204,255,${alpha})`;
+    ctx.fillText(`${Math.round(conf * 100)}%`, bx + 4, by - 6);
+
+    // Keypoints
+    for (let i = 0; i < (det.keypoints?.length ?? 0); i++) {
+      const kp = det.keypoints[i];
+      const [kx, ky] = toCanvas(kp.x * video.videoWidth, kp.y * video.videoHeight);
+      ctx.beginPath();
+      ctx.arc(kx, ky, 4, 0, Math.PI * 2);
+      ctx.fillStyle   = KP_COLORS[i] ?? '#fff';
+      ctx.fill();
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth   = 1;
+      ctx.stroke();
+    }
+  }
+
+  valConf.textContent = Math.round(maxConf * 100) + '%';
+}
+
+// ─────────────────────────────
+//  UI events
+// ─────────────────────────────
+flipBtn.addEventListener('click', () => {
+  frontCam = !frontCam;
+  startCamera().catch(err => {
+    statusEl.textContent = 'カメラ切替エラー: ' + err.message;
+  });
+});
+
+startBtn.addEventListener('click', () => {
+  document.getElementById('spinner').style.display = 'block';
+  startBtn.style.display = 'none';
+  setMsg('再起動中…');
+  initDetector();
+});
+
+function setMsg(t) { initMsg.textContent = t; }
+
+// Boot
+initDetector();
+</script>
+</body>
+</html>
