@@ -1551,7 +1551,7 @@
       </div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.6.1 &nbsp;|&nbsp; 更新日：2026-06-18</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.7.0 &nbsp;|&nbsp; 更新日：2026-07-01</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right">
@@ -3764,8 +3764,8 @@
   // =============================================
   function showSummary() {
     const endClock = formatClock();
-    // 測定時間は logData の件数から計算（1件≒1秒）
-    const durationSec = logData.length;
+    // 測定時間は経過秒カウンタを使用（一時停止を除いた実測時間・ヘッダー表示と一致）
+    const durationSec = elapsedSec;
     const durationStr = durationSec >= 60
       ? `${Math.floor(durationSec / 60)}分${durationSec % 60}秒`
       : `${durationSec}秒`;
@@ -4135,7 +4135,7 @@
   </div>
 
   <div class="report-footer">
-    騒音周波数アナライザー v2.6.1 で生成 — ${new Date().toLocaleString('ja-JP')}
+    騒音周波数アナライザー v2.7.0 で生成 — ${new Date().toLocaleString('ja-JP')}
   </div>
 </div>
 </body>
