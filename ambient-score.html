@@ -3066,8 +3066,8 @@
     // 声らしいスペクトルのときは bgLevel を固定（会議ノイズに引っ張られない）
     const activityDb = dbShifted - bgLevel;
 
-    // 活動ゲート: 背景より 4dB 以上（複数人発話でも検出できるよう緩和）
-    if (dbShifted < 2 || activityDb < 4) {
+    // 活動ゲート: 背景より 6dB 以上（v2.6.0で4dBに緩めたが定常ファン誤検知のため6dBへ戻す）
+    if (dbShifted < 2 || activityDb < 6) {
       prevWasVoice = false;
       smoothVoiceScore = smoothVoiceScore * 0.85;
       if (shouldUpdateMeter) {
@@ -3105,13 +3105,14 @@
                      :                         1.0;                                           // 300Hz以上：制限なし
 
       // 重み付き合計（4指標）× 周波数ゲート
-      // 複数人発話に対応：スペクトル形状（formant・band）の重みを増やし
-      // ピッチ・倍音（単独話者で有利）の重みを下げる
+      // 暫定対処: v2.6.0でスペクトル形状偏重(formant0.50/band0.25)に緩めたが、
+      // 定常ファンを声と誤検知するため、声固有の指標(pitch/harmonic)を重視する
+      // v2.6.0以前の配分に戻す（複数人発話の感度低下はトレードオフ・本命は変調ゲート）
       const voiceScore = (
-        formantSc  * 0.50 +   // 中域フォルマント隆起（単独・複数とも安定）
-        bandSc     * 0.25 +   // 声帯域エネルギー比（単独・複数とも安定）
-        pitchSc    * 0.15 +   // ピッチ（単独話者で有効、複数では低下）
-        harmonicSc * 0.10     // 倍音構造（単独話者で有効、複数では低下）
+        formantSc  * 0.42 +   // 中域フォルマント隆起
+        pitchSc    * 0.25 +   // ピッチ（声固有・定常機械音では低い）
+        harmonicSc * 0.18 +   // 倍音構造（声固有・定常機械音では低い）
+        bandSc     * 0.15     // 声帯域エネルギー比
       ) * freqGate;
 
       // EMA平滑化（ちらつき防止）
@@ -3119,8 +3120,8 @@
 
       if (shouldUpdateMeter) {
         const pct = (smoothVoiceScore * 100).toFixed(0);
-        const voiceTh = 0.46;  // 緩和：複数人発話でも判定できるよう（旧0.52）
-        const maybeTh = 0.32;  // 緩和に合わせて調整（旧0.35）
+        const voiceTh = 0.52;  // 暫定対処: v2.6.0で0.46に緩めたが定常ファン誤検知のため0.52へ戻す
+        const maybeTh = 0.35;  // 同上（v2.6.0前の値に復帰）
         const isVoice = smoothVoiceScore >= voiceTh;
         const isMaybe = smoothVoiceScore >= maybeTh;
 
