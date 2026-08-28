@@ -188,8 +188,17 @@ Joy Division のアルバム *Unknown Pleasures*（1979）のジャケットデ�
 
 ```
 ambient-score/
-└── ambient-score.html   # アプリ本体（単一ファイル）
+├── ambient-score.html   # アプリ本体（単一ファイル）
+├── README.md            # 本ドキュメント
+└── LICENSE              # MIT License
 ```
+
+---
+
+## 📄 ライセンス
+
+本ソフトウェアは [MIT License](LICENSE) で公開しています。  
+Copyright (c) 2026 zerodelic
 
 ---
 
