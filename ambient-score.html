@@ -3087,6 +3087,8 @@
         totalFrameCount++;
         document.getElementById('vstat-occupancy').textContent =
           (totalFrameCount > 0 ? (voiceFrameCount / totalFrameCount * 100).toFixed(1) : '--') + '%';
+        // 静寂・背景音のみでもライブ静粛スコアを更新（活動側と同じ分母・評価に揃える）
+        updateSilenceScore(elapsed / 1000);
       }
     } else {
       // 各特徴量を計算（detectPitch は先頭512サンプルのみ使用して軽量化）
@@ -3449,6 +3451,7 @@
   // =============================================
   let _fileWriter = null; // FileSystemWritableFileStream
   let _fileOffset = 0;    // 現在の書き込みバイト位置
+  let _fileCols   = null; // ファイルを開いた時点の有効列セット（ヘッダーと追記行で共通に使う）
 
   // ファイルを開いてヘッダーを書く（start()から呼び出す）
   async function openFileLog() {
@@ -3461,9 +3464,12 @@
       });
       _fileWriter = await fileHandle.createWritable();
       _fileOffset = 0;
+      // 開いた時点の有効列を固定（保存中にチェックを変更してもファイルの列数は変わらない）
+      const enabled = getEnabledCols();
+      _fileCols = LOG_COLS.filter(c => enabled.includes(c.id));
 
       // UTF-8 BOM + ヘッダー行を書き込む
-      const header = '﻿時刻,' + LOG_COLS.map(c => c.label).join(',') + '\n';
+      const header = '﻿時刻,' + _fileCols.map(c => c.label).join(',') + '\n';
       const encoded = new TextEncoder().encode(header);
       await _fileWriter.write({ type: 'write', position: _fileOffset, data: encoded });
       _fileOffset += encoded.byteLength;
@@ -3486,6 +3492,7 @@
     } catch (_) { /* ignore */ }
     _fileWriter = null;
     _fileOffset = 0;
+    _fileCols   = null;
     document.getElementById('btn-filelog').classList.remove('active');
     document.getElementById('btn-filelog').title = '';
   }
@@ -3494,8 +3501,8 @@
   async function appendRowToFile(data) {
     if (!_fileWriter) return;
     try {
-      const enabled = getEnabledCols();
-      const cols = LOG_COLS.filter(c => enabled.includes(c.id));
+      // ヘッダーと同じ列セット（openFileLog時に固定）を使い、列数のズレを防ぐ
+      const cols = _fileCols || LOG_COLS;
       const row = [data.elapsed, ...cols.map(c => c.fmt(data[c.id]))].join(',') + '\n';
       const encoded = new TextEncoder().encode(row);
       await _fileWriter.write({ type: 'write', position: _fileOffset, data: encoded });
@@ -4144,7 +4151,7 @@
   </div>
 
   <div class="report-footer">
-    騒音周波数アナライザー v2.7.1 で生成 — ${new Date().toLocaleString('ja-JP')}
+    Ambient Score 1 v2.7.2 で生成 — ${new Date().toLocaleString('ja-JP')}
   </div>
 </div>
 </body>
