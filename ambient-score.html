@@ -1551,7 +1551,7 @@
       </div>
     </div>
     <div id="header-title">
-      <h1>Ambient Score 1 <span id="app-version">v2.7.1 &nbsp;|&nbsp; 更新日：2026-07-08</span></h1>
+      <h1>Ambient Score 1 <span id="app-version">v2.7.2 &nbsp;|&nbsp; 更新日：2026-08-29</span></h1>
       <div id="app-tagline">Scoring the silence around you &nbsp;—&nbsp; リアルタイム環境音アナライザー</div>
     </div>
     <div id="header-right">
@@ -1660,7 +1660,7 @@
         <div class="meter-label">最大音量</div>
         <div class="meter-value" id="val-max" style="color:#ff8866;">---<span class="meter-unit">dB</span></div>
       </div>
-      <div class="meter-box" data-tip="平均音量|測定開始からの全フレームの算術平均。オフィス全体の平均的なうるささを示します。">
+      <div class="meter-box" data-tip="平均音量|測定開始からの全フレームを音圧レベル(dB)からエネルギーに換算して平均し、dBへ戻した値。オフィス全体の平均的なうるささを示します。">
         <div class="meter-label">平均音量</div>
         <div class="meter-value" id="val-avg" style="color:#ffcc44;">---<span class="meter-unit">dB</span></div>
       </div>
@@ -2022,7 +2022,7 @@
 
   // 声の統計カウンター
   let voiceFrameCount  = 0;  // 声と判定されたフレーム数
-  let totalFrameCount  = 0;  // 活動フレーム数（静寂以外）
+  let totalFrameCount  = 0;  // 評価フレーム数（静寂・背景音も含む＝占有率の分母＝測定時間ベース）
   let voiceEventCount  = 0;  // 声イベント数（非声→声の切り替わり）
   let voiceDbSum       = 0;  // 声検出中の音圧合計
   let voiceDbCount     = 0;  // 声検出中のフレーム数
@@ -3082,6 +3082,11 @@
           if (barEl) barEl.style.width = '0%';
           if (valEl) valEl.textContent = '0%';
         });
+        // 占有率を「測定時間中の割合」にするため、静寂・背景音のみのフレームも
+        // 分母(totalFrameCount)に含める。声ではないので voiceFrameCount は増やさない。
+        totalFrameCount++;
+        document.getElementById('vstat-occupancy').textContent =
+          (totalFrameCount > 0 ? (voiceFrameCount / totalFrameCount * 100).toFixed(1) : '--') + '%';
       }
     } else {
       // 各特徴量を計算（detectPitch は先頭512サンプルのみ使用して軽量化）
@@ -3507,23 +3512,26 @@
   }
 
   // 全列の定義（id・表示名・値フォーマッタ）※ null は空文字として出力
-  // ユーザー入力テキストを CSV フォーミュラインジェクションから保護
-  function csvSafe(s) {
-    const str = String(s);
-    // 数値はそのまま（負の数値を壊さないよう先頭が数字なら除外）
-    if (/^-?\d/.test(str)) return str;
-    return /^[=+\-@]/.test(str) ? `'${str}` : str;
+  // CSVセル用の共通エスケープ。テキスト値に一貫して適用する:
+  //  1) フォーミュラインジェクション対策（先頭空白を除いた最初の文字が =,+,-,@,tab,CR なら ' を前置）
+  //  2) ダブルクォートを "" にエスケープ
+  //  3) セル全体をダブルクォートで囲む（カンマ・改行・引用符でも列が崩れない）
+  // ※数値列には使わない（従来どおり素の数値文字列を出力する）
+  function csvCell(s) {
+    let str = String(s == null ? '' : s);
+    if (/^[\s]*[=+\-@\t\r]/.test(str)) str = `'${str}`;
+    return `"${str.replace(/"/g, '""')}"`;
   }
 
   const LOG_COLS = [
     { id: 'dbVal',       label: '音圧(dB)',          fmt: v => v != null ? v.toFixed(1) : '' },
     { id: 'peak3s',      label: '直近3秒最大(dB)',   fmt: v => v != null ? v.toFixed(1) : '' },
     { id: 'domFreqVal',  label: '卓越周波数(Hz)',     fmt: v => v != null ? v.toFixed(1) : '' },
-    { id: 'voiceLabel',  label: '音源識別',           fmt: v => v != null ? `"${v}"` : '' },
+    { id: 'voiceLabel',  label: '音源識別',           fmt: v => v != null ? csvCell(v) : '' },
     { id: 'occupancy',   label: '声の占有率(%)',      fmt: v => v != null ? v.toFixed(1) : '' },
     { id: 'voiceEvents', label: '声のイベント数',     fmt: v => v != null ? String(v) : '' },
     { id: 'voiceAvgDb',  label: '声の平均音圧(dB)',   fmt: v => (v != null && v >= 0) ? v.toFixed(1) : '' },
-    { id: 'note',        label: '注記',               fmt: v => v ? `"${csvSafe(v)}"` : '' },
+    { id: 'note',        label: '注記',               fmt: v => v ? csvCell(v) : '' },
   ];
 
   // 有効な列IDを取得
@@ -3583,7 +3591,7 @@
     entry.className = 'log-entry manual-label';
     entry.innerHTML = `
       <span class="log-time">${formatClock()}</span>
-      <span class="log-val-voice" style="color:#aaccff;">📝 ${text}</span>
+      <span class="log-val-voice" style="color:#aaccff;">📝 ${escHtml(text)}</span>
     `;
     document.getElementById('log-list').insertBefore(entry, document.getElementById('log-list').firstChild);
 
@@ -4158,9 +4166,10 @@
 
     const rows = single ? [history[0]] : history;
     const header = '測定期間,測定時間,静粛スコア,グレード,最大音量(dB),平均音量(dB),声の占有率(%),声のイベント数(回),声の平均音圧(dB),最大音量の時刻,ログ記録数';
+    // テキスト列（測定期間・測定時間・グレード・時刻）は csvCell で保護、数値列は素のまま
     const body = rows.map(s =>
-      [s.period, s.duration, s.score, s.grade, s.maxDb, s.avgDb,
-       s.occupancy, s.events, s.voiceAvgDb, s.maxTime, s.logCount].join(',')
+      [csvCell(s.period), csvCell(s.duration), s.score, csvCell(s.grade), s.maxDb, s.avgDb,
+       s.occupancy, s.events, s.voiceAvgDb, csvCell(s.maxTime), s.logCount].join(',')
     );
     const csv = [header, ...body].join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });

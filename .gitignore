@@ -1,2 +1,6 @@
 dist/
 .DS_Store
+
+# Claude Code のローカル個人設定は除外（共有する launch.json のみ追跡）
+.claude/*
+!.claude/launch.json

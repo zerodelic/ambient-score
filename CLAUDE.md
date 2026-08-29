@@ -11,7 +11,7 @@
 
 | アプリID | 名前 | 状態 | 説明 |
 |---------|------|------|------|
-| **AS1** | Ambient Score 1 | ✅ 開発中 (v2.6.0) | 単一HTMLファイル、FFT+ヒューリスティックVAD |
+| **AS1** | Ambient Score 1 | ✅ 公開準備 (v2.7.2) | 単一HTMLファイル、FFT+ヒューリスティックVAD |
 | **AA1** | Ambient AI 1 | 🔨 プロトタイプ開発中 (v0.3.2) | TensorFlow.js + YAMNet による高精度音識別 |
 | **未定** | ログ解析アプリ | 💭 構想中 | AS1/AA1のCSVログを可視化・分析 |
 
@@ -21,7 +21,7 @@
 
 - **ファイル**: `ambient-score.html`（単一HTMLファイル、依存ライブラリなし）
 - **GitHub Pages**: `https://zerodelic.github.io/ambient-score/ambient-score.html`
-- **最新バージョン**: v2.6.0
+- **最新バージョン**: v2.7.2
 - **開発方針**: 1ファイルで動作・オフライン対応・PCとモバイル(iOS Chrome)両対応
 
 ### 主要な技術的決定事項
