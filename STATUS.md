@@ -2,13 +2,15 @@
 
 ## 状態
 
-active（公開直前）。Codex公開前レビュー(P1×2/P2×2/P3)の指摘を全対応し v2.7.2 化。品質ゲートは両端クリア済み。あとは配布物の最終化とVector登録(本人作業)のみ。
+active（Vector登録待ち）。Codexの再々レビュー(HEAD 23d137b時点)で公開前ブロッカーなし・v2.7.2はVector登録へ進めてよいと承認。技術タスク・配布物は完成。残るはVector登録(本人作業)のみ。
 
 ## 次の一手
 
-Codexの2巡目再レビューに 86a5b4a（差分 8d52c3d..86a5b4a）を回す。問題なければ dist/ambient-score-v2.7.2.zip をVectorに登録・送信する(本人作業)。
+dist/ambient-score-v2.7.2.zip をVectorに登録・送信する(本人作業)。登録が完了したらSTATUS状態を「done/公開済み」に更新し、公開URLをメモに記録する。
 
 ## メモ
+
+- Codexレビュー完結: 初回(P1×2/P2×2/P3)→2巡目(レポート版数・ファイルログ列固定・静寂スコア)→再々レビューで全解消・公開前ブロッカーなしと承認(対象86a5b4a / 確認時HEAD 23d137b)。Vector登録OKの判断を得た。
 
 - v2.7.2 = 公開前レビュー対応。修正内容と検証:
   - [P1] メモ欄DOM XSS: sendMemo() を escHtml() 経由に。ライブ検証で `<img src=x onerror=alert(1)>` が要素化されず文字列表示(imgElementsCreated=0)を確認。
