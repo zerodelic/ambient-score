@@ -8,6 +8,9 @@
 **▶ オンラインで試す**: https://zerodelic.github.io/ambient-score/ambient-score.html  
 （Chrome / Edge 推奨。マイクの音声はサーバーに送信されず、すべてブラウザ内で処理されます）
 
+**📖 技術解説「音から声を見分ける」**: https://zerodelic.github.io/ambient-score/docs/audio-primer.html  
+（Web Audio・周波数特性・フォルマント隆起など、声判定の仕組みを実装コードに沿って図解）
+
 ---
 
 ## 📌 特徴
