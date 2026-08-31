@@ -5,6 +5,9 @@
 
 **バージョン**: v2.7.2 ｜ **更新日**: 2026-08-29
 
+**▶ オンラインで試す**: https://zerodelic.github.io/ambient-score/ambient-score.html  
+（Chrome / Edge 推奨。マイクの音声はサーバーに送信されず、すべてブラウザ内で処理されます）
+
 ---
 
 ## 📌 特徴
