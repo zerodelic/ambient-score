@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Ambient Score 1 の実装に沿って、Web Audioと周波数から「声らしさ」を測る4つの特徴量までを図解した学習リファレンス。">
+<title>音から声を見分ける</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --bg:#eef2f2; --surface:#ffffff; --surface-2:#e6edec; --sunken:#f5f8f8;
+    --ink:#14201e; --ink-soft:#48605b; --ink-faint:#7c928d;
+    --line:#d3dcda; --line-strong:#b9c6c3;
+    --accent:#0d7a84; --accent-ink:#0a5a62;
+    --voice:#0a9463; --warm:#bd6412; --pitch:#7a5cc4;
+    --shadow:0 1px 2px rgba(20,32,30,.05),0 8px 24px rgba(20,32,30,.06);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0a1211; --surface:#111b19; --surface-2:#16211f; --sunken:#0d1615;
+      --ink:#e0ebe8; --ink-soft:#95aca7; --ink-faint:#6c827d;
+      --line:#233230; --line-strong:#32433f;
+      --accent:#35cebe; --accent-ink:#5be0d2;
+      --voice:#45f0a6; --warm:#f0a24e; --pitch:#b39cf0;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0a1211; --surface:#111b19; --surface-2:#16211f; --sunken:#0d1615;
+    --ink:#e0ebe8; --ink-soft:#95aca7; --ink-faint:#6c827d;
+    --line:#233230; --line-strong:#32433f;
+    --accent:#35cebe; --accent-ink:#5be0d2;
+    --voice:#45f0a6; --warm:#f0a24e; --pitch:#b39cf0;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Noto Sans JP",system-ui,sans-serif;
+    font-weight:400; line-height:1.85; letter-spacing:.01em;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:0 24px}
+  .mono{font-family:"IBM Plex Mono","Noto Sans JP",monospace}
+
+  /* ---- header ---- */
+  header.top{padding:72px 0 40px}
+  .kicker{
+    font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:500;
+    letter-spacing:.22em; text-transform:uppercase; color:var(--accent);
+    display:flex; align-items:center; gap:10px; margin:0 0 22px;
+  }
+  .kicker::before{content:""; width:26px; height:1px; background:var(--accent); display:inline-block}
+  h1{
+    font-size:clamp(32px,6vw,50px); line-height:1.15; font-weight:700;
+    letter-spacing:.005em; margin:0 0 20px; text-wrap:balance;
+  }
+  .lede{font-size:18px; color:var(--ink-soft); margin:0; max-width:60ch}
+  .meta{
+    margin-top:28px; padding-top:18px; border-top:1px solid var(--line);
+    display:flex; flex-wrap:wrap; gap:8px 22px;
+    font-family:"IBM Plex Mono",monospace; font-size:12.5px; color:var(--ink-faint);
+    letter-spacing:.02em;
+  }
+  .meta b{color:var(--ink-soft); font-weight:500}
+
+  /* ---- sections ---- */
+  section{padding:30px 0; border-top:1px solid var(--line)}
+  .sec-no{
+    font-family:"IBM Plex Mono",monospace; font-size:12px; letter-spacing:.18em;
+    color:var(--accent); font-weight:600; text-transform:uppercase;
+  }
+  h2{font-size:clamp(22px,3.6vw,28px); font-weight:700; line-height:1.3; margin:8px 0 6px; text-wrap:balance}
+  h2 + .sub{color:var(--ink-soft); margin:0 0 22px; font-size:15px}
+  h3{font-size:17px; font-weight:700; margin:30px 0 8px; letter-spacing:.01em}
+  p{margin:0 0 16px}
+  strong{font-weight:700}
+  a{color:var(--accent-ink); text-underline-offset:3px; text-decoration-thickness:1px}
+
+  .lead-in{color:var(--ink); font-size:16.5px}
+
+  /* ---- figure ---- */
+  figure{margin:24px 0; padding:0}
+  .panel{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:22px 20px 16px; box-shadow:var(--shadow); overflow:hidden;
+  }
+  .panel svg{display:block; width:100%; height:auto}
+  figcaption{
+    font-size:13px; color:var(--ink-faint); margin-top:12px; line-height:1.7;
+    font-family:"IBM Plex Mono","Noto Sans JP",monospace; letter-spacing:.01em;
+  }
+  figcaption b{color:var(--ink-soft); font-weight:500}
+
+  /* svg text helpers */
+  .svg-lab{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.04em}
+  .svg-lab-sm{font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.03em}
+
+  /* ---- code chip / callout ---- */
+  .codelink{
+    display:block; margin:16px 0 4px; padding:12px 15px;
+    background:var(--sunken); border:1px solid var(--line); border-left:3px solid var(--accent);
+    border-radius:8px; font-family:"IBM Plex Mono",monospace; font-size:12.5px;
+    color:var(--ink-soft); line-height:1.7;
+  }
+  .codelink .fn{color:var(--accent-ink); font-weight:600}
+  .codelink .loc{color:var(--ink-faint)}
+
+  /* ---- feature index ---- */
+  .feat-grid{display:grid; grid-template-columns:1fr; gap:2px; margin:22px 0 4px; border-radius:12px; overflow:hidden; border:1px solid var(--line)}
+  .feat{display:grid; grid-template-columns:44px 1fr auto; align-items:center; gap:14px; padding:14px 16px; background:var(--surface)}
+  .feat .w{font-family:"IBM Plex Mono",monospace; font-weight:600; font-size:15px; color:var(--accent)}
+  .feat .nm{font-weight:700; font-size:15px}
+  .feat .nm span{display:block; font-weight:400; font-size:12.5px; color:var(--ink-faint); font-family:"IBM Plex Mono","Noto Sans JP",monospace; margin-top:2px}
+  .feat .bar{width:96px; height:7px; border-radius:4px; background:var(--surface-2); overflow:hidden}
+  .feat .bar i{display:block; height:100%; background:var(--accent); border-radius:4px}
+
+  /* ---- key/value glossary ---- */
+  dl.gloss{margin:14px 0 0; display:grid; gap:0}
+  dl.gloss > div{padding:14px 0; border-top:1px solid var(--line); display:grid; grid-template-columns:180px 1fr; gap:18px}
+  dl.gloss > div:first-child{border-top:0}
+  dl.gloss dt{font-family:"IBM Plex Mono","Noto Sans JP",monospace; font-weight:500; color:var(--ink); font-size:14px}
+  dl.gloss dt small{display:block; color:var(--ink-faint); font-size:11.5px; font-weight:400; margin-top:2px}
+  dl.gloss dd{margin:0; color:var(--ink-soft); font-size:14.5px}
+  @media (max-width:560px){
+    dl.gloss > div{grid-template-columns:1fr; gap:4px}
+    .feat{grid-template-columns:38px 1fr; }
+    .feat .bar{display:none}
+  }
+
+  .note{
+    margin:20px 0; padding:16px 18px; background:var(--surface-2);
+    border-radius:10px; font-size:14.5px; color:var(--ink-soft); line-height:1.8;
+  }
+  .note b{color:var(--ink)}
+
+  footer{padding:40px 0 72px; border-top:1px solid var(--line); color:var(--ink-faint); font-size:13px}
+  footer .mono{font-size:12px; letter-spacing:.02em}
+
+  ::selection{background:var(--accent); color:var(--surface)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <p class="kicker">Ambient Score / signal notebook</p>
+    <h1>音から声を、どう見分けているか</h1>
+    <p class="lede">マイクの空気の震えが、ブラウザの中で数字になり、「これは人の声か環境音か」の判定に変わるまで。AS1 の実装コードに沿って、Web Audio と周波数の考え方を一枚に整理する。</p>
+    <div class="meta">
+      <span><b>題材</b> ambient-score.html</span>
+      <span><b>API</b> Web Audio (AnalyserNode)</span>
+      <span><b>読み方</b> 上から順に / 図は模式図</span>
+    </div>
+  </header>
+
+  <!-- 01 ------------------------------------------------------------ -->
+  <section>
+    <span class="sec-no">01 — 信号の流れ</span>
+    <h2>空気の震えが数字になるまで</h2>
+    <p class="sub">まず全体像。マイクからの音は、5つの箱を通って2種類のデータになる。</p>
+
+    <p class="lead-in">Web Audio API は、音の処理を「ノード」という箱をつないで組み立てる。AS1 が使う経路はとてもシンプルで、<strong>マイク → AudioContext → AnalyserNode</strong> の一本道だ。最後の AnalyserNode が、音を解析用の数字に変換してくれる。</p>
+
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 200" role="img" aria-label="マイクからAnalyserNodeを経て2種類のデータになる信号の流れ図">
+          <defs>
+            <marker id="arw" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+              <path d="M0,0 L9,4.5 L0,9 z" fill="var(--line-strong)"/>
+            </marker>
+          </defs>
+          <g class="svg-lab" fill="var(--ink)" text-anchor="middle">
+            <!-- boxes -->
+            <g>
+              <rect x="12" y="60" width="96" height="56" rx="9" fill="var(--surface-2)" stroke="var(--line-strong)"/>
+              <text x="60" y="84">🎙 マイク</text>
+              <text class="svg-lab-sm" x="60" y="101" fill="var(--ink-faint)">getUserMedia</text>
+            </g>
+            <g>
+              <rect x="150" y="60" width="104" height="56" rx="9" fill="var(--surface-2)" stroke="var(--line-strong)"/>
+              <text x="202" y="84">AudioContext</text>
+              <text class="svg-lab-sm" x="202" y="101" fill="var(--ink-faint)">音の配線盤</text>
+            </g>
+            <g>
+              <rect x="296" y="52" width="120" height="72" rx="9" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.6"/>
+              <text x="356" y="80" fill="var(--accent-ink)">Analyser</text>
+              <text x="356" y="96" fill="var(--accent-ink)">Node</text>
+              <text class="svg-lab-sm" x="356" y="113" fill="var(--ink-faint)">FFT</text>
+            </g>
+            <!-- two outputs -->
+            <g>
+              <rect x="470" y="24" width="212" height="52" rx="9" fill="var(--sunken)" stroke="var(--line-strong)"/>
+              <text x="576" y="46">周波数データ</text>
+              <text class="svg-lab-sm" x="576" y="63" fill="var(--ink-faint)">getFloatFrequencyData</text>
+            </g>
+            <g>
+              <rect x="470" y="100" width="212" height="52" rx="9" fill="var(--sunken)" stroke="var(--line-strong)"/>
+              <text x="576" y="122">時間波形データ</text>
+              <text class="svg-lab-sm" x="576" y="139" fill="var(--ink-faint)">getFloatTimeDomainData</text>
+            </g>
+            <!-- arrows -->
+            <g stroke="var(--line-strong)" stroke-width="1.6" fill="none">
+              <line x1="110" y1="88" x2="146" y2="88" marker-end="url(#arw)"/>
+              <line x1="256" y1="88" x2="292" y2="88" marker-end="url(#arw)"/>
+              <path d="M418,78 C444,70 448,55 466,50" marker-end="url(#arw)"/>
+              <path d="M418,98 C444,106 448,121 466,126" marker-end="url(#arw)"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>1フレームごと</b>に AnalyserNode から2種類のデータを取り出す。片方は「どの高さの音がどれだけ含まれるか」、もう片方は「波そのもの」。<br>コード: <b>draw()</b> が requestAnimationFrame で毎フレーム両方を取得（ambient-score.html:2715）。</figcaption>
+    </figure>
+
+    <p>ここで大事なのは、AnalyserNode が<strong>同じ音を2つの見方で渡してくる</strong>こと。この「2つの見方」＝<strong>時間領域</strong>と<strong>周波数領域</strong>が、以降すべての土台になる。</p>
+  </section>
+
+  <!-- 02 ------------------------------------------------------------ -->
+  <section>
+    <span class="sec-no">02 — 2つの見方</span>
+    <h2>時間領域と周波数領域</h2>
+    <p class="sub">同じ音を「波」で見るか「成分」で見るか。用途がまるで違う。</p>
+
+    <p class="lead-in"><strong>時間領域</strong>は、空気の圧力が時々刻々どう揺れたかの生の波形。ここからは「今どれくらい大きい音か」＝<strong>音量</strong>が取れる。<strong>周波数領域</strong>は、その波を「どの高さの音がどれだけ混ざっているか」に分解したもの。FFT（高速フーリエ変換）という計算で得られ、声の“形”はほぼここに現れる。</p>
+
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 220" role="img" aria-label="時間波形と周波数スペクトルの対比図">
+          <g>
+            <text class="svg-lab" x="20" y="24" fill="var(--ink-soft)">時間領域 · 波形</text>
+            <text class="svg-lab" x="380" y="24" fill="var(--ink-soft)">周波数領域 · スペクトル</text>
+            <!-- left: waveform -->
+            <line x1="20" y1="120" x2="330" y2="120" stroke="var(--line)" stroke-width="1"/>
+            <path d="M20,120 Q40,70 60,120 T100,120 T140,120 T180,120 T220,120 T260,120 T300,120 T330,120"
+                  fill="none" stroke="var(--accent)" stroke-width="2"/>
+            <path d="M20,120 C60,118 70,95 95,95 C120,95 118,145 150,145 C185,145 180,105 210,108 C245,111 240,132 275,128 C300,125 315,120 330,120"
+                  fill="none" stroke="var(--ink-faint)" stroke-width="1.2" stroke-dasharray="3 3" opacity=".6"/>
+            <text class="svg-lab-sm" x="20" y="200" fill="var(--ink-faint)">→ 時間</text>
+            <text class="svg-lab-sm" x="175" y="200" fill="var(--ink-faint)" text-anchor="middle">RMS で「音量(dB)」を計算</text>
+            <!-- divider -->
+            <line x1="358" y1="30" x2="358" y2="200" stroke="var(--line)" stroke-width="1"/>
+            <!-- right: spectrum bars -->
+            <g fill="var(--accent)">
+              <rect x="386" y="70" width="10" height="50" rx="1.5"/>
+              <rect x="402" y="52" width="10" height="68" rx="1.5"/>
+              <rect x="418" y="86" width="10" height="34" rx="1.5"/>
+              <rect x="434" y="60" width="10" height="60" rx="1.5"/>
+              <rect x="450" y="95" width="10" height="25" rx="1.5"/>
+              <rect x="466" y="78" width="10" height="42" rx="1.5"/>
+              <rect x="482" y="104" width="10" height="16" rx="1.5"/>
+              <rect x="498" y="90" width="10" height="30" rx="1.5"/>
+              <rect x="514" y="108" width="10" height="12" rx="1.5"/>
+              <rect x="530" y="99" width="10" height="21" rx="1.5"/>
+              <rect x="546" y="110" width="10" height="10" rx="1.5"/>
+              <rect x="562" y="106" width="10" height="14" rx="1.5"/>
+              <rect x="578" y="112" width="10" height="8" rx="1.5"/>
+              <rect x="594" y="108" width="10" height="12" rx="1.5"/>
+              <rect x="610" y="113" width="10" height="7" rx="1.5"/>
+              <rect x="626" y="110" width="10" height="10" rx="1.5"/>
+              <rect x="642" y="114" width="10" height="6" rx="1.5"/>
+              <rect x="658" y="112" width="10" height="8" rx="1.5"/>
+            </g>
+            <line x1="386" y1="120" x2="676" y2="120" stroke="var(--line)" stroke-width="1"/>
+            <text class="svg-lab-sm" x="386" y="200" fill="var(--ink-faint)">低い ←</text>
+            <text class="svg-lab-sm" x="676" y="200" fill="var(--ink-faint)" text-anchor="end">→ 高い(周波数)</text>
+            <text class="svg-lab-sm" x="531" y="200" fill="var(--ink-faint)" text-anchor="middle">1本1本が「ビン」</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>音量</b>は波形（時間領域）の二乗平均＝RMS から。<b>声の判定</b>はスペクトル（周波数領域）の凹凸から。役割がはっきり分かれている。</figcaption>
+    </figure>
+
+    <h3>音量（音圧・dB）はどこから来るか</h3>
+    <p>波形の各サンプルを二乗して平均し、平方根を取る（RMS）。それを対数に直すと dB になる。AS1 は「静けさ＝0dB」に見えるよう、実際の値からノイズフロアを引いてオフセットしている。</p>
+    <div class="codelink"><span class="fn">rms = √(Σ x² / N)</span> → <span class="fn">20·log₁₀(rms)</span> <span class="loc">— ambient-score.html:2724</span></div>
+
+    <h3>スペクトルの「ビン」と「卓越周波数」</h3>
+    <p>FFT はスペクトルを細かい区画（<strong>ビン</strong>）に区切って返す。1ビンの幅は <span class="mono">ナイキスト周波数 ÷ ビン数</span>。ナイキスト周波数はサンプリングレートの半分で、「測れる上限の高さ」を意味する。もっともエネルギーが強いビンの周波数が<strong>卓越周波数</strong>——その瞬間いちばん目立つ音の高さだ。</p>
+    <div class="note">FFTサイズを上げるとビンが細かくなり、周波数の分解能が上がる（代わりに1フレームに必要な時間が延びる）。AS1 の FFT 2048 などの選択肢は、この「細かさ ↔ 反応の速さ」のトレードオフを切り替えている。</div>
+  </section>
+
+  <!-- 03 ------------------------------------------------------------ -->
+  <section>
+    <span class="sec-no">03 — 4つの手がかり</span>
+    <h2>声を見分ける、4つの特徴量</h2>
+    <p class="sub">「人の声らしさ」を1つの数字で決めず、性質の違う4つの指標を重み付きで足す。</p>
+
+    <p class="lead-in">空調やファンの音も、会話も、同じ「音」だ。決め手は<strong>声だけが持つ構造</strong>にある。AS1 は次の4つを 0〜1 で測り、重みを掛けて合算する。定常的な機械音に強い（＝ピッチ・倍音）指標を厚くしているのが v2.7.1 以降の設計。</p>
+
+    <div class="feat-grid">
+      <div class="feat"><span class="w">42%</span><span class="nm">フォルマント隆起<span>formantElevationScore</span></span><span class="bar"><i style="width:100%"></i></span></div>
+      <div class="feat"><span class="w">25%</span><span class="nm">ピッチ<span>detectPitch · 自己相関</span></span><span class="bar"><i style="width:60%"></i></span></div>
+      <div class="feat"><span class="w">18%</span><span class="nm">倍音構造<span>harmonicScore</span></span><span class="bar"><i style="width:43%"></i></span></div>
+      <div class="feat"><span class="w">15%</span><span class="nm">声帯域エネルギー比<span>voiceBandRatio</span></span><span class="bar"><i style="width:36%"></i></span></div>
+    </div>
+
+    <h3>① フォルマント隆起 — 声道が作る“こぶ”</h3>
+    <p>人ののどと口（声道）は共鳴管として働き、特定の帯域を持ち上げる。この山を<strong>フォルマント</strong>と呼ぶ。声では中域（500〜3000Hz）が高域（3000〜8000Hz）よりはっきり盛り上がる。広帯域ノイズは高い方へなだらかに下がるだけなので、この“こぶ”が出にくい。</p>
+
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 210" role="img" aria-label="声のフォルマント隆起とノイズのロールオフを比較したスペクトル図">
+          <!-- axes -->
+          <line x1="50" y1="170" x2="676" y2="170" stroke="var(--line-strong)" stroke-width="1"/>
+          <!-- mid band highlight -->
+          <rect x="150" y="30" width="230" height="140" fill="var(--warm)" opacity=".08"/>
+          <text class="svg-lab-sm" x="265" y="46" fill="var(--warm)" text-anchor="middle">中域 500–3000Hz</text>
+          <text class="svg-lab-sm" x="530" y="46" fill="var(--ink-faint)" text-anchor="middle">高域 3000–8000Hz</text>
+          <line x1="380" y1="30" x2="380" y2="170" stroke="var(--line)" stroke-dasharray="3 3"/>
+          <!-- voice curve (formant bumps) -->
+          <path d="M50,150 C110,150 120,150 150,120 C185,84 205,70 240,74 C270,78 285,120 320,110 C350,102 365,132 380,140 C430,158 520,163 676,166"
+                fill="none" stroke="var(--voice)" stroke-width="2.5"/>
+          <!-- noise rolloff -->
+          <path d="M50,120 C160,128 300,150 676,162" fill="none" stroke="var(--ink-faint)" stroke-width="1.8" stroke-dasharray="5 4"/>
+          <g class="svg-lab-sm">
+            <circle cx="242" cy="74" r="3" fill="var(--voice)"/>
+            <text x="250" y="70" fill="var(--voice)">声：中域が隆起</text>
+            <text x="500" y="140" fill="var(--ink-faint)">ノイズ：なだらかに減衰</text>
+          </g>
+          <text class="svg-lab-sm" x="50" y="192" fill="var(--ink-faint)">低い</text>
+          <text class="svg-lab-sm" x="676" y="192" fill="var(--ink-faint)" text-anchor="end">高い →</text>
+        </svg>
+      </div>
+      <figcaption><b>ratio = 中域の平均エネルギー ÷ 高域の平均エネルギー。</b> ノイズは 2〜3、声は 5〜15 になりやすい。AS1 は 3 を下限、8 以上で満点にマップ。<br>低域（HVAC 等）は<b>あえて参照に入れない</b>ので、低周波ノイズに引っ張られない。（ambient-score.html:2124）</figcaption>
+    </figure>
+
+    <h3>② ピッチ — 声には「高さ」がある</h3>
+    <p>母音には基本周波数（声の高さ、およそ80〜300Hz）がある。AS1 は波形の<strong>自己相関</strong>で高さを測る。波を少しずつずらして自分自身と掛け合わせ、いちばんよく重なるズレ幅（周期 T）を探す。<span class="mono">高さ = サンプリングレート ÷ T</span>。よく重なるほど「明瞭度」が高く、声らしい。定常的な機械音は明確な周期を持たないので、ここが伸びない。</p>
+
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 190" role="img" aria-label="自己相関でピッチ周期を見つける模式図">
+          <!-- original wave -->
+          <path d="M40,60 Q70,30 100,60 T160,60 T220,60 T280,60 T340,60"
+                fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <text class="svg-lab-sm" x="360" y="64" fill="var(--accent)">元の波</text>
+          <!-- shifted wave -->
+          <path d="M100,130 Q130,100 160,130 T220,130 T280,130 T340,130 T400,130"
+                fill="none" stroke="var(--pitch)" stroke-width="2" stroke-dasharray="1 0"/>
+          <text class="svg-lab-sm" x="420" y="134" fill="var(--pitch)">Tだけずらした波（よく重なる）</text>
+          <!-- period bracket -->
+          <line x1="70" y1="92" x2="130" y2="92" stroke="var(--ink-soft)" stroke-width="1"/>
+          <line x1="70" y1="86" x2="70" y2="98" stroke="var(--ink-soft)" stroke-width="1"/>
+          <line x1="130" y1="86" x2="130" y2="98" stroke="var(--ink-soft)" stroke-width="1"/>
+          <text class="svg-lab-sm" x="100" y="112" fill="var(--ink-soft)" text-anchor="middle">周期 T</text>
+          <text class="svg-lab-sm" x="40" y="176" fill="var(--ink-faint)">80–300Hz の範囲で最も重なる T を総当たりで探す</text>
+        </svg>
+      </div>
+      <figcaption><b>clarity = ずらした相関 ÷ ずらさない相関(t=0)。</b> 1に近いほど強い周期性＝声らしい。（ambient-score.html:2063）</figcaption>
+    </figure>
+
+    <h3>③ 倍音構造 — 声は“櫛”の形をしている</h3>
+    <p>有声音は基本周波数 f0 の整数倍（2f0, 3f0, …）にエネルギーが並ぶ。ピークとピークの<strong>あいだ</strong>は谷になる。この山と谷の交互＝櫛（くし）の歯のような構造は、声や楽器に特有で、ブロードバンドノイズにはほとんど無い。AS1 は倍音の位置（k倍）と中間（k+0.5倍）を比べ、その差（dB）を得点化する。</p>
+
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 190" role="img" aria-label="倍音のピークと谷が交互に並ぶ櫛状構造の図">
+          <line x1="40" y1="150" x2="676" y2="150" stroke="var(--line-strong)" stroke-width="1"/>
+          <g>
+            <!-- harmonic peaks at k -->
+            <g stroke="var(--voice)" stroke-width="3">
+              <line x1="110" y1="150" x2="110" y2="60"/>
+              <line x1="210" y1="150" x2="210" y2="48"/>
+              <line x1="310" y1="150" x2="310" y2="70"/>
+              <line x1="410" y1="150" x2="410" y2="86"/>
+              <line x1="510" y1="150" x2="510" y2="100"/>
+              <line x1="610" y1="150" x2="610" y2="116"/>
+            </g>
+            <!-- valleys markers -->
+            <g fill="var(--warm)">
+              <circle cx="160" cy="140" r="3.5"/><circle cx="260" cy="138" r="3.5"/>
+              <circle cx="360" cy="140" r="3.5"/><circle cx="460" cy="142" r="3.5"/>
+              <circle cx="560" cy="143" r="3.5"/>
+            </g>
+          </g>
+          <g class="svg-lab-sm">
+            <text x="110" y="176" fill="var(--voice)" text-anchor="middle">2f0</text>
+            <text x="210" y="176" fill="var(--voice)" text-anchor="middle">3f0</text>
+            <text x="310" y="176" fill="var(--voice)" text-anchor="middle">4f0</text>
+            <text x="410" y="176" fill="var(--voice)" text-anchor="middle">5f0</text>
+            <text x="510" y="176" fill="var(--voice)" text-anchor="middle">6f0</text>
+            <text x="610" y="176" fill="var(--voice)" text-anchor="middle">7f0</text>
+            <circle cx="360" cy="60" r="3.5" fill="var(--warm)"/>
+            <text x="372" y="64" fill="var(--warm)">谷 (k+0.5)f0</text>
+            <text x="372" y="46" fill="var(--voice)">ピーク kf0</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>diffDb = 10·log₁₀(ピーク ÷ 谷)。</b> k=2〜7 で平均。5dBで0.5点、10dB以上で満点。凹凸が深いほど声・楽器らしい。（ambient-score.html:2083）</figcaption>
+    </figure>
+
+    <h3>④ 声帯域エネルギー比 — どこに力が集まっているか</h3>
+    <p>最後はいちばん素朴な指標。全体のエネルギーのうち、<strong>声の主戦場（200〜3000Hz）に何割集まっているか</strong>。空調やファンは低域（数十〜200Hz）に力が偏るので、この比率が低い。声が入ると中域の比率が上がる。単体では弱いが、他の3つを補強する“地力”の指標だ。</p>
+    <div class="codelink">voiceEnergy(200–3000Hz) ÷ totalEnergy <span class="loc">— ambient-score.html:2146</span></div>
+  </section>
+
+  <!-- 04 ------------------------------------------------------------ -->
+  <section>
+    <span class="sec-no">04 — 合成と門番</span>
+    <h2>4つを1つの判定にまとめる</h2>
+    <p class="sub">重み付き合算 → 周波数ゲート → 活動ゲート。3段で誤検知を抑える。</p>
+
+    <p class="lead-in">4指標を重みで足して <span class="mono">voiceScore</span> を作り、そこに2つの「門番（ゲート）」を掛ける。門番は、声らしさが揃っていても<strong>状況的にありえない</strong>ケースを弾く役割だ。</p>
+
+    <figure>
+      <div class="panel">
+        <svg viewBox="0 0 700 250" role="img" aria-label="4指標の合算と2つのゲートを経てラベルが決まる判定フロー図">
+          <defs>
+            <marker id="arw2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+              <path d="M0,0 L9,4.5 L0,9 z" fill="var(--line-strong)"/>
+            </marker>
+          </defs>
+          <g class="svg-lab" text-anchor="middle" fill="var(--ink)">
+            <!-- 4 inputs -->
+            <g fill="var(--ink-soft)" class="svg-lab-sm" text-anchor="start">
+              <text x="20" y="40">フォルマント ×0.42</text>
+              <text x="20" y="70">ピッチ ×0.25</text>
+              <text x="20" y="100">倍音 ×0.18</text>
+              <text x="20" y="130">帯域比 ×0.15</text>
+            </g>
+            <g stroke="var(--line-strong)" stroke-width="1.4" fill="none">
+              <path d="M150,36 C185,44 190,70 214,80" marker-end="url(#arw2)"/>
+              <path d="M150,66 L214,84" marker-end="url(#arw2)"/>
+              <path d="M150,96 L214,92" marker-end="url(#arw2)"/>
+              <path d="M150,126 C185,120 190,104 214,98" marker-end="url(#arw2)"/>
+            </g>
+            <!-- sum -->
+            <circle cx="240" cy="88" r="26" fill="var(--surface-2)" stroke="var(--accent)" stroke-width="1.6"/>
+            <text x="240" y="94" fill="var(--accent-ink)" font-size="20">Σ</text>
+            <!-- gate1 -->
+            <rect x="316" y="62" width="96" height="52" rx="9" fill="var(--surface)" stroke="var(--line-strong)"/>
+            <text x="364" y="84" class="svg-lab-sm">周波数ゲート</text>
+            <text x="364" y="100" class="svg-lab-sm" fill="var(--ink-faint)">×(200Hz未満を減点)</text>
+            <!-- gate2 -->
+            <rect x="446" y="62" width="96" height="52" rx="9" fill="var(--surface)" stroke="var(--line-strong)"/>
+            <text x="494" y="84" class="svg-lab-sm">活動ゲート</text>
+            <text x="494" y="100" class="svg-lab-sm" fill="var(--ink-faint)">背景+6dB未満は棄却</text>
+            <g stroke="var(--line-strong)" stroke-width="1.4" fill="none">
+              <line x1="266" y1="88" x2="312" y2="88" marker-end="url(#arw2)"/>
+              <line x1="412" y1="88" x2="442" y2="88" marker-end="url(#arw2)"/>
+              <line x1="542" y1="88" x2="572" y2="88" marker-end="url(#arw2)"/>
+            </g>
+            <!-- outputs -->
+            <g text-anchor="start">
+              <rect x="576" y="24" width="112" height="30" rx="7" fill="var(--sunken)" stroke="var(--voice)"/>
+              <text x="590" y="44" class="svg-lab-sm" fill="var(--voice)">≥0.52 人の声</text>
+              <rect x="576" y="72" width="112" height="30" rx="7" fill="var(--sunken)" stroke="var(--warm)"/>
+              <text x="590" y="92" class="svg-lab-sm" fill="var(--warm)">≥0.35 不明確</text>
+              <rect x="576" y="120" width="112" height="30" rx="7" fill="var(--sunken)" stroke="var(--line-strong)"/>
+              <text x="590" y="140" class="svg-lab-sm" fill="var(--ink-soft)">未満 騒音・環境音</text>
+            </g>
+            <g stroke="var(--line)" stroke-width="1.2" fill="none">
+              <path d="M572,84 C582,70 584,52 574,40" marker-end="url(#arw2)"/>
+              <path d="M574,150 C584,136 584,104 574,92" marker-end="url(#arw2)"/>
+            </g>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>周波数ゲート：</b>声は200Hz以上にエネルギーが散る性質。卓越周波数が低すぎると減点。<b>活動ゲート：</b>背景レベルより6dB以上大きい音だけを評価対象にする（静けさを声と誤らない）。</figcaption>
+    </figure>
+
+    <div class="note"><b>なぜ2つのゲートが要るのか。</b> 定常的なファンや空調は、スペクトルの“形”だけ見ると偶然フォルマントらしく見えることがある。だが「背景よりぐっと大きい」「200Hz以上に力がある」という<b>状況条件</b>までは満たしにくい。ゲートは、形の判定をくぐり抜けた偽陽性を、文脈で最後に落とす仕組み。v2.7.1 でファン誤検知を抑えたのは、主にこの重み配分とゲートのしきい値を戻したことによる。</div>
+  </section>
+
+  <!-- 05 ------------------------------------------------------------ -->
+  <section>
+    <span class="sec-no">05 — 用語ミニ辞典</span>
+    <h2>いつでも引き返せる言葉の地図</h2>
+    <p class="sub">忘れたときに戻る場所。1語＝1行で。</p>
+
+    <dl class="gloss">
+      <div><dt>Web Audio API<small>ブラウザの音声処理基盤</small></dt><dd>音を「ノード」の配線で処理する仕組み。マイク取得から解析まで、外部ライブラリなしで完結する。</dd></div>
+      <div><dt>AnalyserNode<small>解析ノード</small></dt><dd>流れる音を、周波数データと時間波形データに変換して渡す。AS1 の解析はすべてここが起点。</dd></div>
+      <div><dt>FFT<small>高速フーリエ変換</small></dt><dd>波形を「どの高さの音がどれだけ含まれるか」に分解する計算。スペクトルはこの結果。</dd></div>
+      <div><dt>ビン (bin)<small>周波数の区画</small></dt><dd>スペクトルの1本。幅 = ナイキスト ÷ ビン数。FFTを大きくすると細かくなる。</dd></div>
+      <div><dt>ナイキスト周波数<small>測れる上限</small></dt><dd>サンプリングレートの半分。これより高い音は正しく捉えられない。</dd></div>
+      <div><dt>卓越周波数<small>dominant freq</small></dt><dd>その瞬間もっともエネルギーが強いビンの周波数。いちばん目立つ音の高さ。</dd></div>
+      <div><dt>RMS → dB<small>音量の作り方</small></dt><dd>波形の二乗平均平方根を対数化して音圧レベルに。AS1は静けさ=0dBにオフセット。</dd></div>
+      <div><dt>フォルマント<small>声道の共鳴</small></dt><dd>のどと口が持ち上げる帯域の山。母音の“色”を決める。中域の隆起が声の目印。</dd></div>
+      <div><dt>基本周波数 f0<small>声の高さ</small></dt><dd>母音の繰り返し周期の逆数（約80–300Hz）。整数倍に倍音が並ぶ。</dd></div>
+      <div><dt>自己相関<small>周期の探し方</small></dt><dd>波を少しずらして自分と掛け合わせ、最もよく重なるズレ＝周期を見つける手法。</dd></div>
+    </dl>
+  </section>
+
+  <footer>
+    <p>この地図は AS1（ambient-score.html）の実装に沿って描いたもの。行番号は当時のコミット時点の目安で、コードを変えれば当然ずれる。理屈の骨格はそのまま使える。</p>
+    <p class="mono">Ambient Score 1 · signal notebook · 周波数と声のあいだ</p>
+  </footer>
+
+</div>
+</body>
+</html>
