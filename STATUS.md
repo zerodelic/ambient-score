@@ -2,11 +2,15 @@
 
 ## 状態
 
-active（Vector登録待ち）。Codexの再々レビュー(HEAD 23d137b時点)で公開前ブロッカーなし・v2.7.2はVector登録へ進めてよいと承認。技術タスク・配布物は完成。残るはVector登録(本人作業)のみ。
+active（公開準備完了・共有フェーズ）。v2.7.2はCodex再々レビューで公開前ブロッカーなし承認済み。GitHub Pagesで公開中。技術タスク・配布物・ドキュメントとも完成。あとは本人が任意のタイミングで共有するのみ。
 
 ## 次の一手
 
-dist/ambient-score-v2.7.2.zip をVectorに登録・送信する(本人作業)。登録が完了したらSTATUS状態を「done/公開済み」に更新し、公開URLをメモに記録する。
+まずFacebook友人限定でライブURLを共有し反応を見る(本人作業・任意)。Vector登録は「反応を見る」目的には不向きと判断し優先度を下げた(やるなら二次的な掲載先)。反応で不具合/要望が出たら次の改善へ。
+
+- 公開URL(アプリ): https://zerodelic.github.io/ambient-score/ambient-score.html
+- 技術解説: https://zerodelic.github.io/ambient-score/docs/audio-primer.html
+- リポジトリ: https://github.com/zerodelic/ambient-score
 
 ## メモ
 
@@ -26,6 +30,8 @@ dist/ambient-score-v2.7.2.zip をVectorに登録・送信する(本人作業)。
   - JS構文チェック通過(inline script 1: ok)、http配信での読み込みコンソールエラーなし。
 - 品質ゲート両端クリア: ①ファン誤検知 68.7%→1.7%(偽陽性) ②カフェ実測(2026-08-29, 332行)で人の声89.2%・過検知0件(偽陰性)。※占有率の分母定義変更(v2.7.2)により、今後の占有率は測定時間ベースで従来より低めに出る点に注意。
 - リリース物: README現状化・LICENSE(MIT, 2026 zerodelic)・配布zip dist/ambient-score-v2.7.2.zip(html+README+LICENSE同梱、dist/は.gitignore)。
-- リポジトリ整理: 文脈メモは CLAUDE.md を単一の正とし AGENTS.md はポインタ化(両方track)。.claude/launch.json は共有(track)、他の.claude個人設定は.gitignoreで除外。docs/review/ にCodexレビュー文書を追加。
+- リポジトリ整理: 文脈メモは CLAUDE.md を単一の正とし AGENTS.md はポインタ化(両方track)。.claude/launch.json は共有(track)、他の.claude個人設定は.gitignoreで除外。docs/review/ にCodexレビュー文書とレビュー運用メモ(REVIEW_PROCESS.md)を追加。
+- 公開導線: README冒頭に「▶ オンラインで試す」「📖 技術解説」リンク、リポジトリAbout欄(homepage)にアプリURLを設定。GitHub Pagesはmain push で自動デプロイ。
+- 技術解説ドキュメント: docs/audio-primer.html を追加(Web Audio/周波数/フォルマント隆起/倍音/自己相関/2つのゲートを実装コードに紐づけて図解、単体HTML・両テーマ対応)。Claudeアーティファクト版も別途あり。
 - 本命=変調ゲート(死蔵のamScore/pitchVariability配線・3〜8Hz変調で"不明確"を"騒音"へ寄せる)は"あると尚良い"改善。リリース障害ではない。
 - 運用: コード修正は必ずレビューア事前レビュー→適用→テスターの流れ(本人ルール)。
